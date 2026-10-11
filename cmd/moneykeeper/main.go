@@ -50,7 +50,8 @@ func run(log *slog.Logger) error {
 	}
 	defer db.Close()
 
-	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db))
+	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
+		repo.NewCategories(db), repo.NewTransactions(db))
 	srv := &http.Server{
 		Addr:              httpAddr,
 		Handler:           web.NewHandler(svc, token, log),

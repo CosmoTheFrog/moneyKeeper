@@ -28,7 +28,17 @@ type Service interface {
 	Budget(ctx context.Context, u models.User) (models.Budget, error)
 	SetBaseCurrency(ctx context.Context, u models.User, code string) (models.Budget, error)
 	ListAccounts(ctx context.Context, u models.User) ([]models.Account, error)
-	CreateAccount(ctx context.Context, u models.User, name, kind, currency string) (models.Account, error)
+	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, openingMinor int64) (models.Account, error)
+
+	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
+	CreateCategory(ctx context.Context, u models.User, name, group string) (models.Category, error)
+	UpdateCategory(ctx context.Context, u models.User, id int64, p models.CategoryPatch) (models.Category, error)
+
+	ListTransactions(ctx context.Context, u models.User, limit, offset int) ([]models.Transaction, error)
+	CreateTransaction(ctx context.Context, u models.User, in models.NewTransaction) ([]models.Transaction, error)
+	UpdateTransaction(ctx context.Context, u models.User, id int64, p models.TransactionPatch) ([]models.Transaction, error)
+	DeleteTransaction(ctx context.Context, u models.User, id int64) error
+	TransactionEvents(ctx context.Context, u models.User, id int64) ([]models.TransactionEvent, error)
 }
 
 type handler struct {
@@ -50,6 +60,15 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
 	mux.HandleFunc("GET /api/accounts", h.auth(h.listAccounts))
 	mux.HandleFunc("POST /api/accounts", h.auth(h.createAccount))
+	mux.HandleFunc("GET /api/categories", h.auth(h.listCategories))
+	mux.HandleFunc("POST /api/categories", h.auth(h.createCategory))
+	mux.HandleFunc("PATCH /api/categories/{id}", h.auth(h.updateCategory))
+	mux.HandleFunc("GET /api/transactions", h.auth(h.listTransactions))
+	mux.HandleFunc("POST /api/transactions", h.auth(h.createTransaction))
+	mux.HandleFunc("POST /api/transactions/parse", h.auth(h.parseQuick))
+	mux.HandleFunc("PATCH /api/transactions/{id}", h.auth(h.updateTransaction))
+	mux.HandleFunc("DELETE /api/transactions/{id}", h.auth(h.deleteTransaction))
+	mux.HandleFunc("GET /api/transactions/{id}/events", h.auth(h.transactionEvents))
 	return mux
 }
 
@@ -141,7 +160,7 @@ func (h *handler) createAccount(w http.ResponseWriter, r *http.Request, u models
 	if !h.decode(w, r, &req) {
 		return
 	}
-	a, err := h.svc.CreateAccount(r.Context(), u, req.Name, req.Kind, req.Currency)
+	a, err := h.svc.CreateAccount(r.Context(), u, req.Name, req.Kind, req.Currency, req.OpeningBalanceMinor)
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -159,7 +178,10 @@ func budgetDTO(b models.Budget) apidto.BudgetDTO {
 }
 
 func accountDTO(a models.Account) apidto.AccountDTO {
-	return apidto.AccountDTO{ID: a.ID, Name: a.Name, Kind: string(a.Kind), Currency: string(a.Currency), IsDefault: a.IsDefault}
+	return apidto.AccountDTO{
+		ID: a.ID, Name: a.Name, Kind: string(a.Kind), Currency: string(a.Currency),
+		IsDefault: a.IsDefault, BalanceMinor: a.BalanceMinor,
+	}
 }
 
 func (h *handler) decode(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -181,6 +203,12 @@ func (h *handler) fail(w http.ResponseWriter, err error) {
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidAccount)
 	case errors.Is(err, models.ErrInvalidTimezone):
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidTimezone)
+	case errors.Is(err, models.ErrInvalidCategory):
+		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidCategory)
+	case errors.Is(err, models.ErrInvalidTransaction):
+		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidTransaction)
+	case errors.Is(err, models.ErrCurrencyMismatch):
+		h.writeError(w, http.StatusBadRequest, apidto.CodeCurrencyMismatch)
 	case errors.Is(err, models.ErrBaseCurrencySet):
 		h.writeError(w, http.StatusConflict, apidto.CodeBaseCurrencySet)
 	case errors.Is(err, models.ErrNotFound):

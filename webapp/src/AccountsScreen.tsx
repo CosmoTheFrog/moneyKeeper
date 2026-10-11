@@ -1,6 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useContext, useState, type FormEvent } from 'react'
 import { ApiError, createAccount, type Account, type AccountKind } from './api'
 import { errorText, t } from './i18n'
+import { Money, PrivacyContext } from './MoneyText'
+import { parseAmount } from './money'
 
 type Props = {
   accounts: Account[]
@@ -12,20 +14,26 @@ type Props = {
 const kinds: AccountKind[] = ['debit', 'credit', 'cash']
 
 export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }: Props) {
+  const { hidden, toggle } = useContext(PrivacyContext)
   const [adding, setAdding] = useState(accounts.length === 0)
   const [name, setName] = useState('')
   const [kind, setKind] = useState<AccountKind>('debit')
   const [currency, setCurrency] = useState(baseCurrency)
+  const [opening, setOpening] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    setBusy(true)
     setError(null)
+    const openingMinor = opening.trim() === '' ? 0 : parseAmount(opening)
+    if (openingMinor === null) return setError(errorText('invalid_amount'))
+
+    setBusy(true)
     try {
-      await createAccount(name, kind, currency)
+      await createAccount(name, kind, currency, openingMinor)
       setName('')
+      setOpening('')
       setAdding(false)
       onChanged()
     } catch (err) {
@@ -39,11 +47,16 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }
     <main className="screen">
       <header className="row">
         <h1>{t.accounts.title}</h1>
-        {!adding && (
-          <button type="button" className="chip" onClick={() => setAdding(true)}>
-            {t.accounts.add}
+        <span className="row-tight">
+          <button type="button" className="chip" onClick={toggle}>
+            {hidden ? t.privacy.show : t.privacy.hide}
           </button>
-        )}
+          {!adding && (
+            <button type="button" className="chip" onClick={() => setAdding(true)}>
+              {t.accounts.add}
+            </button>
+          )}
+        </span>
       </header>
 
       {accounts.length === 0 && <p className="hint">{t.accounts.empty}</p>}
@@ -54,6 +67,9 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }
             <div className="row">
               <span className="account-name">{a.name}</span>
               {a.is_default && <span className="badge">{t.accounts.defaultBadge}</span>}
+            </div>
+            <div className="account-balance">
+              <Money minor={a.balance_minor} currency={a.currency} />
             </div>
             <div className="row account-meta">
               <span>{t.accountKinds[a.kind]}</span>
@@ -89,14 +105,19 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }
               ))}
             </select>
           </label>
+          <label>
+            {t.accounts.opening}
+            <input inputMode="decimal" value={opening} placeholder="0,00" onChange={(e) => setOpening(e.target.value)} />
+          </label>
+          <p className="hint tight">{t.accounts.openingHint}</p>
           {error !== null && <p className="error">{error}</p>}
           <div className="row">
             <button type="submit" className="primary" disabled={busy || name.trim() === ''}>
-              {t.accounts.save}
+              {t.save}
             </button>
             {accounts.length > 0 && (
               <button type="button" className="chip" onClick={() => setAdding(false)}>
-                {t.accounts.cancel}
+                {t.cancel}
               </button>
             )}
           </div>

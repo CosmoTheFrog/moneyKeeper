@@ -7,6 +7,7 @@
   --accent: #0e7c7b;
   --accent-soft: #e1f2f1;
   --danger: #c8372d;
+  --pos: #1f8a4c;
 }
 
 * {
@@ -25,7 +26,7 @@ body {
   display: block;
   max-width: 480px;
   margin: 0 auto;
-  padding: 24px 16px 40px;
+  padding: 24px 16px 120px;
 }
 
 h1 {
@@ -33,6 +34,15 @@ h1 {
   font-size: 26px;
   line-height: 1.15;
   font-weight: 800;
+}
+
+.h1-small {
+  margin: 0;
+  font-size: 18px;
+}
+
+.spacer {
+  width: 64px;
 }
 
 .step {
@@ -48,6 +58,15 @@ h1 {
   color: var(--muted);
 }
 
+.tight {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+.pad {
+  padding: 14px 16px;
+}
+
 .error {
   margin: 12px 0;
   font-size: 14px;
@@ -57,9 +76,26 @@ h1 {
 
 .row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.row-tight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tail {
+  margin-top: 24px;
 }
 
 .list {
@@ -67,6 +103,23 @@ h1 {
   flex-direction: column;
   gap: 10px;
   margin: 16px 0;
+}
+
+.money {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.money.neg {
+  color: var(--danger);
+}
+
+.money.pos {
+  color: var(--pos);
+}
+
+.account .money {
+  color: inherit;
 }
 
 .option {
@@ -117,6 +170,23 @@ h1 {
   cursor: default;
 }
 
+.danger {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--danger);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.danger-on {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
 .chip {
   padding: 8px 14px;
   border: 1px solid var(--line);
@@ -126,6 +196,7 @@ h1 {
   font: inherit;
   font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -153,8 +224,13 @@ h1 {
   font-size: 17px;
 }
 
+.account-balance {
+  margin-top: 14px;
+  font-size: 28px;
+}
+
 .account-meta {
-  margin-top: 28px;
+  margin-top: 14px;
   font-size: 13px;
   font-weight: 700;
   opacity: 0.85;
@@ -174,14 +250,20 @@ h1 {
 }
 
 .card {
-  margin-top: 16px;
+  margin-top: 0;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--card);
 }
 
-.card label {
+form.card {
+  margin-top: 16px;
+}
+
+.card label,
+.inline-form label,
+.label {
   display: block;
   margin-bottom: 12px;
   font-size: 12px;
@@ -189,8 +271,14 @@ h1 {
   color: var(--muted);
 }
 
+.card label:last-child {
+  margin-bottom: 0;
+}
+
 .card input,
-.card select {
+.card select,
+.inline-form input,
+.inline-form select {
   display: block;
   width: 100%;
   margin-top: 6px;
@@ -202,4 +290,240 @@ h1 {
   font: inherit;
   font-size: 16px;
   font-weight: 600;
+}
+
+.amount-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.amount-row input {
+  flex: 1;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.amount-cur {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.segmented {
+  display: flex;
+  margin: 16px 0;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--line);
+}
+
+.seg {
+  flex: 1;
+  padding: 9px 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.seg-on {
+  background: var(--card);
+  color: var(--ink);
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.choice-on {
+  border: 2px solid var(--accent);
+  padding: 10px 13px;
+  background: var(--accent-soft);
+}
+
+.choice-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.day {
+  margin: 20px 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.list-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.list-card > :last-child .entry,
+.list-card > .entry:last-child {
+  border-bottom: 0;
+}
+
+.entry-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.entry-title {
+  font-weight: 700;
+}
+
+.entry-sub {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-muted .entry-title {
+  color: var(--muted);
+}
+
+.badge-muted {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--line);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.inline-form {
+  padding: 4px 16px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.inline-form .primary {
+  margin-top: 4px;
+}
+
+.inline-form .check,
+.card .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check input {
+  width: auto;
+  margin: 0;
+}
+
+.event {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.event:last-child {
+  border-bottom: 0;
+}
+
+.event-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.event-diff {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tabbar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  height: 76px;
+  padding: 8px 8px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--card);
+}
+
+.tab {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab-active {
+  color: var(--accent);
+}
+
+.tab-add {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  max-width: 52px;
+  margin: -18px 8px 0;
+  border: 0;
+  border-radius: 26px;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 16px rgb(14 124 123 / 35%);
+  cursor: pointer;
 }

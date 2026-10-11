@@ -18,7 +18,8 @@ import (
 func newService(t *testing.T) (*Service, *pgclient.Client) {
 	t.Helper()
 	db := testdb.New(t)
-	return New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db)), db
+	return New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
+		repo.NewCategories(db), repo.NewTransactions(db)), db
 }
 
 var tgIgor = models.TelegramUser{ID: 42, FirstName: "Igor"}
@@ -157,7 +158,7 @@ func TestCreateAccount(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a, err := s.CreateAccount(ctx, u, tt.acc[0], tt.acc[1], tt.acc[2])
+			a, err := s.CreateAccount(ctx, u, tt.acc[0], tt.acc[1], tt.acc[2], 0)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("err = %v, want %v", err, tt.wantErr)
 			}
@@ -187,7 +188,7 @@ func TestAccountsAreScopedToBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateAccount(ctx, igor, "TBC", "debit", "GEL"); err != nil {
+	if _, err := s.CreateAccount(ctx, igor, "TBC", "debit", "GEL", 0); err != nil {
 		t.Fatal(err)
 	}
 	list, err := s.ListAccounts(ctx, other)

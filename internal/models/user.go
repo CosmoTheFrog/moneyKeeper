@@ -29,17 +29,21 @@ const (
 	AccountCredit AccountKind = "credit"
 )
 
+// Account.BalanceMinor считается из транзакций, в таблице счетов не хранится.
 type Account struct {
-	ID        int64
-	BudgetID  int64
-	Name      string
-	Kind      AccountKind
-	Currency  money.Currency
-	IsDefault bool
+	ID           int64
+	BudgetID     int64
+	Name         string
+	Kind         AccountKind
+	Currency     money.Currency
+	IsDefault    bool
+	BalanceMinor int64
 }
 
+// NewAccount.OpeningMinor — начальный остаток, он записывается доходом на дату создания счёта.
 type NewAccount struct {
-	Name     string
-	Kind     AccountKind
-	Currency money.Currency
+	Name         string
+	Kind         AccountKind
+	Currency     money.Currency
+	OpeningMinor int64
 }

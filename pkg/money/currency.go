@@ -25,6 +25,10 @@ var Base = []Currency{GEL, EUR, USD, RUB}
 // All — все поддерживаемые валюты счетов.
 var All = []Currency{GEL, EUR, USD, RUB, USDT}
 
+// MinorUnits — сколько знаков после запятой у валюты. Пока везде два, у крипты
+// точность уточним вместе с курсами.
+func MinorUnits(Currency) int { return 2 }
+
 func Parse(code string) (Currency, error) {
 	c := Currency(code)
 	if !slices.Contains(All, c) {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+
 	"moneykeeper/internal/models"
 	"moneykeeper/internal/pgclient"
 	"moneykeeper/pkg/money"
@@ -28,9 +30,23 @@ func (r *Accounts) Create(ctx context.Context, budgetID int64, in models.NewAcco
 	return a, nil
 }
 
+// balanceSelect считает остаток из транзакций, в таблице счетов он не хранится.
+const balanceSelect = `
+	SELECT a.id, a.budget_id, a.name, a.kind, a.currency, a.is_default, COALESCE(SUM(t.amount_minor), 0)
+	FROM accounts a
+	LEFT JOIN transactions t ON t.account_id = a.id AND t.deleted_at IS NULL
+	WHERE a.budget_id = $1`
+
+func (r *Accounts) Get(ctx context.Context, budgetID, id int64) (models.Account, error) {
+	a, err := scanAccount(r.db.Q(ctx).QueryRow(ctx, balanceSelect+` AND a.id = $2 GROUP BY a.id`, budgetID, id))
+	if err != nil {
+		return models.Account{}, fmt.Errorf("get account: %w", mapErr(err))
+	}
+	return a, nil
+}
+
 func (r *Accounts) List(ctx context.Context, budgetID int64) ([]models.Account, error) {
-	rows, err := r.db.Q(ctx).Query(ctx,
-		`SELECT id, budget_id, name, kind, currency, is_default FROM accounts WHERE budget_id = $1 ORDER BY id`, budgetID)
+	rows, err := r.db.Q(ctx).Query(ctx, balanceSelect+` GROUP BY a.id ORDER BY a.id`, budgetID)
 	if err != nil {
 		return nil, fmt.Errorf("list accounts: %w", err)
 	}
@@ -38,18 +54,26 @@ func (r *Accounts) List(ctx context.Context, budgetID int64) ([]models.Account, 
 
 	var out []models.Account
 	for rows.Next() {
-		var (
-			a        models.Account
-			kind, cu string
-		)
-		if err := rows.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.IsDefault); err != nil {
+		a, err := scanAccount(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan account: %w", err)
 		}
-		a.Kind, a.Currency = models.AccountKind(kind), money.Currency(cu)
 		out = append(out, a)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list accounts: %w", err)
 	}
 	return out, nil
+}
+
+func scanAccount(row pgx.Row) (models.Account, error) {
+	var (
+		a        models.Account
+		kind, cu string
+	)
+	if err := row.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.IsDefault, &a.BalanceMinor); err != nil {
+		return models.Account{}, err
+	}
+	a.Kind, a.Currency = models.AccountKind(kind), money.Currency(cu)
+	return a, nil
 }

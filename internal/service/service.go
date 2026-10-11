@@ -9,27 +9,39 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"moneykeeper/internal/i18n"
 	"moneykeeper/internal/models"
 	"moneykeeper/internal/pgclient"
 	"moneykeeper/internal/repo"
+	"moneykeeper/pkg/apptime"
 	"moneykeeper/pkg/money"
 )
 
-const maxAccountName = 40
+const (
+	maxNameRunes   = 40
+	maxAmountMinor = 1_000_000_000_000
+)
 
 type Service struct {
-	db       *pgclient.Client
-	users    *repo.Users
-	budgets  *repo.Budgets
-	accounts *repo.Accounts
+	db           *pgclient.Client
+	users        *repo.Users
+	budgets      *repo.Budgets
+	accounts     *repo.Accounts
+	categories   *repo.Categories
+	transactions *repo.Transactions
+	now          func() time.Time
 }
 
-func New(db *pgclient.Client, users *repo.Users, budgets *repo.Budgets, accounts *repo.Accounts) *Service {
-	return &Service{db: db, users: users, budgets: budgets, accounts: accounts}
+func New(db *pgclient.Client, users *repo.Users, budgets *repo.Budgets, accounts *repo.Accounts,
+	categories *repo.Categories, transactions *repo.Transactions) *Service {
+	return &Service{
+		db: db, users: users, budgets: budgets, accounts: accounts,
+		categories: categories, transactions: transactions, now: time.Now,
+	}
 }
 
-// Resolve находит пользователя по Telegram-аккаунту. При первом входе создаёт пользователя
-// и личный бюджет с ним в одной транзакции. Часовой пояс сохраняется только при создании.
+// Resolve находит пользователя по Telegram-аккаунту. При первом входе создаёт пользователя,
+// личный бюджет и стартовые категории одной транзакцией. Часовой пояс сохраняется только при создании.
 func (s *Service) Resolve(ctx context.Context, tg models.TelegramUser, timezone string) (models.User, error) {
 	u, err := s.users.GetByTelegramID(ctx, tg.ID)
 	if err == nil {
@@ -56,6 +68,9 @@ func (s *Service) Resolve(ctx context.Context, tg models.TelegramUser, timezone 
 			return err
 		}
 		if err := s.budgets.AddMember(ctx, b.ID, created.ID); err != nil {
+			return err
+		}
+		if err := s.categories.SeedDefaults(ctx, b.ID, i18n.DefaultCategories()); err != nil {
 			return err
 		}
 		return s.users.SetActiveBudget(ctx, created.ID, b.ID)
@@ -85,9 +100,10 @@ func (s *Service) ListAccounts(ctx context.Context, u models.User) ([]models.Acc
 	return s.accounts.List(ctx, u.ActiveBudgetID)
 }
 
-func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, currency string) (models.Account, error) {
+// CreateAccount заводит счёт. Положительный начальный остаток пишется доходом на сегодняшний день пользователя.
+func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, currency string, openingMinor int64) (models.Account, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || utf8.RuneCountInString(name) > maxAccountName {
+	if name == "" || utf8.RuneCountInString(name) > maxNameRunes {
 		return models.Account{}, fmt.Errorf("name: %w", models.ErrInvalidAccount)
 	}
 	k := models.AccountKind(kind)
@@ -100,5 +116,38 @@ func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, 
 	if err != nil {
 		return models.Account{}, err
 	}
-	return s.accounts.Create(ctx, u.ActiveBudgetID, models.NewAccount{Name: name, Kind: k, Currency: c})
+	if openingMinor < 0 || openingMinor > maxAmountMinor {
+		return models.Account{}, fmt.Errorf("opening balance: %w", models.ErrInvalidAccount)
+	}
+
+	var acc models.Account
+	err = s.db.InTx(ctx, func(ctx context.Context) error {
+		var err error
+		acc, err = s.accounts.Create(ctx, u.ActiveBudgetID, models.NewAccount{Name: name, Kind: k, Currency: c})
+		if err != nil {
+			return err
+		}
+		if openingMinor == 0 {
+			return nil
+		}
+		_, err = s.transactions.Insert(ctx, models.Transaction{
+			BudgetID: u.ActiveBudgetID, AccountID: acc.ID, Kind: models.KindOpening,
+			AmountMinor: openingMinor, Currency: c, OccurredOn: s.today(u), CreatedBy: u.ID,
+		})
+		acc.BalanceMinor = openingMinor
+		return err
+	})
+	if err != nil {
+		return models.Account{}, err
+	}
+	return acc, nil
+}
+
+// today считает сегодняшний день в поясе пользователя.
+func (s *Service) today(u models.User) apptime.Day {
+	loc, err := time.LoadLocation(u.Timezone)
+	if err != nil {
+		loc = time.UTC
+	}
+	return apptime.Today(loc, s.now())
 }
