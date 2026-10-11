@@ -1,0 +1,25 @@
+# Имена сервисов с префиксом moneykeeper-: webapp подключён к общей сети tracker-bot_default,
+# обычные имена (app, webapp) там уже заняты другим проектом.
+name: moneykeeper
+
+services:
+  moneykeeper-app:
+    build: .
+    container_name: moneykeeper-app
+    env_file: .env
+    restart: unless-stopped
+
+  moneykeeper-webapp:
+    build: ./webapp
+    container_name: moneykeeper-webapp
+    depends_on:
+      - moneykeeper-app
+    restart: unless-stopped
+    networks:
+      - default
+      - edge
+
+networks:
+  edge:
+    name: tracker-bot_default
+    external: true
