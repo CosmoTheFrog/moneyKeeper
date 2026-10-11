@@ -1,15 +1,27 @@
-import { useEffect, useState } from 'react'
-import { fetchMe } from './api'
+import { useCallback, useEffect, useState } from 'react'
+import { AccountsScreen } from './AccountsScreen'
+import { fetchAccounts, fetchMe, type Account, type Me } from './api'
+import { CurrencyScreen } from './CurrencyScreen'
 import { t } from './i18n'
 
 type State =
   | { kind: 'loading' }
-  | { kind: 'ok'; name: string }
   | { kind: 'outside' }
   | { kind: 'error' }
+  | { kind: 'ready'; me: Me; accounts: Account[] }
 
 export function App() {
   const [state, setState] = useState<State>({ kind: 'loading' })
+
+  const load = useCallback(async () => {
+    try {
+      const me = await fetchMe()
+      const accounts = me.budget.base_currency === null ? [] : await fetchAccounts()
+      setState({ kind: 'ready', me, accounts })
+    } catch {
+      setState({ kind: 'error' })
+    }
+  }, [])
 
   useEffect(() => {
     const webApp = window.Telegram?.WebApp
@@ -18,19 +30,29 @@ export function App() {
       return
     }
     webApp.ready()
-    fetchMe(webApp.initData)
-      .then((me) => setState({ kind: 'ok', name: me.first_name }))
-      .catch(() => setState({ kind: 'error' }))
-  }, [])
+    void load()
+  }, [load])
 
   switch (state.kind) {
     case 'loading':
-      return <p>{t.loading}</p>
-    case 'ok':
-      return <h1>{t.hello(state.name)}</h1>
+      return <p className="screen hint">{t.loading}</p>
     case 'outside':
-      return <p>{t.openInTelegram}</p>
+      return <p className="screen hint">{t.openInTelegram}</p>
     case 'error':
-      return <p>{t.authFailed}</p>
+      return (
+        <main className="screen">
+          <p className="error">{t.errors.internal}</p>
+          <button type="button" className="primary" onClick={() => void load()}>
+            {t.retry}
+          </button>
+        </main>
+      )
+    case 'ready': {
+      const base = state.me.budget.base_currency
+      if (base === null) {
+        return <CurrencyScreen currencies={state.me.base_currencies} onDone={() => void load()} />
+      }
+      return <AccountsScreen accounts={state.accounts} currencies={state.me.currencies} baseCurrency={base} onChanged={() => void load()} />
+    }
   }
 }

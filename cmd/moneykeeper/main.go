@@ -10,7 +10,11 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
+	"moneykeeper/internal/pgclient"
+	"moneykeeper/internal/repo"
+	"moneykeeper/internal/service"
 	"moneykeeper/internal/web"
 )
 
@@ -32,15 +36,26 @@ func run(log *slog.Logger) error {
 	if token == "" {
 		return errors.New("TELEGRAM_BOT_TOKEN is not set")
 	}
-
-	srv := &http.Server{
-		Addr:              httpAddr,
-		Handler:           web.NewHandler(token, log),
-		ReadHeaderTimeout: 5 * time.Second,
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		return errors.New("DATABASE_URL is not set")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	db, err := pgclient.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("connect db: %w", err)
+	}
+	defer db.Close()
+
+	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db))
+	srv := &http.Server{
+		Addr:              httpAddr,
+		Handler:           web.NewHandler(svc, token, log),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()
