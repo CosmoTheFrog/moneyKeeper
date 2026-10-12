@@ -1,18 +1,32 @@
-import { describe, expect, it } from 'vitest'
-import { formatInput, formatMinor, parseAmount } from './money'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { formatInput, formatMinor, isCoin, parseAmount, registerCurrencies, unitsOf } from './money'
+
+beforeAll(() => {
+  registerCurrencies([
+    { code: 'GEL', units: 2, coin: false },
+    { code: 'BTC', units: 8, coin: true },
+    { code: 'DOGE', units: 4, coin: true },
+    { code: 'SHIB', units: 0, coin: true },
+  ])
+})
 
 describe('formatMinor', () => {
   it.each([
-    [0, 'GEL', false, '0,00 ₾'],
-    [5, 'GEL', false, '0,05 ₾'],
-    [123450, 'GEL', false, '1 234,50 ₾'],
-    [-123450, 'EUR', false, '−1 234,50 €'],
-    [100000000, 'USD', false, '1 000 000,00 $'],
-    [2000, 'GEL', true, '+20,00 ₾'],
-    [-2000, 'GEL', true, '−20,00 ₾'],
-    [0, 'GEL', true, '0,00 ₾'],
-    [150, 'USDT', false, '1,50 USDT'],
-    [150, 'XXX', false, '1,50 XXX'],
+    [0, 'GEL', false, '0,00 ₾'],
+    [5, 'GEL', false, '0,05 ₾'],
+    [123450, 'GEL', false, '1 234,50 ₾'],
+    [-123450, 'EUR', false, '−1 234,50 €'],
+    [100000000, 'USD', false, '1 000 000,00 $'],
+    [2000, 'GEL', true, '+20,00 ₾'],
+    [-2000, 'GEL', true, '−20,00 ₾'],
+    [0, 'GEL', true, '0,00 ₾'],
+    [150, 'USDT', false, '1,50 USDT'],
+    [150, 'XXX', false, '1,50 XXX'],
+    [100000, 'BTC', false, '0,00100000 BTC'],
+    [-12345678901, 'BTC', false, '−123,45678901 BTC'],
+    [25000, 'DOGE', true, '+2,5000 DOGE'],
+    [1500000, 'SHIB', false, '1 500 000 SHIB'],
+    [0, 'SHIB', false, '0 SHIB'],
   ])('%i %s signed=%s → %s', (minor, currency, signed, want) => {
     expect(formatMinor(minor, currency, signed)).toBe(want)
   })
@@ -20,24 +34,62 @@ describe('formatMinor', () => {
 
 describe('parseAmount', () => {
   it.each([
-    ['12', 1200],
-    ['12,5', 1250],
-    ['12.50', 1250],
-    [' 1 200,05 ', 120005],
-    ['0,01', 1],
-    ['10000000000', 1_000_000_000_000],
-  ])('%s → %i', (input, want) => {
-    expect(parseAmount(input)).toBe(want)
+    ['12', 'GEL', 1200],
+    ['12,5', 'GEL', 1250],
+    ['12.50', 'GEL', 1250],
+    [' 1 200,05 ', 'GEL', 120005],
+    ['0,01', 'GEL', 1],
+    ['10000000000', 'GEL', 1_000_000_000_000],
+    ['0,00125', 'BTC', 125000],
+    ['0.00000001', 'BTC', 1],
+    ['10000', 'BTC', 1_000_000_000_000],
+    ['2,5', 'DOGE', 25000],
+    ['1500000', 'SHIB', 1_500_000],
+  ])('%s %s → %i', (input, currency, want) => {
+    expect(parseAmount(input, currency)).toBe(want)
   })
 
-  it.each(['', '0', '0,00', '-5', '5,555', 'abc', '5 EUR', '10000000001', '1,2,3'])('%s → null', (input) => {
-    expect(parseAmount(input)).toBeNull()
+  it.each([
+    ['', 'GEL'],
+    ['0', 'GEL'],
+    ['0,00', 'GEL'],
+    ['-5', 'GEL'],
+    ['5,555', 'GEL'],
+    ['abc', 'GEL'],
+    ['5 EUR', 'GEL'],
+    ['10000000001', 'GEL'],
+    ['1,2,3', 'GEL'],
+    ['0,000000001', 'BTC'],
+    ['10000,00000001', 'BTC'],
+    ['1,5', 'SHIB'],
+    ['0', 'SHIB'],
+    ['1,23456', 'DOGE'],
+  ])('%s %s → null', (input, currency) => {
+    expect(parseAmount(input, currency)).toBeNull()
   })
 })
 
 describe('formatInput', () => {
   it('returns the form used in the amount field', () => {
-    expect(formatInput(123450)).toBe('1234,50')
-    expect(formatInput(-5)).toBe('0,05')
+    expect(formatInput(123450, 'GEL')).toBe('1234,50')
+    expect(formatInput(-5, 'GEL')).toBe('0,05')
+    expect(formatInput(125000, 'BTC')).toBe('0,00125000')
+    expect(formatInput(1500000, 'SHIB')).toBe('1500000')
+  })
+
+  it('round-trips through parseAmount', () => {
+    for (const [minor, currency] of [[123450, 'GEL'], [125000, 'BTC'], [25000, 'DOGE'], [7, 'SHIB']] as const) {
+      expect(parseAmount(formatInput(minor, currency), currency)).toBe(minor)
+    }
+  })
+})
+
+describe('currency registry', () => {
+  it('knows precision and coins, two decimals by default', () => {
+    expect(unitsOf('BTC')).toBe(8)
+    expect(unitsOf('SHIB')).toBe(0)
+    expect(unitsOf('XXX')).toBe(2)
+    expect(isCoin('BTC')).toBe(true)
+    expect(isCoin('GEL')).toBe(false)
   })
 })

@@ -609,6 +609,13 @@ h1 {
   cursor: pointer;
 }
 
+.sheet-sub {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .sheet-row-on {
   background: var(--accent-soft);
   color: var(--accent);

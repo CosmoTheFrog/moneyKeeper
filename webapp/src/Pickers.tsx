@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { currencyName, t } from './i18n'
 import { Modal } from './Modal'
+import { isCoin } from './money'
 
 export type Option<T> = {
   value: T
@@ -54,6 +56,59 @@ export function Segmented<T extends string | number>({ label, value, options, on
           {o.label}
         </button>
       ))}
+    </div>
+  )
+}
+
+type CurrencyProps = {
+  label?: string
+  value: string
+  options: string[]
+  onChange: (value: string) => void
+  disabled?: boolean
+}
+
+// CurrencyPicker: обычные валюты плашками, монет много, поэтому они прячутся за одну плашку «Монеты» и выбираются списком.
+export function CurrencyPicker({ label, value, options, onChange, disabled = false }: CurrencyProps) {
+  const [open, setOpen] = useState(false)
+  const plain = options.filter((c) => !isCoin(c))
+  const coins = options.filter(isCoin)
+  const coinChosen = isCoin(value)
+
+  return (
+    <div className="field">
+      {label !== undefined && <span className="label">{label}</span>}
+      <div className="chips" role="radiogroup" aria-label={label}>
+        {plain.map((c) => (
+          <button key={c} type="button" role="radio" aria-checked={c === value} disabled={disabled} className={c === value ? 'pill pill-on' : 'pill'} onClick={() => onChange(c)}>
+            {c}
+          </button>
+        ))}
+        {coins.length > 0 && (
+          <button type="button" role="radio" aria-checked={coinChosen} disabled={disabled} className={coinChosen ? 'pill pill-on' : 'pill'} onClick={() => setOpen(true)}>
+            {coinChosen ? value : t.currencyPicker.coins}
+          </button>
+        )}
+      </div>
+      {open && (
+        <Modal title={t.currencyPicker.title} sheet onClose={() => setOpen(false)}>
+          {coins.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={c === value ? 'sheet-row sheet-row-on' : 'sheet-row'}
+              onClick={() => {
+                onChange(c)
+                setOpen(false)
+              }}
+            >
+              <span>
+                {c} <span className="sheet-sub">{currencyName(c)}</span>
+              </span>
+            </button>
+          ))}
+        </Modal>
+      )}
     </div>
   )
 }

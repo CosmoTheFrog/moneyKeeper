@@ -15,8 +15,9 @@ import (
 type Rates struct {
 	Err error
 
-	mu    sync.Mutex
-	calls int
+	mu           sync.Mutex
+	calls        int
+	coinRequests int
 }
 
 // Fixed это курсы, которые отдаёт Rates: цена одной целой единицы в GEL.
@@ -27,9 +28,13 @@ var Fixed = map[money.Currency]string{
 	money.USDT: "2.73",
 }
 
-func (r *Rates) GelPerUnit(_ context.Context, _ apptime.Day) (map[money.Currency]*big.Rat, error) {
+// FixedCoins это курсы монет, которые отдаёт Rates по запросу.
+var FixedCoins = map[money.Currency]string{"BTC": "250000", "DOGE": "0.5"}
+
+func (r *Rates) GelPerUnit(_ context.Context, _ apptime.Day, coins []money.Currency) (map[money.Currency]*big.Rat, error) {
 	r.mu.Lock()
 	r.calls++
+	r.coinRequests += len(coins)
 	r.mu.Unlock()
 	if r.Err != nil {
 		return nil, r.Err
@@ -42,7 +47,19 @@ func (r *Rates) GelPerUnit(_ context.Context, _ apptime.Day) (map[money.Currency
 		}
 		out[c] = v
 	}
+	for _, c := range coins {
+		if s, ok := FixedCoins[c]; ok {
+			out[c], _ = new(big.Rat).SetString(s)
+		}
+	}
 	return out, nil
+}
+
+// CoinRequests считает, сколько раз у источника просили курс монеты.
+func (r *Rates) CoinRequests() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.coinRequests
 }
 
 func (r *Rates) Calls() int {

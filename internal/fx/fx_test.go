@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -47,7 +48,7 @@ func TestGelPerUnit(t *testing.T) {
 	)
 	day, _ := apptime.ParseDay("2026-10-12")
 
-	got, err := p.GelPerUnit(context.Background(), day)
+	got, err := p.GelPerUnit(context.Background(), day, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +74,7 @@ func TestGelPerUnit(t *testing.T) {
 	if !strings.Contains(gotNBG, "date=2026-10-12") {
 		t.Errorf("NBG query %q has no date", gotNBG)
 	}
-	if !strings.Contains(gotBinance, "symbol=EURUSDT") || !strings.Contains(gotBinance, "startTime=1791763200000") || !strings.Contains(gotBinance, "interval=1d") {
+	if !strings.Contains(gotBinance, "symbol=EURUSDT") || !strings.Contains(gotBinance, "endTime=1791849599999") || !strings.Contains(gotBinance, "interval=1d") {
 		t.Errorf("Binance query %q", gotBinance)
 	}
 }
@@ -82,7 +83,7 @@ func TestGelPerUnitKeepsWhatItGotWhenBinanceFails(t *testing.T) {
 	p := newProvider(t, ok(nbgBody), fail(http.StatusServiceUnavailable))
 	day, _ := apptime.ParseDay("2026-10-12")
 
-	got, err := p.GelPerUnit(context.Background(), day)
+	got, err := p.GelPerUnit(context.Background(), day, nil)
 	if err == nil || !strings.Contains(err.Error(), "binance") {
 		t.Fatalf("err = %v, want a binance error", err)
 	}
@@ -111,10 +112,46 @@ func TestGelPerUnitErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := newProvider(t, tt.nbg, tt.binance)
-			_, err := p.GelPerUnit(context.Background(), day)
+			_, err := p.GelPerUnit(context.Background(), day, nil)
 			if err == nil || !strings.Contains(err.Error(), tt.wantIn) {
 				t.Errorf("err = %v, want it to mention %q", err, tt.wantIn)
 			}
 		})
+	}
+}
+
+func TestGelPerUnitCoins(t *testing.T) {
+	var symbols []string
+	p := newProvider(t, ok(nbgBody), func(w http.ResponseWriter, r *http.Request) {
+		sym := r.URL.Query().Get("symbol")
+		symbols = append(symbols, sym)
+		switch sym {
+		case "BTCUSDT":
+			fmt.Fprint(w, `[[1,"1","1","1","100000.50"]]`)
+		case "NOPEUSDT":
+			w.WriteHeader(http.StatusBadRequest)
+		default:
+			fmt.Fprint(w, klineBody)
+		}
+	})
+	day, _ := apptime.ParseDay("2026-10-12")
+
+	got, err := p.GelPerUnit(context.Background(), day, []money.Currency{"BTC", "NOPE"})
+	if err == nil || !strings.Contains(err.Error(), "NOPE") {
+		t.Fatalf("err = %v, want it to name the failed coin", err)
+	}
+	if got["NOPE"] != nil {
+		t.Errorf("NOPE = %v, want none", got["NOPE"])
+	}
+	// 100 000,50 USDT за монету, USDT = 3,1594 / 1,1573 ₾ ≈ 2,73: монета около 273 000 ₾.
+	btc, _ := got["BTC"].Float64()
+	if btc < 272000 || btc > 274000 {
+		t.Errorf("BTC = %v, want about 273 000", btc)
+	}
+	if got[money.USDT] == nil || got[money.EUR] == nil {
+		t.Errorf("core rates must stay when a coin fails: %v", got)
+	}
+	if want := []string{"EURUSDT", "BTCUSDT", "NOPEUSDT"}; !slices.Equal(symbols, want) {
+		t.Errorf("binance symbols = %v, want %v", symbols, want)
 	}
 }

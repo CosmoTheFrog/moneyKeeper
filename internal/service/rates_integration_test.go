@@ -206,3 +206,50 @@ func twoDigits(n int) string {
 	}
 	return string(rune('0'+n/10)) + string(rune('0'+n%10))
 }
+
+func TestCoinsAreConvertedAndFetchedOnlyWhenUsed(t *testing.T) {
+	ctx := context.Background()
+	l := newLedger(t)
+	l.setBase(t, "GEL")
+	food := l.category(t, "Продукты")
+	wallet := newMulti(t, l, "Кошелёк", "USDT", 0)
+
+	// Монет в записях нет: фиатный пересчёт не должен спрашивать их курс.
+	if _, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindIncome, AccountID: wallet.ID, AmountMinor: 1000}); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.fx().CoinRequests(); got != 0 {
+		t.Fatalf("coin rates requested without coins in records: %d", got)
+	}
+
+	// 0,001 BTC = 100000 минорных единиц, по 250 000 ₾ это 250,00 ₾.
+	got, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindIncome, AccountID: wallet.ID, AmountMinor: 100000, Currency: "BTC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := got[0].BaseMinor; b == nil || *b != 25000 {
+		t.Fatalf("BTC income BaseMinor = %v, want 25000", b)
+	}
+
+	// Остаток монеты тоже пересчитывается, расход считается по курсу своего дня.
+	if _, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindExpense, AccountID: wallet.ID, CategoryID: &food, AmountMinor: 40000, Currency: "BTC"}); err != nil {
+		t.Fatal(err)
+	}
+	acc := l.account(t, wallet.ID)
+	var btc models.CurrencyBalance
+	for _, b := range acc.Balances {
+		if b.Currency == "BTC" {
+			btc = b
+		}
+	}
+	if btc.BalanceMinor != 60000 || btc.BaseBalanceMinor == nil || *btc.BaseBalanceMinor != 15000 || btc.BaseSpentMinor == nil || *btc.BaseSpentMinor != 10000 {
+		t.Errorf("BTC balance = %+v, want 60000 worth 15000, spent worth 10000", btc)
+	}
+
+	// Курс уже сохранён: повторный запрос не ходит за ним снова.
+	before := l.fx().CoinRequests()
+	l.listBase(t)
+	if n := l.fx().CoinRequests(); n != before {
+		t.Errorf("known coin rate fetched again: %d -> %d", before, n)
+	}
+}

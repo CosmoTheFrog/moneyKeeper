@@ -31,8 +31,8 @@ func TestConvert(t *testing.T) {
 		{"half rounds away from zero", 5, GEL, USD, "1", "2", 3}, // 0,05 ₾ / 2 = 0,025 → 0,03
 		{"negative half", -5, GEL, USD, "1", "2", -3},
 		{"zero amount", 0, USD, GEL, "2.7084", "1", 0},
-		{"rubles are tiny", 100000, RUB, GEL, "0.0299", "1", 2990}, // 1000 ₽ = 29,90 ₾
-		{"big amount stays exact", 1_000_000_000_000, USD, GEL, "2.7084", "1", 2_708_400_000_000},
+		{"rubles are tiny", 100000, RUB, GEL, "0.0299", "1", 2990},                 // 1000 ₽ = 29,90 ₾
+		{"coin with 8 decimals to lari", 100000, "BTC", GEL, "250000", "1", 25000}, // 0,001 BTC по 250 000 ₾ = 250,00 ₾`n		{"lari to coin", 25000, GEL, "BTC", "1", "250000", 100000},`n		{"coin without decimals", 1_500_000, "SHIB", GEL, "0.00003", "1", 4500}, // 1,5 млн SHIB по 0,00003 ₾ = 45,00 ₾`n		{"coin to coin", 100000, "BTC", "ETH", "250000", "12500", 2000000}, // 0,001 BTC = 0,02 ETH`n		{"big amount stays exact", 1_000_000_000_000, USD, GEL, "2.7084", "1", 2_708_400_000_000},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

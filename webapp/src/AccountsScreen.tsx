@@ -5,7 +5,7 @@ import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { parseAmount } from './money'
-import { ChipPicker } from './Pickers'
+import { ChipPicker, CurrencyPicker } from './Pickers'
 import { ThemeSettings } from './ThemeSettings'
 
 type Props = {
@@ -126,7 +126,7 @@ function AccountForm({ currencies, baseCurrency, onDone }: FormProps) {
   async function submit(e: FormEvent) {
     e.preventDefault()
     setError(null)
-    const openingMinor = opening.trim() === '' ? 0 : parseAmount(opening)
+    const openingMinor = opening.trim() === '' ? 0 : parseAmount(opening, currency)
     if (openingMinor === null) return setError(errorText('invalid_amount'))
 
     setBusy(true)
@@ -156,12 +156,7 @@ function AccountForm({ currencies, baseCurrency, onDone }: FormProps) {
         onChange={setMode}
       />
       {mode === 'many' && <p className="hint tight">{t.accounts.manyHint}</p>}
-      <ChipPicker
-        label={mode === 'many' ? t.accounts.mainCurrency : t.accounts.currency}
-        value={currency}
-        options={currencies.map((c) => ({ value: c, label: c }))}
-        onChange={setCurrency}
-      />
+      <CurrencyPicker label={mode === 'many' ? t.accounts.mainCurrency : t.accounts.currency} value={currency} options={currencies} onChange={setCurrency} />
       <label className="field">
         <span className="label">{t.accounts.opening}</span>
         <input inputMode="decimal" value={opening} placeholder="0,00" onChange={(e) => setOpening(e.target.value)} />

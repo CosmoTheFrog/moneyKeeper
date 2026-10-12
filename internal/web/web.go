@@ -122,7 +122,17 @@ func (h *handler) me(w http.ResponseWriter, r *http.Request, u models.User) {
 		Budget:         budgetDTO(b),
 		BaseCurrencies: currencyCodes(money.Base),
 		Currencies:     currencyCodes(money.All),
+		CurrencyInfo:   currencyInfo(),
 	})
+}
+
+func currencyInfo() []apidto.CurrencyInfoDTO {
+	infos := money.Infos()
+	out := make([]apidto.CurrencyInfoDTO, 0, len(infos))
+	for _, i := range infos {
+		out = append(out, apidto.CurrencyInfoDTO{Code: string(i.Code), Units: i.Units, Coin: i.Coin})
+	}
+	return out
 }
 
 func currencyCodes(cs []money.Currency) []string {

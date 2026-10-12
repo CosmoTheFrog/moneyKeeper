@@ -20,6 +20,7 @@ import { EntryForm } from './EntryForm'
 import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
 import { PrivacyContext } from './MoneyText'
+import { registerCurrencies } from './money'
 import { OperationsScreen } from './OperationsScreen'
 import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
@@ -99,6 +100,7 @@ export function App() {
   const load = useCallback(async () => {
     try {
       const me = await fetchMe()
+      registerCurrencies(me.currency_info)
       if (me.budget.base_currency === null) {
         setState({ kind: 'ready', data: { me, accounts: [], groups: [], categories: [], transactions: [] } })
         return

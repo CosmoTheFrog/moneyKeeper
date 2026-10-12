@@ -33,7 +33,35 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
-			got, err := Parse(tt.in)
+			got, err := Parse(tt.in, "")
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("got %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseCoins(t *testing.T) {
+	tests := []struct {
+		in       string
+		fallback money.Currency
+		want     Result
+		wantErr  error
+	}{
+		{"купил 0.00125 btc", "", Result{125000, "BTC", "купил"}, nil},
+		{"0,5 ETH", "", Result{50000000, "ETH", ""}, nil},
+		{"комиссия 0.5", "BTC", Result{50000000, "", "комиссия"}, nil},
+		{"раздача 1500000 shib", "", Result{1500000, "SHIB", "раздача"}, nil},
+		{"1.5 shib", "", Result{}, ErrInvalidAmount},
+		{"5 doge", "", Result{50000, "DOGE", ""}, nil},
+		{"0.123456789 btc", "", Result{}, ErrInvalidAmount},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			got, err := Parse(tt.in, tt.fallback)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("err = %v, want %v", err, tt.wantErr)
 			}

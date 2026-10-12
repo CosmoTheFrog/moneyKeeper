@@ -1,3 +1,4 @@
+import type { CurrencyInfo } from './money'
 // TODO: типы генерируются из Go (internal/web/apidto), пока описаны вручную.
 export type Budget = {
   id: number
@@ -12,6 +13,8 @@ export type Me = {
   budget: Budget
   base_currencies: string[]
   currencies: string[]
+  // Знаки после запятой и признак монеты по каждой валюте.
+  currency_info: CurrencyInfo[]
 }
 
 export type AccountKind = 'cash' | 'debit' | 'credit'
@@ -175,4 +178,5 @@ export const deleteTransaction = async (id: number): Promise<void> => {
 
 export const fetchEvents = async (id: number) => (await request<{ events: TxEvent[] }>('GET', `/api/transactions/${id}/events`)).events
 
-export const parseQuick = (text: string) => request<ParsedInput>('POST', '/api/transactions/parse', { text })
+// currency необязательна: валюта формы, по ней считается точность числа, если в тексте валюты нет.
+export const parseQuick = (text: string, currency: string) => request<ParsedInput>('POST', '/api/transactions/parse', { text, currency })

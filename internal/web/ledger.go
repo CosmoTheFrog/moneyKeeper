@@ -9,6 +9,7 @@ import (
 	"moneykeeper/internal/models"
 	"moneykeeper/internal/web/apidto"
 	"moneykeeper/pkg/apptime"
+	"moneykeeper/pkg/money"
 	"moneykeeper/pkg/quickinput"
 )
 
@@ -179,7 +180,16 @@ func (h *handler) parseQuick(w http.ResponseWriter, r *http.Request, _ models.Us
 	if !h.decode(w, r, &req) {
 		return
 	}
-	res, err := quickinput.Parse(req.Text)
+	var fallback money.Currency
+	if req.Currency != "" {
+		c, err := money.Parse(req.Currency)
+		if err != nil {
+			h.fail(w, err)
+			return
+		}
+		fallback = c
+	}
+	res, err := quickinput.Parse(req.Text, fallback)
 	switch {
 	case errors.Is(err, quickinput.ErrNoAmount):
 		h.writeError(w, http.StatusBadRequest, apidto.CodeNoAmount)

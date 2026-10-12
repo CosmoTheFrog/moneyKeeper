@@ -37,9 +37,9 @@ func NewProvider() *Provider {
 	return &Provider{nbg: nbgURL, binance: binanceURL, client: &http.Client{Timeout: timeout}}
 }
 
-// GelPerUnit возвращает курсы на день. Если часть источников недоступна, в карте то, что удалось
-// получить, а ошибка описывает недостающее: вызывающий сохраняет полученное и не падает.
-func (p *Provider) GelPerUnit(ctx context.Context, day apptime.Day) (map[money.Currency]*big.Rat, error) {
+// GelPerUnit возвращает курсы на день: фиат, USDT и монеты из coins. Если часть источников недоступна, в карте то,
+// что удалось получить, а ошибка описывает недостающее: вызывающий сохраняет полученное и не падает.
+func (p *Provider) GelPerUnit(ctx context.Context, day apptime.Day, coins []money.Currency) (map[money.Currency]*big.Rat, error) {
 	out, err := p.fiatRates(ctx, day)
 	if err != nil {
 		return out, err
@@ -49,7 +49,17 @@ func (p *Provider) GelPerUnit(ctx context.Context, day apptime.Day) (map[money.C
 		return out, err
 	}
 	out[money.USDT] = usdt
-	return out, nil
+
+	var errs []error
+	for _, c := range coins {
+		price, err := p.dailyClose(ctx, string(c)+"USDT", day)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("binance %s: %w", c, err))
+			continue
+		}
+		out[c] = new(big.Rat).Mul(price, usdt) // цена монеты в USDT на лари за USDT
+	}
+	return out, errors.Join(errs...)
 }
 
 type nbgDay struct {
@@ -102,13 +112,14 @@ func (p *Provider) usdtRate(ctx context.Context, day apptime.Day, gelPerEUR *big
 	return new(big.Rat).Quo(gelPerEUR, eurUSDT), nil // 1 USDT = (₾ за €) / (USDT за €)
 }
 
-// dailyClose возвращает цену закрытия дневной свечи пары. Для текущего дня это последняя цена.
+// dailyClose возвращает цену закрытия дневной свечи пары. Для текущего дня это последняя цена. Берётся последняя свеча,
+// начавшаяся не позже конца дня, поэтому при пропуске торгов в этот день используется ближайшая предыдущая.
 func (p *Provider) dailyClose(ctx context.Context, symbol string, day apptime.Day) (*big.Rat, error) {
 	q := url.Values{
-		"symbol":    {symbol},
-		"interval":  {"1d"},
-		"startTime": {strconv.FormatInt(day.Date().UnixMilli(), 10)},
-		"limit":     {"1"},
+		"symbol":   {symbol},
+		"interval": {"1d"},
+		"endTime":  {strconv.FormatInt(day.Date().Add(24*time.Hour).UnixMilli()-1, 10)},
+		"limit":    {"1"},
 	}
 	var klines [][]json.RawMessage
 	if err := p.getJSON(ctx, p.binance+"/api/v3/klines?"+q.Encode(), &klines); err != nil {

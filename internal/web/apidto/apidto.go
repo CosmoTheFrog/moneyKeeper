@@ -28,13 +28,21 @@ type BudgetDTO struct {
 	BaseCurrency *string `json:"base_currency"`
 }
 
+// CurrencyInfoDTO.Units это число знаков после запятой, Coin: курс берётся отдельно по требованию.
+type CurrencyInfoDTO struct {
+	Code  string `json:"code"`
+	Units int    `json:"units"`
+	Coin  bool   `json:"coin"`
+}
+
 type MeResponse struct {
-	ID             int64     `json:"id"`
-	FirstName      string    `json:"first_name"`
-	Timezone       string    `json:"timezone"`
-	Budget         BudgetDTO `json:"budget"`
-	BaseCurrencies []string  `json:"base_currencies"`
-	Currencies     []string  `json:"currencies"`
+	ID             int64             `json:"id"`
+	FirstName      string            `json:"first_name"`
+	Timezone       string            `json:"timezone"`
+	Budget         BudgetDTO         `json:"budget"`
+	BaseCurrencies []string          `json:"base_currencies"`
+	Currencies     []string          `json:"currencies"`
+	CurrencyInfo   []CurrencyInfoDTO `json:"currency_info"`
 }
 
 type SetCurrencyRequest struct {
@@ -172,8 +180,10 @@ type TransactionEventsResponse struct {
 	Events []TransactionEventDTO `json:"events"`
 }
 
+// ParseRequest.Currency необязательна: валюта формы, по ней считается точность числа, если в тексте валюты нет.
 type ParseRequest struct {
-	Text string `json:"text"`
+	Text     string `json:"text"`
+	Currency string `json:"currency"`
 }
 
 // ParseResponse.Currency пустая, если в тексте валюты нет.

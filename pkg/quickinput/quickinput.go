@@ -36,8 +36,9 @@ type candidate struct {
 	nextUsed bool // валюта стоит отдельным словом после числа
 }
 
-// Parse берёт первое число с валютой, а если валюты нигде нет, первое число.
-func Parse(text string) (Result, error) {
+// Parse берёт первое число с валютой, а если валюты нигде нет, первое число. Знаков после запятой столько,
+// сколько у валюты числа, а без валюты в тексте у fallback (валюта формы), пустая fallback значит две.
+func Parse(text string, fallback money.Currency) (Result, error) {
 	tokens := strings.Fields(text)
 
 	var first, withCurrency *candidate
@@ -71,7 +72,11 @@ func Parse(text string) (Result, error) {
 		return Result{}, ErrNoAmount
 	}
 
-	amount, err := toMinor(picked.number, money.MinorUnits(money.GEL))
+	units := money.MinorUnits(picked.currency)
+	if picked.currency == "" && fallback != "" {
+		units = money.MinorUnits(fallback)
+	}
+	amount, err := toMinor(picked.number, units)
 	if err != nil {
 		return Result{}, err
 	}

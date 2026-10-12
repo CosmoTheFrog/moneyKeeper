@@ -18,7 +18,7 @@ import type { Entry } from './ledger'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { formatInput, formatMinor, parseAmount } from './money'
-import { ChipPicker, SheetPicker } from './Pickers'
+import { ChipPicker, CurrencyPicker, SheetPicker } from './Pickers'
 
 type FormKind = 'expense' | 'income' | 'transfer' | 'opening'
 
@@ -49,7 +49,7 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
   const [kind, setKind] = useState<FormKind>(entry?.kind ?? 'expense')
   const [quick, setQuick] = useState('')
   const [understood, setUnderstood] = useState<string | null>(null)
-  const [amount, setAmount] = useState(entry === undefined ? '' : formatInput(entry.amountMinor))
+  const [amount, setAmount] = useState(entry === undefined ? '' : formatInput(entry.amountMinor, entry.currency))
   const [currency, setCurrency] = useState(entry?.currency ?? defaultAccount?.currency ?? '')
   const [accountId, setAccountId] = useState(entry?.accountId ?? defaultAccount?.id ?? 0)
   const [toAccountId, setToAccountId] = useState(entry?.toAccountId ?? 0)
@@ -95,8 +95,8 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
     if (text === '') return
     setError(null)
     try {
-      const p = await parseQuick(text)
-      setAmount(formatInput(p.amount_minor))
+      const p = await parseQuick(text, currency)
+      setAmount(formatInput(p.amount_minor, p.currency !== '' ? p.currency : currency))
       if (p.note !== '') setNote(p.note)
       let cur = currency
       if (p.currency !== '' && p.currency !== currency) {
@@ -114,7 +114,7 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
   async function submit(e: FormEvent) {
     e.preventDefault()
     setError(null)
-    const minor = parseAmount(amount)
+    const minor = parseAmount(amount, currency)
     if (minor === null) return setError(errorText('invalid_amount'))
     if (accountId === 0) return setError(t.add.noAccountInCurrency)
     if (!editing && kind === 'expense' && categoryId === 0) return setError(t.add.pickCategory)
@@ -217,13 +217,7 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
             </span>
           </label>
           {currencies.length > 0 && (
-            <ChipPicker
-              label={t.add.currency}
-              value={currency}
-              options={currencies.map((c) => ({ value: c, label: c }))}
-              onChange={chooseCurrency}
-              disabled={editing && !canPickAccount}
-            />
+            <CurrencyPicker label={t.add.currency} value={currency} options={currencies} onChange={chooseCurrency} disabled={editing && !canPickAccount} />
           )}
           {editing && !canPickAccount && <p className="hint tight">{t.edit.currencyLocked}</p>}
         </div>

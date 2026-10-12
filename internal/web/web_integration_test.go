@@ -3,6 +3,7 @@
 package web
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"moneykeeper/internal/repo"
 	"moneykeeper/internal/service"
 	"moneykeeper/internal/testdb"
+	"moneykeeper/internal/web/apidto"
 )
 
 func TestFlow(t *testing.T) {
@@ -51,7 +53,7 @@ func TestFlow(t *testing.T) {
 		wantBody   string
 	}{
 		{"first login creates user and budget", "GET", "/api/me", "", 200,
-			`{"id":1,"first_name":"Igor","timezone":"Asia/Tbilisi","budget":{"id":1,"name":"","base_currency":null},"base_currencies":["GEL","EUR","USD","RUB"],"currencies":["GEL","EUR","USD","RUB","USDT"]}`},
+			`{"id":1,"first_name":"Igor","timezone":"Asia/Tbilisi","budget":{"id":1,"name":"","base_currency":null},"base_currencies":["GEL","EUR","USD","RUB"],"currencies":["GEL","EUR","USD","RUB","USDT","BTC",…`},
 		{"invalid base currency", "PUT", "/api/budget/currency", `{"currency":"USDT"}`, 400, `{"code":"invalid_currency"}`},
 		{"set base currency", "PUT", "/api/budget/currency", `{"currency":"GEL"}`, 200, `{"id":1,"name":"","base_currency":"GEL"}`},
 		{"base currency is set once", "PUT", "/api/budget/currency", `{"currency":"EUR"}`, 409, `{"code":"base_currency_set"}`},
@@ -64,13 +66,34 @@ func TestFlow(t *testing.T) {
 		{"list accounts", "GET", "/api/accounts", "", 200,
 			`{"accounts":[{"id":1,"name":"TBC","kind":"debit","currency":"GEL","multi_currency":false,"is_default":true,"balances":[{"currency":"GEL","balance_minor":0,"spent_minor":0,"base_balance_minor":0,"base_spent_minor":0}]}]}`},
 	}
+	t.Run("currency precision is part of /api/me", func(t *testing.T) {
+		_, body := do("GET", "/api/me", "")
+		var me apidto.MeResponse
+		if err := json.Unmarshal([]byte(body), &me); err != nil {
+			t.Fatal(err)
+		}
+		units := map[string]int{}
+		coin := map[string]bool{}
+		for _, c := range me.CurrencyInfo {
+			units[c.Code], coin[c.Code] = c.Units, c.Coin
+		}
+		if units["GEL"] != 2 || units["BTC"] != 8 || units["SHIB"] != 0 || coin["GEL"] || coin["USDT"] || !coin["BTC"] || len(me.CurrencyInfo) != len(me.Currencies) {
+			t.Errorf("currency info = %+v", me.CurrencyInfo)
+		}
+	})
+
 	for _, s := range steps {
 		t.Run(s.name, func(t *testing.T) {
 			status, body := do(s.method, s.path, s.body)
 			if status != s.wantStatus {
 				t.Errorf("status = %d, want %d (body %s)", status, s.wantStatus, body)
 			}
-			if strings.TrimSpace(body) != s.wantBody {
+			got := strings.TrimSpace(body)
+			// Окончание «…» значит, что ответ должен лишь начинаться с wantBody: длинные списки проверяются отдельно.
+			if head, ok := strings.CutSuffix(s.wantBody, "…"); ok && strings.HasPrefix(got, head) {
+				return
+			}
+			if got != s.wantBody {
 				t.Errorf("body = %s\nwant   %s", strings.TrimSpace(body), s.wantBody)
 			}
 		})

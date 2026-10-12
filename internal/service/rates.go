@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"math/big"
+	"slices"
 	"sort"
 
 	"moneykeeper/internal/models"
@@ -14,10 +15,10 @@ import (
 // подтягивается постепенно, а не одним долгим ответом.
 const maxRateFetches = 8
 
-// RateSource отдаёт курсы дня: цена одной целой единицы валюты в GEL. При частичном успехе
-// возвращает полученное вместе с ошибкой.
+// RateSource отдаёт курсы дня: цена одной целой единицы валюты в GEL. Фиат и USDT всегда, монеты из coins
+// по требованию. При частичном успехе возвращает полученное вместе с ошибкой.
 type RateSource interface {
-	GelPerUnit(ctx context.Context, day apptime.Day) (map[money.Currency]*big.Rat, error)
+	GelPerUnit(ctx context.Context, day apptime.Day, coins []money.Currency) (map[money.Currency]*big.Rat, error)
 }
 
 // rateBook это курсы на набор дней. Пересчёт идёт только по курсу своего дня, без подмены соседним.
@@ -52,9 +53,9 @@ func (s *Service) rateDay(u models.User, d apptime.Day) apptime.Day {
 	return d
 }
 
-// rates возвращает курсы на дни, докачивая недостающие. Недоступный источник не ошибка: сумм в базовой
-// валюте просто не будет, остальной ответ остаётся рабочим.
-func (s *Service) rates(ctx context.Context, days []apptime.Day) rateBook {
+// rates возвращает курсы на дни, докачивая недостающие: основные валюты всегда, монеты из coins только если они
+// нужны. Недоступный источник не ошибка: сумм в базовой валюте просто не будет, остальной ответ остаётся рабочим.
+func (s *Service) rates(ctx context.Context, days []apptime.Day, coins []money.Currency) rateBook {
 	days = uniqueDays(days)
 	book, err := s.rateStore.ForDays(ctx, days)
 	if err != nil {
@@ -62,9 +63,17 @@ func (s *Service) rates(ctx context.Context, days []apptime.Day) rateBook {
 		return rateBook{}
 	}
 
+	// Для каждого дня запоминаем, каких монет не хватает: основные валюты проверяются всегда.
 	var missing []apptime.Day
+	absent := map[apptime.Day][]money.Currency{}
 	for _, d := range days {
-		if len(book[d]) < len(money.All)-1 { // все валюты, кроме GEL
+		lacksCore := slices.ContainsFunc(money.Core, func(c money.Currency) bool { return book[d][c] == nil })
+		for _, c := range coins {
+			if book[d][c] == nil {
+				absent[d] = append(absent[d], c)
+			}
+		}
+		if lacksCore || len(absent[d]) > 0 {
 			missing = append(missing, d)
 		}
 	}
@@ -75,7 +84,7 @@ func (s *Service) rates(ctx context.Context, days []apptime.Day) rateBook {
 
 	fetched := false
 	for _, d := range missing {
-		got, err := s.fx.GelPerUnit(ctx, d)
+		got, err := s.fx.GelPerUnit(ctx, d, absent[d])
 		if err != nil {
 			s.log.Warn("fetch rates", "day", d.String(), "err", err)
 		}
@@ -86,7 +95,7 @@ func (s *Service) rates(ctx context.Context, days []apptime.Day) rateBook {
 			}
 			fetched = true
 		}
-		if err != nil {
+		if err != nil && len(got) == 0 {
 			break // источник недоступен: не ждём таймаута на каждый день
 		}
 	}
@@ -119,7 +128,11 @@ func (s *Service) priceTransactions(ctx context.Context, u models.User, ts []mod
 	for _, t := range ts {
 		days = append(days, s.rateDay(u, t.OccurredOn))
 	}
-	book := s.rates(ctx, days)
+	coins := make([]money.Currency, 0, len(ts))
+	for _, t := range ts {
+		coins = append(coins, t.Currency)
+	}
+	book := s.rates(ctx, days, onlyCoins(coins))
 	for i, t := range ts {
 		if v, ok := book.convert(t.AmountMinor, t.Currency, base, s.rateDay(u, t.OccurredOn)); ok {
 			ts[i].BaseMinor = &v
@@ -150,7 +163,13 @@ func (s *Service) priceAccounts(ctx context.Context, u models.User, accs []model
 		k := key{sp.AccountID, sp.Currency}
 		spendsOf[k] = append(spendsOf[k], sp)
 	}
-	book := s.rates(ctx, days)
+	var held []money.Currency
+	for _, a := range accs {
+		for _, b := range a.Balances {
+			held = append(held, b.Currency)
+		}
+	}
+	book := s.rates(ctx, days, onlyCoins(held))
 
 	for ai := range accs {
 		for bi := range accs[ai].Balances {
@@ -174,6 +193,17 @@ func (s *Service) priceAccounts(ctx context.Context, u models.User, accs []model
 		}
 	}
 	return nil
+}
+
+// onlyCoins оставляет монеты без повторов: только их курсы запрашиваются отдельно.
+func onlyCoins(cs []money.Currency) []money.Currency {
+	var out []money.Currency
+	for _, c := range cs {
+		if money.IsCoin(c) && !slices.Contains(out, c) {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func uniqueDays(days []apptime.Day) []apptime.Day {
