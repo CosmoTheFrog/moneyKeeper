@@ -711,9 +711,17 @@ h1 {
 }
 
 .period-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin: 8px 0 0;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
   font-size: 13px;
-  color: var(--muted);
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
 }
 
 /* Календарь выбора периода. */

@@ -52,9 +52,12 @@ export function PeriodPicker({ presets, period, range, custom, today, onPeriod, 
           {period === 'custom' && formatRange(custom, today)}
         </button>
       </div>
-      <p className="period-caption">
+      <button type="button" className="period-caption" onClick={() => setCalendar(true)}>
         {formatRange(range, today)} · {days} {plural(days, t.calendar.days)}
-      </p>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+      </button>
 
       {calendar && (
         <RangeCalendar
