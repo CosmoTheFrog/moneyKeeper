@@ -48,6 +48,7 @@ type AccountDTO struct {
 	Currency     string `json:"currency"`
 	IsDefault    bool   `json:"is_default"`
 	BalanceMinor int64  `json:"balance_minor"`
+	SpentMinor   int64  `json:"spent_minor"`
 }
 
 type AccountsResponse struct {

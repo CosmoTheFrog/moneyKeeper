@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Обмен: доллары с рублёвой карты</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.app{position:relative;width:390px;height:844px;overflow:hidden;background:#F3F5F7;color:#12202B;font-family:'Manrope',system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.bg{position:absolute;inset:0;filter:blur(7px);padding:24px 16px}
+.row{height:58px;border-radius:14px;background:#fff;margin-bottom:10px}
+.dim{position:absolute;inset:0;background:rgba(18,32,43,.38)}
+.modal{position:absolute;left:16px;right:16px;top:28px;background:#fff;border-radius:22px;padding:18px;box-shadow:0 20px 60px rgba(18,32,43,.3)}
+.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.title{font-weight:800;font-size:18px;margin:0}
+.x{width:34px;height:34px;border-radius:12px;background:#F3F5F7;display:flex;align-items:center;justify-content:center;color:#6B7A88}
+.pills{display:flex;gap:6px;margin-bottom:12px}
+.pill{padding:9px 13px;border:1px solid #E3E8EC;border-radius:999px;background:#fff;font-weight:700;font-size:14px}
+.on{background:#0E7C7B;border-color:#0E7C7B;color:#fff}
+.card{border:1px solid #E3E8EC;border-radius:16px;padding:14px;margin-bottom:8px;background:#fff}
+.lab{font-size:12px;font-weight:700;color:#6B7A88;margin-bottom:6px}
+.sel{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border:1px solid #E3E8EC;border-radius:12px;background:#F3F5F7;font-weight:700}
+.amt{display:flex;align-items:center;gap:10px;margin-top:8px}
+.v{flex:1;padding:11px 14px;border:1px solid #E3E8EC;border-radius:12px;background:#F3F5F7;font-size:22px;font-weight:800}
+.cur{font-weight:800;color:#0E7C7B;font-size:16px}
+.hint{font-size:12px;color:#6B7A88;line-height:1.4;margin-top:6px}
+.swap{position:relative;height:0;display:flex;justify-content:center;z-index:2}
+.swap span{position:absolute;top:-18px;width:36px;height:36px;border-radius:18px;background:#0E7C7B;color:#fff;border:3px solid #fff;display:flex;align-items:center;justify-content:center}
+.rate{border-radius:14px;background:#E1F2F1;padding:12px 14px;margin-bottom:8px}
+.btn{display:block;text-align:center;background:#0E7C7B;color:#fff;border-radius:16px;padding:15px;font-weight:800;font-size:16px;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bg">
+    <div style="font-weight:800;font-size:26px;margin-bottom:16px">Операции</div>
+    <div class="row"></div><div class="row"></div><div class="row"></div><div class="row"></div>
+  </div>
+  <div class="dim"></div>
+  <div class="modal">
+    <div class="head">
+      <h2 class="title">Новая запись</h2>
+      <div class="x"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+    </div>
+    <div class="pills"><span class="pill">Расход</span><span class="pill">Доход</span><span class="pill">Перевод</span><span class="pill on">Обмен</span></div>
+
+    <div class="card">
+      <div class="lab">Отдаю</div>
+      <div class="sel"><span>Т-Банк</span><span style="color:#6B7A88;font-size:12px">RUB · 48 200,00 ₽</span></div>
+      <div class="amt"><div class="v">9 500,00</div><span class="cur">₽</span></div>
+    </div>
+    <div class="swap"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4v16M8 20l-4-4M8 20l4-4M16 20V4M16 4l-4 4M16 4l4 4"/></svg></span></div>
+    <div class="card">
+      <div class="lab">Получаю</div>
+      <div class="sel"><span>Карта USD</span><span style="color:#6B7A88;font-size:12px">USD · 500,00 $</span></div>
+      <div class="amt"><div class="v">100,00</div><span class="cur">$</span></div>
+    </div>
+
+    <div class="rate">
+      <div style="font-weight:800;font-size:15px">Курс сделки: 95,00 ₽ за 1 $</div>
+      <div class="hint" style="margin-top:2px">Считается сам по двум суммам. Курс НБ на сегодня 94,80, разница +0,2%.</div>
+    </div>
+
+    <div class="card">
+      <div class="lab">Комиссия банка (необязательно)</div>
+      <div class="amt" style="margin-top:0"><div class="v" style="font-size:18px">50,00</div><span class="cur">₽</span></div>
+      <div class="hint">Спишется с «Т-Банк» отдельным расходом в категории «Комиссии», чтобы остаток сошёлся с банком.</div>
+    </div>
+    <div class="card" style="margin-bottom:10px"><div class="lab">Заметка</div><div class="sel" style="font-weight:600">обмен для поездки</div></div>
+    <div class="btn">Сохранить</div>
+  </div>
+</div>
+</body>
+</html>

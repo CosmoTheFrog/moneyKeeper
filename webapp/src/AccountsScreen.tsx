@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, createAccount, type Account, type AccountKind } from './api'
+import { AccountFocus } from './AccountFocus'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
@@ -19,6 +20,8 @@ const kindOptions = (['debit', 'credit', 'cash'] as const).map((k) => ({ value: 
 export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }: Props) {
   const [adding, setAdding] = useState(accounts.length === 0)
   const [settings, setSettings] = useState(false)
+  const [focused, setFocused] = useState<number | null>(null)
+  const focusedAccount = accounts.find((a) => a.id === focused)
 
   return (
     <main className="screen">
@@ -40,7 +43,19 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }
 
       <div className="list">
         {accounts.map((a) => (
-          <article key={a.id} className={`account account-${a.kind}`}>
+          <div
+            key={a.id}
+            className={`account account-${a.kind} account-tap`}
+            role="button"
+            tabIndex={0}
+            onClick={() => setFocused(a.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setFocused(a.id)
+              }
+            }}
+          >
             <div className="row">
               <span className="account-name">{a.name}</span>
               {a.is_default && <span className="badge">{t.accounts.defaultBadge}</span>}
@@ -52,10 +67,11 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }
               <span>{t.accountKinds[a.kind]}</span>
               <span>{a.currency}</span>
             </div>
-          </article>
+          </div>
         ))}
       </div>
 
+      {focusedAccount !== undefined && <AccountFocus account={focusedAccount} onClose={() => setFocused(null)} />}
       {settings && <ThemeSettings onClose={() => setSettings(false)} />}
 
       {adding && (

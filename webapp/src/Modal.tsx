@@ -2,21 +2,20 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { t } from './i18n'
 
-type Props = {
-  title: string
+// Открытые слои друг над другом: Esc закрывает только верхний.
+const open: symbol[] = []
+
+type BackdropProps = {
   onClose: () => void
   children: ReactNode
-  // sheet прижимает окно к низу экрана, по умолчанию оно по центру.
+  // sheet прижимает содержимое к низу экрана, по умолчанию оно по центру.
   sheet?: boolean
 }
 
-// Открытые окна друг над другом: Esc закрывает только верхнее.
-const open: symbol[] = []
-
-// Окно поверх экрана: фон размывается, справа сверху крестик, закрывается по Esc и по нажатию на фон.
-// Рисуется в body, поэтому вложенные окна (выбор категории в форме записи) не обрезаются родителем.
-export function Modal({ title, onClose, children, sheet = false }: Props) {
-  const id = useRef(Symbol('modal'))
+// Backdrop: размытый фон на весь экран, всё остальное становится фоном. Закрывается по Esc и по нажатию на фон.
+// Рисуется в body, поэтому вложенные слои не обрезаются родителем.
+export function Backdrop({ onClose, children, sheet = false }: BackdropProps) {
+  const id = useRef(Symbol('backdrop'))
   const close = useRef(onClose)
   close.current = onClose
 
@@ -40,6 +39,23 @@ export function Modal({ title, onClose, children, sheet = false }: Props) {
         if (e.target === e.currentTarget) onClose()
       }}
     >
+      {children}
+    </div>,
+    document.body,
+  )
+}
+
+type ModalProps = {
+  title: string
+  onClose: () => void
+  children: ReactNode
+  sheet?: boolean
+}
+
+// Modal: окно с заголовком и крестиком справа сверху поверх размытого фона.
+export function Modal({ title, onClose, children, sheet = false }: ModalProps) {
+  return (
+    <Backdrop onClose={onClose} sheet={sheet}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
         <header className="modal-head">
           <h2 className="modal-title">{title}</h2>
@@ -51,7 +67,6 @@ export function Modal({ title, onClose, children, sheet = false }: Props) {
         </header>
         <div className="modal-body">{children}</div>
       </div>
-    </div>,
-    document.body,
+    </Backdrop>
   )
 }

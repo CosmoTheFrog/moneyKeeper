@@ -23,6 +23,8 @@ export type Account = {
   currency: string
   is_default: boolean
   balance_minor: number
+  // Расходы со счёта за всё время, положительная сумма. Переводы и доходы не входят.
+  spent_minor: number
 }
 
 export type CategoryGroup = 'critical' | 'debt' | 'daily' | 'rainy' | 'goal'

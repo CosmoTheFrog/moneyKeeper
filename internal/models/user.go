@@ -29,7 +29,8 @@ const (
 	AccountCredit AccountKind = "credit"
 )
 
-// Account.BalanceMinor считается из транзакций, в таблице счетов не хранится.
+// BalanceMinor и SpentMinor считаются из транзакций, в таблице счетов не хранятся.
+// SpentMinor это сумма расходов со счёта за всё время (положительная), переводы и доходы в неё не входят.
 type Account struct {
 	ID           int64
 	BudgetID     int64
@@ -38,6 +39,7 @@ type Account struct {
 	Currency     money.Currency
 	IsDefault    bool
 	BalanceMinor int64
+	SpentMinor   int64
 }
 
 // NewAccount.OpeningMinor — начальный остаток, он записывается доходом на дату создания счёта.

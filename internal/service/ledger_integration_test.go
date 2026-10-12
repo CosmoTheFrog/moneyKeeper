@@ -200,6 +200,66 @@ func TestExpenseAndIncomeChangeBalance(t *testing.T) {
 	}
 }
 
+func (l ledger) spent(t *testing.T, accountID int64) int64 {
+	t.Helper()
+	list, err := l.s.ListAccounts(context.Background(), l.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range list {
+		if a.ID == accountID {
+			return a.SpentMinor
+		}
+	}
+	t.Fatalf("account %d not found", accountID)
+	return 0
+}
+
+func TestSpentCountsOnlyExpenses(t *testing.T) {
+	ctx := context.Background()
+	l := newLedger(t)
+
+	if got := l.spent(t, l.main.ID); got != 0 {
+		t.Fatalf("spent on a fresh account = %d, want 0 (opening balance is not a spend)", got)
+	}
+
+	first := l.expense(t, l.main.ID, 5000, "Продукты")
+	l.expense(t, l.main.ID, 2500, "Одежда")
+	if _, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindIncome, AccountID: l.main.ID, AmountMinor: 20000}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindTransfer, AccountID: l.main.ID, ToAccountID: &l.cash.ID, AmountMinor: 3000}); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.spent(t, l.main.ID); got != 7500 {
+		t.Errorf("spent = %d, want 7500 (income and transfer are not spends)", got)
+	}
+	if got := l.spent(t, l.cash.ID); got != 0 {
+		t.Errorf("spent on the receiving account = %d, want 0", got)
+	}
+
+	// Правка суммы, перенос на другой счёт и удаление отражаются в «потрачено».
+	amount := int64(6000)
+	if _, err := l.s.UpdateTransaction(ctx, l.u, first.ID, models.TransactionPatch{AmountMinor: &amount}); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.spent(t, l.main.ID); got != 8500 {
+		t.Errorf("spent after edit = %d, want 8500", got)
+	}
+	if _, err := l.s.UpdateTransaction(ctx, l.u, first.ID, models.TransactionPatch{AccountID: &l.cash.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if l.spent(t, l.main.ID) != 2500 || l.spent(t, l.cash.ID) != 6000 {
+		t.Errorf("after move: main %d, cash %d, want 2500 and 6000", l.spent(t, l.main.ID), l.spent(t, l.cash.ID))
+	}
+	if err := l.s.DeleteTransaction(ctx, l.u, first.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.spent(t, l.cash.ID); got != 0 {
+		t.Errorf("spent after delete = %d, want 0", got)
+	}
+}
+
 func TestCreateTransactionValidation(t *testing.T) {
 	l := newLedger(t)
 	food := l.category(t, "Продукты")

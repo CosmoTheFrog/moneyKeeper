@@ -180,7 +180,7 @@ func budgetDTO(b models.Budget) apidto.BudgetDTO {
 func accountDTO(a models.Account) apidto.AccountDTO {
 	return apidto.AccountDTO{
 		ID: a.ID, Name: a.Name, Kind: string(a.Kind), Currency: string(a.Currency),
-		IsDefault: a.IsDefault, BalanceMinor: a.BalanceMinor,
+		IsDefault: a.IsDefault, BalanceMinor: a.BalanceMinor, SpentMinor: a.SpentMinor,
 	}
 }
 

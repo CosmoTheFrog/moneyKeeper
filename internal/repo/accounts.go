@@ -32,7 +32,9 @@ func (r *Accounts) Create(ctx context.Context, budgetID int64, in models.NewAcco
 
 // balanceSelect считает остаток из транзакций, в таблице счетов он не хранится.
 const balanceSelect = `
-	SELECT a.id, a.budget_id, a.name, a.kind, a.currency, a.is_default, COALESCE(SUM(t.amount_minor), 0)
+	SELECT a.id, a.budget_id, a.name, a.kind, a.currency, a.is_default,
+		COALESCE(SUM(t.amount_minor), 0),
+		COALESCE(SUM(-t.amount_minor) FILTER (WHERE t.kind = 'expense'), 0)
 	FROM accounts a
 	LEFT JOIN transactions t ON t.account_id = a.id AND t.deleted_at IS NULL
 	WHERE a.budget_id = $1`
@@ -71,7 +73,7 @@ func scanAccount(row pgx.Row) (models.Account, error) {
 		a        models.Account
 		kind, cu string
 	)
-	if err := row.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.IsDefault, &a.BalanceMinor); err != nil {
+	if err := row.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.IsDefault, &a.BalanceMinor, &a.SpentMinor); err != nil {
 		return models.Account{}, err
 	}
 	a.Kind, a.Currency = models.AccountKind(kind), money.Currency(cu)

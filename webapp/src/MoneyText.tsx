@@ -21,7 +21,15 @@ export function Money({ minor, currency, signed = false }: Props) {
   const { hidden, toggle } = useContext(PrivacyContext)
   const tone = minor < 0 ? 'neg' : minor > 0 && signed ? 'pos' : ''
   return (
-    <button type="button" className={`money ${tone}`} aria-label={hidden ? t.privacy.show : t.privacy.hide} onClick={toggle}>
+    <button
+      type="button"
+      className={`money ${tone}`}
+      aria-label={hidden ? t.privacy.show : t.privacy.hide}
+      onClick={(e) => {
+        e.stopPropagation() // сумма лежит внутри нажимаемых строк и карточек, они на неё не реагируют
+        toggle()
+      }}
+    >
       {hidden ? `*** ${currencySign(currency)}` : formatMinor(minor, currency, signed)}
     </button>
   )
