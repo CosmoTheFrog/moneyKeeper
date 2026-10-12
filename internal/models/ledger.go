@@ -62,6 +62,10 @@ type Transaction struct {
 	TransferID  *int64
 	CreatedBy   int64
 	CreatedAt   time.Time
+
+	// BaseMinor это сумма в базовой валюте бюджета по курсу дня записи. Не хранится, считается при выдаче.
+	// nil, если базовая валюта не выбрана или курса на этот день нет.
+	BaseMinor *int64
 }
 
 // NewTransaction описывает ввод пользователя. AmountMinor всегда положительная.

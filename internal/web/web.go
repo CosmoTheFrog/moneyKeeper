@@ -180,7 +180,10 @@ func budgetDTO(b models.Budget) apidto.BudgetDTO {
 func accountDTO(a models.Account) apidto.AccountDTO {
 	balances := make([]apidto.BalanceDTO, 0, len(a.Balances))
 	for _, b := range a.Balances {
-		balances = append(balances, apidto.BalanceDTO{Currency: string(b.Currency), BalanceMinor: b.BalanceMinor, SpentMinor: b.SpentMinor})
+		balances = append(balances, apidto.BalanceDTO{
+			Currency: string(b.Currency), BalanceMinor: b.BalanceMinor, SpentMinor: b.SpentMinor,
+			BaseBalanceMinor: b.BaseBalanceMinor, BaseSpentMinor: b.BaseSpentMinor,
+		})
 	}
 	return apidto.AccountDTO{
 		ID: a.ID, Name: a.Name, Kind: string(a.Kind), Currency: string(a.Currency),

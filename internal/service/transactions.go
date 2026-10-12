@@ -100,6 +100,9 @@ func (s *Service) CreateTransaction(ctx context.Context, u models.User, in model
 	if err != nil {
 		return nil, err
 	}
+	if err := s.priceTransactions(ctx, u, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -181,6 +184,9 @@ func (s *Service) UpdateTransaction(ctx context.Context, u models.User, id int64
 	if err != nil {
 		return nil, err
 	}
+	if err := s.priceTransactions(ctx, u, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -212,7 +218,14 @@ func (s *Service) ListTransactions(ctx context.Context, u models.User, limit, of
 	}
 	limit = min(limit, maxPageSize)
 	offset = max(offset, 0)
-	return s.transactions.List(ctx, u.ActiveBudgetID, limit, offset)
+	ts, err := s.transactions.List(ctx, u.ActiveBudgetID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.priceTransactions(ctx, u, ts); err != nil {
+		return nil, err
+	}
+	return ts, nil
 }
 
 func (s *Service) TransactionEvents(ctx context.Context, u models.User, id int64) ([]models.TransactionEvent, error) {

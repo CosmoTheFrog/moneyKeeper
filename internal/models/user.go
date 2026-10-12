@@ -1,6 +1,9 @@
 package models
 
-import "moneykeeper/pkg/money"
+import (
+	"moneykeeper/pkg/apptime"
+	"moneykeeper/pkg/money"
+)
 
 type TelegramUser struct {
 	ID        int64
@@ -31,10 +34,23 @@ const (
 
 // CurrencyBalance это остаток и расходы счёта в одной валюте. Считаются из транзакций, нигде не хранятся.
 // SpentMinor это сумма расходов за всё время (положительная), переводы и доходы в неё не входят.
+//
+// BaseBalanceMinor это остаток в базовой валюте бюджета по курсу сегодняшнего дня, BaseSpentMinor расходы
+// в ней по курсу дня каждой записи. Оба nil, пока базовая валюта не выбрана или нет нужного курса.
 type CurrencyBalance struct {
-	Currency     money.Currency
-	BalanceMinor int64
-	SpentMinor   int64
+	Currency         money.Currency
+	BalanceMinor     int64
+	SpentMinor       int64
+	BaseBalanceMinor *int64
+	BaseSpentMinor   *int64
+}
+
+// DailySpend это расходы счёта в одной валюте за один день, положительные.
+type DailySpend struct {
+	AccountID  int64
+	Currency   money.Currency
+	Day        apptime.Day
+	SpentMinor int64
 }
 
 // Account.Currency это основная валюта счёта. У обычного счёта она единственная, у счёта с

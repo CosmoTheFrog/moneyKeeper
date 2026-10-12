@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -67,7 +68,7 @@ func (c client) fails(method, path, body string, wantStatus int, wantCode string
 func TestLedgerFlow(t *testing.T) {
 	db := testdb.New(t)
 	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
-		repo.NewCategories(db), repo.NewTransactions(db))
+		repo.NewCategories(db), repo.NewTransactions(db), repo.NewRates(db), &testdb.Rates{}, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(newTestHandler(svc).routes())
 	t.Cleanup(srv.Close)
 

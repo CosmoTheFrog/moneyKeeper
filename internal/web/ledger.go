@@ -210,7 +210,7 @@ func transactionsResponse(txs []models.Transaction) apidto.TransactionsResponse 
 	for _, t := range txs {
 		out.Transactions = append(out.Transactions, apidto.TransactionDTO{
 			ID: t.ID, AccountID: t.AccountID, CategoryID: t.CategoryID, Kind: string(t.Kind),
-			AmountMinor: t.AmountMinor, Currency: string(t.Currency), Date: t.OccurredOn.String(),
+			AmountMinor: t.AmountMinor, Currency: string(t.Currency), BaseMinor: t.BaseMinor, Date: t.OccurredOn.String(),
 			Note: t.Note, TransferID: t.TransferID,
 		})
 	}

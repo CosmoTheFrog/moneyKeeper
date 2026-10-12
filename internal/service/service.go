@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -29,14 +30,18 @@ type Service struct {
 	accounts     *repo.Accounts
 	categories   *repo.Categories
 	transactions *repo.Transactions
+	rateStore    *repo.Rates
+	fx           RateSource
+	log          *slog.Logger
 	now          func() time.Time
 }
 
 func New(db *pgclient.Client, users *repo.Users, budgets *repo.Budgets, accounts *repo.Accounts,
-	categories *repo.Categories, transactions *repo.Transactions) *Service {
+	categories *repo.Categories, transactions *repo.Transactions, rateStore *repo.Rates, fx RateSource, log *slog.Logger) *Service {
 	return &Service{
 		db: db, users: users, budgets: budgets, accounts: accounts,
-		categories: categories, transactions: transactions, now: time.Now,
+		categories: categories, transactions: transactions,
+		rateStore: rateStore, fx: fx, log: log, now: time.Now,
 	}
 }
 
@@ -97,7 +102,14 @@ func (s *Service) SetBaseCurrency(ctx context.Context, u models.User, code strin
 }
 
 func (s *Service) ListAccounts(ctx context.Context, u models.User) ([]models.Account, error) {
-	return s.accounts.List(ctx, u.ActiveBudgetID)
+	accs, err := s.accounts.List(ctx, u.ActiveBudgetID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.priceAccounts(ctx, u, accs); err != nil {
+		return nil, err
+	}
+	return accs, nil
 }
 
 // CreateAccount заводит счёт. Положительный начальный остаток пишется доходом на сегодняшний день пользователя.
@@ -140,7 +152,11 @@ func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, 
 	if err != nil {
 		return models.Account{}, err
 	}
-	return acc, nil
+	accs := []models.Account{acc}
+	if err := s.priceAccounts(ctx, u, accs); err != nil {
+		return models.Account{}, err
+	}
+	return accs[0], nil
 }
 
 // today считает сегодняшний день в поясе пользователя.

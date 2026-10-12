@@ -42,10 +42,14 @@ type SetCurrencyRequest struct {
 }
 
 // BalanceDTO это остаток и расходы счёта в одной валюте. SpentMinor положительная: расходы за всё время.
+// Base* это то же в базовой валюте бюджета: остаток по сегодняшнему курсу, расходы по курсу дня каждой записи.
+// null, если базовая валюта не выбрана или курса нет.
 type BalanceDTO struct {
-	Currency     string `json:"currency"`
-	BalanceMinor int64  `json:"balance_minor"`
-	SpentMinor   int64  `json:"spent_minor"`
+	Currency         string `json:"currency"`
+	BalanceMinor     int64  `json:"balance_minor"`
+	SpentMinor       int64  `json:"spent_minor"`
+	BaseBalanceMinor *int64 `json:"base_balance_minor"`
+	BaseSpentMinor   *int64 `json:"base_spent_minor"`
 }
 
 // AccountDTO.Currency это основная валюта счёта, в Balances она первая.
@@ -95,6 +99,7 @@ type UpdateCategoryRequest struct {
 }
 
 // TransactionDTO.AmountMinor со знаком: расход и уходящая нога перевода отрицательные.
+// BaseMinor это та же сумма в базовой валюте по курсу дня записи, null если курса нет.
 type TransactionDTO struct {
 	ID          int64  `json:"id"`
 	AccountID   int64  `json:"account_id"`
@@ -102,6 +107,7 @@ type TransactionDTO struct {
 	Kind        string `json:"kind"`
 	AmountMinor int64  `json:"amount_minor"`
 	Currency    string `json:"currency"`
+	BaseMinor   *int64 `json:"base_minor"`
 	Date        string `json:"date"`
 	Note        string `json:"note"`
 	TransferID  *int64 `json:"transfer_id"`

@@ -12,6 +12,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"moneykeeper/internal/fx"
 	"moneykeeper/internal/pgclient"
 	"moneykeeper/internal/repo"
 	"moneykeeper/internal/service"
@@ -51,7 +52,7 @@ func run(log *slog.Logger) error {
 	defer db.Close()
 
 	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
-		repo.NewCategories(db), repo.NewTransactions(db))
+		repo.NewCategories(db), repo.NewTransactions(db), repo.NewRates(db), fx.NewProvider(), log)
 	srv := &http.Server{
 		Addr:              httpAddr,
 		Handler:           web.NewHandler(svc, token, log),

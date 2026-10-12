@@ -4,6 +4,7 @@ package web
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -18,7 +19,7 @@ import (
 func TestFlow(t *testing.T) {
 	db := testdb.New(t)
 	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
-		repo.NewCategories(db), repo.NewTransactions(db))
+		repo.NewCategories(db), repo.NewTransactions(db), repo.NewRates(db), &testdb.Rates{}, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(newTestHandler(svc).routes())
 	t.Cleanup(srv.Close)
 
@@ -57,11 +58,11 @@ func TestFlow(t *testing.T) {
 		{"unknown field is rejected", "PUT", "/api/budget/currency", `{"currency":"GEL","x":1}`, 400, `{"code":"invalid_request"}`},
 		{"no accounts yet", "GET", "/api/accounts", "", 200, `{"accounts":[]}`},
 		{"create first account", "POST", "/api/accounts", `{"name":"TBC","kind":"debit","currency":"GEL"}`, 201,
-			`{"id":1,"name":"TBC","kind":"debit","currency":"GEL","multi_currency":false,"is_default":true,"balances":[{"currency":"GEL","balance_minor":0,"spent_minor":0}]}`},
+			`{"id":1,"name":"TBC","kind":"debit","currency":"GEL","multi_currency":false,"is_default":true,"balances":[{"currency":"GEL","balance_minor":0,"spent_minor":0,"base_balance_minor":0,"base_spent_minor":0}]}`},
 		{"invalid account kind", "POST", "/api/accounts", `{"name":"X","kind":"bank","currency":"GEL"}`, 400, `{"code":"invalid_account"}`},
 		{"invalid account currency", "POST", "/api/accounts", `{"name":"X","kind":"cash","currency":"XXX"}`, 400, `{"code":"invalid_currency"}`},
 		{"list accounts", "GET", "/api/accounts", "", 200,
-			`{"accounts":[{"id":1,"name":"TBC","kind":"debit","currency":"GEL","multi_currency":false,"is_default":true,"balances":[{"currency":"GEL","balance_minor":0,"spent_minor":0}]}]}`},
+			`{"accounts":[{"id":1,"name":"TBC","kind":"debit","currency":"GEL","multi_currency":false,"is_default":true,"balances":[{"currency":"GEL","balance_minor":0,"spent_minor":0,"base_balance_minor":0,"base_spent_minor":0}]}]}`},
 	}
 	for _, s := range steps {
 		t.Run(s.name, func(t *testing.T) {

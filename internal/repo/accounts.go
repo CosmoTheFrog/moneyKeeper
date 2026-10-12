@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
 	"moneykeeper/internal/models"
 	"moneykeeper/internal/pgclient"
+	"moneykeeper/pkg/apptime"
 	"moneykeeper/pkg/money"
 )
 
@@ -106,6 +108,34 @@ func (r *Accounts) balances(ctx context.Context, budgetID int64, accountID *int6
 		return nil, fmt.Errorf("account balances: %w", err)
 	}
 	return out, nil
+}
+
+// DailySpends отдаёт расходы по счетам, валютам и дням: по ним считаются суммы в базовой валюте по курсу дня записи.
+func (r *Accounts) DailySpends(ctx context.Context, budgetID int64) ([]models.DailySpend, error) {
+	rows, err := r.db.Q(ctx).Query(ctx,
+		`SELECT account_id, currency, occurred_on, SUM(-amount_minor)
+		 FROM transactions
+		 WHERE budget_id = $1 AND deleted_at IS NULL AND kind = 'expense'
+		 GROUP BY account_id, currency, occurred_on`, budgetID)
+	if err != nil {
+		return nil, fmt.Errorf("daily spends: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.DailySpend
+	for rows.Next() {
+		var (
+			s  models.DailySpend
+			cu string
+			d  time.Time
+		)
+		if err := rows.Scan(&s.AccountID, &cu, &d, &s.SpentMinor); err != nil {
+			return nil, fmt.Errorf("scan daily spend: %w", err)
+		}
+		s.Currency, s.Day = money.Currency(cu), apptime.FromDate(d)
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }
 
 // arrange ставит основную валюту первой (даже без записей, с нулём), остальные по коду.
