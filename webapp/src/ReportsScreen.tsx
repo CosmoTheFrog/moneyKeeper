@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import type { Account, Category } from './api'
+import type { Account, Category, CategoryGroup } from './api'
 import { t } from './i18n'
 import type { Entry } from './ledger'
 import { Money } from './MoneyText'
 import { ChipPicker } from './Pickers'
-import { RADIUS, addDays, arcs, percent, rangeFor, spendByCategory, spendByGroup, type PresetPeriod, type Range, type Slice } from './report'
+import { RADIUS, addDays, arcs, inGroup, percent, rangeFor, spendByCategory, spendByGroup, type PresetPeriod, type Range, type Slice } from './report'
 
 type Props = {
   entries: Entry[]
@@ -31,12 +31,15 @@ export function ReportsScreen({ entries, categories, accounts, baseCurrency, tod
   const [custom, setCustom] = useState<Range>({ from: addDays(today, -29), to: today })
   const [by, setBy] = useState<By>('groups')
   const [currency, setCurrency] = useState(baseCurrency)
+  // Открытая группа: кольцо показывает её категории, а не все группы сразу.
+  const [openGroup, setOpenGroup] = useState<CategoryGroup | null>(null)
 
   const currencies = useMemo(() => [...new Set(accounts.map((a) => a.currency))], [accounts])
   const range = period === 'custom' ? custom : rangeFor(period, today)
 
   const slices = useMemo(() => spendByCategory(entries, categories, range, currency), [entries, categories, range, currency])
-  const shown: Slice[] = by === 'groups' ? spendByGroup(slices, (g) => t.groups[g]) : slices
+  const groupsView = by === 'groups' && openGroup === null
+  const shown: Slice[] = openGroup !== null ? inGroup(slices, openGroup) : by === 'groups' ? spendByGroup(slices, (g) => t.groups[g]) : slices
   const total = shown.reduce((s, x) => s + x.totalMinor, 0)
   const drawn = arcs(shown.map((s) => s.totalMinor))
 
@@ -57,8 +60,24 @@ export function ReportsScreen({ entries, categories, accounts, baseCurrency, tod
           </label>
         </div>
       )}
-      <ChipPicker value={by} options={byOptions} onChange={setBy} />
+      <ChipPicker
+        value={by}
+        options={byOptions}
+        onChange={(v) => {
+          setBy(v)
+          setOpenGroup(null)
+        }}
+      />
       {currencies.length > 1 && <ChipPicker value={currency} options={currencies.map((c) => ({ value: c, label: c }))} onChange={setCurrency} />}
+
+      {openGroup !== null && (
+        <div className="row group-head">
+          <button type="button" className="chip" onClick={() => setOpenGroup(null)}>
+            {t.reports.allGroups}
+          </button>
+          <span className="group-title">{t.groups[openGroup]}</span>
+        </div>
+      )}
 
       {shown.length === 0 ? (
         <p className="hint">{t.reports.empty}</p>
@@ -91,11 +110,32 @@ export function ReportsScreen({ entries, categories, accounts, baseCurrency, tod
 
           <div className="legend">
             {shown.map((s, i) => (
-              <div key={s.key} className="legend-row">
+              <div
+                key={s.key}
+                className={groupsView ? 'legend-row legend-tap' : 'legend-row'}
+                role={groupsView ? 'button' : undefined}
+                tabIndex={groupsView ? 0 : undefined}
+                onClick={groupsView ? () => setOpenGroup(s.group) : undefined}
+                onKeyDown={
+                  groupsView
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setOpenGroup(s.group)
+                        }
+                      }
+                    : undefined
+                }
+              >
                 <span className="dot" style={{ background: palette[i % palette.length] }} />
                 <span className="legend-name">{s.label}</span>
                 <Money minor={s.totalMinor} currency={currency} />
                 <span className="legend-pct">{percent(s.totalMinor, total)}%</span>
+                {groupsView && (
+                  <svg className="legend-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                )}
               </div>
             ))}
           </div>

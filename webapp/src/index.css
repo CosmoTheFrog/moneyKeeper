@@ -855,6 +855,33 @@ h1 {
   gap: 10px;
 }
 
+.legend-tap {
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.legend-tap:hover,
+.legend-tap:focus-visible {
+  background: var(--bg);
+  outline: 0;
+}
+
+.legend-chevron {
+  flex: none;
+  color: var(--muted);
+}
+
+.group-head {
+  margin: 12px 0 4px;
+}
+
+.group-title {
+  font-size: 18px;
+  font-weight: 800;
+}
+
 .legend-name {
   flex: 1;
   min-width: 0;

@@ -61,6 +61,11 @@ export function spendByGroup(slices: Slice[], label: (g: CategoryGroup) => strin
     .sort((a, b) => b.totalMinor - a.totalMinor)
 }
 
+// inGroup оставляет категории одной группы, порядок (от большей суммы к меньшей) сохраняется.
+export function inGroup(slices: Slice[], group: CategoryGroup): Slice[] {
+  return slices.filter((s) => s.group === group)
+}
+
 export function percent(part: number, total: number): number {
   return total === 0 ? 0 : Math.round((part * 100) / total)
 }

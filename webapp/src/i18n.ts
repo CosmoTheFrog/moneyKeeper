@@ -159,6 +159,7 @@ export const t = {
     },
     from: 'С',
     to: 'По',
+    allGroups: 'Все группы',
     byGroups: 'Группы',
     byCategories: 'Категории',
     spent: 'Потрачено',

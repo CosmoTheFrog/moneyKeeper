@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Category } from './api'
 import type { Entry } from './ledger'
-import { CIRCLE, addDays, arcs, percent, rangeFor, spendByCategory, spendByGroup } from './report'
+import { CIRCLE, addDays, arcs, inGroup, percent, rangeFor, spendByCategory, spendByGroup } from './report'
 
 function cat(id: number, name: string, group: Category['group']): Category {
   return { id, name, group, description: '', hidden: false }
@@ -86,6 +86,23 @@ describe('spendByGroup', () => {
       ['CRITICAL', 90000],
       ['DAILY', 1300],
     ])
+  })
+})
+
+describe('inGroup', () => {
+  it('keeps only the categories of one group, biggest first', () => {
+    const slices = spendByCategory(
+      [exp(1, 2, -500, '2026-10-02'), exp(2, 3, -800, '2026-10-03'), exp(3, 1, -90000, '2026-10-01')],
+      categories,
+      { from: '2026-10-01', to: '2026-10-31' },
+      'GEL',
+    )
+    expect(inGroup(slices, 'daily').map((s) => [s.label, s.totalMinor])).toEqual([
+      ['Кафе', 800],
+      ['Продукты', 500],
+    ])
+    expect(inGroup(slices, 'critical').map((s) => s.label)).toEqual(['Аренда'])
+    expect(inGroup(slices, 'goal')).toEqual([])
   })
 })
 
