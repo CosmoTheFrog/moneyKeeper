@@ -77,7 +77,7 @@ type CreateAccountRequest struct {
 
 type CategoryDTO struct {
 	ID          int64  `json:"id"`
-	Group       string `json:"group"`
+	GroupID     int64  `json:"group_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Hidden      bool   `json:"hidden"`
@@ -88,8 +88,22 @@ type CategoriesResponse struct {
 }
 
 type CreateCategoryRequest struct {
-	Name  string `json:"name"`
-	Group string `json:"group"`
+	Name    string `json:"name"`
+	GroupID int64  `json:"group_id"`
+}
+
+// CategoryGroupDTO приходит в порядке показа. Name уже на языке пользователя.
+type CategoryGroupDTO struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type CategoryGroupsResponse struct {
+	Groups []CategoryGroupDTO `json:"groups"`
+}
+
+type CreateCategoryGroupRequest struct {
+	Name string `json:"name"`
 }
 
 type UpdateCategoryRequest struct {

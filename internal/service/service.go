@@ -75,7 +75,7 @@ func (s *Service) Resolve(ctx context.Context, tg models.TelegramUser, timezone 
 		if err := s.budgets.AddMember(ctx, b.ID, created.ID); err != nil {
 			return err
 		}
-		if err := s.categories.SeedDefaults(ctx, b.ID, i18n.DefaultCategories()); err != nil {
+		if err := s.categories.SeedDefaults(ctx, b.ID, i18n.DefaultGroups(), i18n.DefaultCategories()); err != nil {
 			return err
 		}
 		return s.users.SetActiveBudget(ctx, created.ID, b.ID)

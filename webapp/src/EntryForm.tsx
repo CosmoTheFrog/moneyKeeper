@@ -8,6 +8,7 @@ import {
   updateTransaction,
   type Account,
   type Category,
+  type CategoryGroup,
   type TransactionPatch,
   type TxEvent,
 } from './api'
@@ -18,12 +19,12 @@ import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { formatInput, formatMinor, parseAmount } from './money'
 import { ChipPicker, SheetPicker } from './Pickers'
-import { groupOrder } from './report'
 
 type FormKind = 'expense' | 'income' | 'transfer' | 'opening'
 
 type Props = {
   accounts: Account[]
+  groups: CategoryGroup[]
   categories: Category[]
   // Без entry форма создаёт запись, с entry правит её.
   entry?: Entry
@@ -41,7 +42,7 @@ function kindLabel(kind: FormKind): string {
   return kind === 'opening' ? t.ledger.opening : t.kinds[kind]
 }
 
-export function EntryForm({ accounts, categories, entry, allCurrencies, presetCategoryId, onDone, onCancel }: Props) {
+export function EntryForm({ accounts, groups, categories, entry, allCurrencies, presetCategoryId, onDone, onCancel }: Props) {
   const editing = entry !== undefined
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
@@ -69,10 +70,10 @@ export function EntryForm({ accounts, categories, entry, allCurrencies, presetCa
   const canPickTarget = !editing && kind === 'transfer'
   const targets = accountsInCurrency.filter((a) => a.id !== accountId)
 
-  const categoryGroups = groupOrder
+  const categoryGroups = groups
     .map((g) => ({
-      title: t.groups[g],
-      options: categories.filter((c) => c.group === g && (!c.hidden || c.id === entry?.categoryId)).map((c) => ({ value: c.id, label: c.name })),
+      title: g.name,
+      options: categories.filter((c) => c.group_id === g.id &&(!c.hidden || c.id === entry?.categoryId)).map((c) => ({ value: c.id, label: c.name })),
     }))
     .filter((g) => g.options.length > 0)
 

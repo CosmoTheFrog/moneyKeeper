@@ -85,23 +85,49 @@ func TestLedgerFlow(t *testing.T) {
 	igor.ok("POST", "/api/accounts", `{"name":"Наличные","kind":"cash","currency":"GEL"}`, 201, &acc)
 	igor.fails("POST", "/api/accounts", `{"name":"X","kind":"cash","currency":"GEL","opening_balance_minor":-1}`, 400, apidto.CodeInvalidAccount)
 
+	var groups apidto.CategoryGroupsResponse
+	igor.ok("GET", "/api/category-groups", "", 200, &groups)
+	if len(groups.Groups) != 5 || groups.Groups[0].Name != "Критичные" || groups.Groups[2].Name != "Ежедневные" {
+		t.Fatalf("groups = %+v", groups.Groups)
+	}
+
 	var cats apidto.CategoriesResponse
 	igor.ok("GET", "/api/categories", "", 200, &cats)
-	if len(cats.Categories) != 15 || cats.Categories[4].Name != "Продукты" || cats.Categories[4].Group != "daily" {
+	if len(cats.Categories) != 15 || cats.Categories[4].Name != "Продукты" || cats.Categories[4].GroupID != groups.Groups[2].ID {
 		t.Fatalf("categories = %+v", cats.Categories)
 	}
 	food := cats.Categories[4].ID
 
 	t.Run("categories", func(t *testing.T) {
+		daily := groups.Groups[2].ID
 		var c apidto.CategoryDTO
-		igor.ok("POST", "/api/categories", `{"name":"Питомцы","group":"daily"}`, 201, &c)
-		igor.fails("POST", "/api/categories", `{"name":"Питомцы","group":"daily"}`, 400, apidto.CodeInvalidCategory)
+		igor.ok("POST", "/api/categories", fmt.Sprintf(`{"name":"Питомцы","group_id":%d}`, daily), 201, &c)
+		igor.fails("POST", "/api/categories", fmt.Sprintf(`{"name":"Питомцы","group_id":%d}`, daily), 400, apidto.CodeInvalidCategory)
+		igor.fails("POST", "/api/categories", `{"name":"Х","group_id":999999}`, 400, apidto.CodeInvalidCategory)
 		igor.ok("PATCH", fmt.Sprintf("/api/categories/%d", c.ID), `{"hidden":true,"description":"Корм"}`, 200, &c)
 		if !c.Hidden || c.Description != "Корм" || c.Name != "Питомцы" {
 			t.Errorf("updated = %+v", c)
 		}
 		igor.fails("PATCH", "/api/categories/abc", `{}`, 400, apidto.CodeInvalidRequest)
 		anna.fails("PATCH", fmt.Sprintf("/api/categories/%d", c.ID), `{"hidden":false}`, 404, apidto.CodeNotFound)
+	})
+
+	t.Run("category groups", func(t *testing.T) {
+		var g apidto.CategoryGroupDTO
+		igor.ok("POST", "/api/category-groups", `{"name":"Путешествия"}`, 201, &g)
+		if g.ID == 0 || g.Name != "Путешествия" {
+			t.Fatalf("created = %+v", g)
+		}
+		igor.fails("POST", "/api/category-groups", `{"name":"Путешествия"}`, 400, apidto.CodeInvalidCategory)
+		igor.fails("POST", "/api/category-groups", `{"name":""}`, 400, apidto.CodeInvalidCategory)
+
+		var list apidto.CategoryGroupsResponse
+		igor.ok("GET", "/api/category-groups", "", 200, &list)
+		if len(list.Groups) != 6 || list.Groups[5].ID != g.ID {
+			t.Errorf("groups = %+v", list.Groups)
+		}
+		// Чужая группа недоступна для категорий.
+		anna.fails("POST", "/api/categories", fmt.Sprintf(`{"name":"Х","group_id":%d}`, g.ID), 400, apidto.CodeInvalidCategory)
 	})
 
 	t.Run("quick input", func(t *testing.T) {

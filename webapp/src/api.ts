@@ -34,11 +34,15 @@ export type Account = {
   balances: Balance[]
 }
 
-export type CategoryGroup = 'critical' | 'debt' | 'daily' | 'rainy' | 'goal'
+// Группа категорий приходит в порядке показа, название уже на языке пользователя.
+export type CategoryGroup = {
+  id: number
+  name: string
+}
 
 export type Category = {
   id: number
-  group: CategoryGroup
+  group_id: number
   name: string
   description: string
   hidden: boolean
@@ -142,7 +146,11 @@ export const createAccount = (name: string, kind: AccountKind, currency: string,
 
 export const fetchCategories = async () => (await request<{ categories: Category[] }>('GET', '/api/categories')).categories
 
-export const createCategory = (name: string, group: CategoryGroup) => request<Category>('POST', '/api/categories', { name, group })
+export const fetchCategoryGroups = async () => (await request<{ groups: CategoryGroup[] }>('GET', '/api/category-groups')).groups
+
+export const createCategoryGroup = (name: string) => request<CategoryGroup>('POST', '/api/category-groups', { name })
+
+export const createCategory = (name: string, groupId: number) => request<Category>('POST', '/api/categories', { name, group_id: groupId })
 
 export const updateCategory = (id: number, patch: { name?: string; description?: string; hidden?: boolean }) =>
   request<Category>('PATCH', `/api/categories/${id}`, patch)

@@ -25,12 +25,38 @@ func (h *handler) listCategories(w http.ResponseWriter, r *http.Request, u model
 	h.writeJSON(w, http.StatusOK, out)
 }
 
+func (h *handler) listCategoryGroups(w http.ResponseWriter, r *http.Request, u models.User) {
+	groups, err := h.svc.ListCategoryGroups(r.Context(), u)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	out := apidto.CategoryGroupsResponse{Groups: make([]apidto.CategoryGroupDTO, 0, len(groups))}
+	for _, g := range groups {
+		out.Groups = append(out.Groups, categoryGroupDTO(g))
+	}
+	h.writeJSON(w, http.StatusOK, out)
+}
+
+func (h *handler) createCategoryGroup(w http.ResponseWriter, r *http.Request, u models.User) {
+	var req apidto.CreateCategoryGroupRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	g, err := h.svc.CreateCategoryGroup(r.Context(), u, req.Name)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusCreated, categoryGroupDTO(g))
+}
+
 func (h *handler) createCategory(w http.ResponseWriter, r *http.Request, u models.User) {
 	var req apidto.CreateCategoryRequest
 	if !h.decode(w, r, &req) {
 		return
 	}
-	c, err := h.svc.CreateCategory(r.Context(), u, req.Name, req.Group)
+	c, err := h.svc.CreateCategory(r.Context(), u, req.Name, req.GroupID)
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -202,7 +228,11 @@ func (h *handler) optionalDay(w http.ResponseWriter, s *string) (*apptime.Day, b
 }
 
 func categoryDTO(c models.Category) apidto.CategoryDTO {
-	return apidto.CategoryDTO{ID: c.ID, Group: string(c.Group), Name: c.Name, Description: c.Description, Hidden: c.Hidden}
+	return apidto.CategoryDTO{ID: c.ID, GroupID: c.GroupID, Name: c.Name, Description: c.Description, Hidden: c.Hidden}
+}
+
+func categoryGroupDTO(g models.CategoryGroup) apidto.CategoryGroupDTO {
+	return apidto.CategoryGroupDTO{ID: g.ID, Name: g.Name}
 }
 
 func transactionsResponse(txs []models.Transaction) apidto.TransactionsResponse {

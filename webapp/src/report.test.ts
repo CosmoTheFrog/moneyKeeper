@@ -1,17 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import type { Category } from './api'
+import type { Category, CategoryGroup } from './api'
 import type { Entry } from './ledger'
 import { CIRCLE, addDays, arcs, inGroup, percent, rangeFor, spendByCategory, spendByGroup, spendTotals } from './report'
 
-function cat(id: number, name: string, group: Category['group']): Category {
-  return { id, name, group, description: '', hidden: false }
+const CRITICAL = 1
+const DAILY = 3
+const GOAL = 5
+
+const groups: CategoryGroup[] = [
+  { id: CRITICAL, name: 'Критичные' },
+  { id: 2, name: 'Долги' },
+  { id: DAILY, name: 'Ежедневные' },
+  { id: GOAL, name: 'Цели' },
+  { id: 6, name: 'Своя' },
+]
+
+function cat(id: number, name: string, groupId: number): Category {
+  return { id, name, group_id: groupId, description: '', hidden: false }
 }
 
 function exp(id: number, categoryId: number, amountMinor: number, date: string, currency = 'GEL'): Entry {
   return { id, kind: 'expense', date, amountMinor, currency, accountId: 1, toAccountId: null, categoryId, note: '' }
 }
 
-const categories = [cat(1, 'Аренда', 'critical'), cat(2, 'Продукты', 'daily'), cat(3, 'Кафе', 'daily')]
+const categories = [cat(1, 'Аренда', CRITICAL), cat(2, 'Продукты', DAILY), cat(3, 'Кафе', DAILY)]
 
 describe('addDays', () => {
   it.each([
@@ -81,11 +93,16 @@ describe('spendByGroup', () => {
       { from: '2026-10-01', to: '2026-10-31' },
       'GEL',
     )
-    const groups = spendByGroup(slices, (g) => g.toUpperCase())
-    expect(groups.map((g) => [g.label, g.totalMinor])).toEqual([
-      ['CRITICAL', 90000],
-      ['DAILY', 1300],
+    expect(spendByGroup(slices, groups).map((g) => [g.label, g.totalMinor])).toEqual([
+      ['Критичные', 90000],
+      ['Ежедневные', 1300],
     ])
+  })
+
+  it('knows groups created by the user', () => {
+    const own = [...categories, cat(7, 'Авиабилеты', 6)]
+    const slices = spendByCategory([exp(1, 7, -4000, '2026-10-02')], own, { from: '2026-10-01', to: '2026-10-31' }, 'GEL')
+    expect(spendByGroup(slices, groups).map((g) => [g.label, g.totalMinor])).toEqual([['Своя', 4000]])
   })
 })
 
@@ -130,12 +147,12 @@ describe('inGroup', () => {
       { from: '2026-10-01', to: '2026-10-31' },
       'GEL',
     )
-    expect(inGroup(slices, 'daily').map((s) => [s.label, s.totalMinor])).toEqual([
+    expect(inGroup(slices, DAILY).map((s) => [s.label, s.totalMinor])).toEqual([
       ['Кафе', 800],
       ['Продукты', 500],
     ])
-    expect(inGroup(slices, 'critical').map((s) => s.label)).toEqual(['Аренда'])
-    expect(inGroup(slices, 'goal')).toEqual([])
+    expect(inGroup(slices, CRITICAL).map((s) => s.label)).toEqual(['Аренда'])
+    expect(inGroup(slices, GOAL)).toEqual([])
   })
 })
 

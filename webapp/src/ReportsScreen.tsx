@@ -8,6 +8,7 @@ import { RADIUS, addDays, arcs, inGroup, percent, rangeFor, spendByCategory, spe
 
 type Props = {
   entries: Entry[]
+  groups: CategoryGroup[]
   categories: Category[]
   baseCurrency: string
   today: string
@@ -25,13 +26,13 @@ const byOptions = [
 // Цвета групп; у категорий цвет берётся по кругу из этой же палитры.
 const palette = ['#0e7c7b', '#4c5bd4', '#d9892b', '#d4577a', '#7a8794', '#5fb3b0', '#7c88e0', '#a9b1ec', '#cdd2f5', '#a5d3d1']
 
-export function ReportsScreen({ entries, categories, baseCurrency, today }: Props) {
+export function ReportsScreen({ entries, groups, categories, baseCurrency, today }: Props) {
   const [period, setPeriod] = useState<Period>('month')
   const [custom, setCustom] = useState<Range>({ from: addDays(today, -29), to: today })
   const [by, setBy] = useState<By>('groups')
   const [currency, setCurrency] = useState(baseCurrency)
   // Открытая группа: кольцо показывает её категории, а не все группы сразу.
-  const [openGroup, setOpenGroup] = useState<CategoryGroup | null>(null)
+  const [openGroup, setOpenGroup] = useState<number | null>(null)
 
   const range = period === 'custom' ? custom : rangeFor(period, today)
   // Траты за период по валютам: пока нет курсов, они не складываются, но все видны.
@@ -41,7 +42,7 @@ export function ReportsScreen({ entries, categories, baseCurrency, today }: Prop
 
   const slices = useMemo(() => spendByCategory(entries, categories, range, currency), [entries, categories, range, currency])
   const groupsView = by === 'groups' && openGroup === null
-  const shown: Slice[] = openGroup !== null ? inGroup(slices, openGroup) : by === 'groups' ? spendByGroup(slices, (g) => t.groups[g]) : slices
+  const shown: Slice[] = openGroup !== null ? inGroup(slices, openGroup) : by === 'groups' ? spendByGroup(slices, groups) : slices
   const total = shown.reduce((s, x) => s + x.totalMinor, 0)
   const drawn = arcs(shown.map((s) => s.totalMinor))
 
@@ -86,7 +87,7 @@ export function ReportsScreen({ entries, categories, baseCurrency, today }: Prop
           <button type="button" className="chip" onClick={() => setOpenGroup(null)}>
             {t.reports.allGroups}
           </button>
-          <span className="group-title">{t.groups[openGroup]}</span>
+          <span className="group-title">{groups.find((g) => g.id === openGroup)?.name}</span>
         </div>
       )}
 
@@ -115,13 +116,13 @@ export function ReportsScreen({ entries, categories, baseCurrency, today }: Prop
                       role={groupsView ? 'button' : undefined}
                       tabIndex={groupsView ? 0 : undefined}
                       aria-label={groupsView ? slice?.label : undefined}
-                      onClick={groupsView && slice !== undefined ? () => setOpenGroup(slice.group) : undefined}
+                      onClick={groupsView && slice !== undefined ? () => setOpenGroup(slice.groupId) : undefined}
                       onKeyDown={
                         groupsView && slice !== undefined
                           ? (e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault()
-                                setOpenGroup(slice.group)
+                                setOpenGroup(slice.groupId)
                               }
                             }
                           : undefined
@@ -144,13 +145,13 @@ export function ReportsScreen({ entries, categories, baseCurrency, today }: Prop
                 className={groupsView ? 'legend-row legend-tap' : 'legend-row'}
                 role={groupsView ? 'button' : undefined}
                 tabIndex={groupsView ? 0 : undefined}
-                onClick={groupsView ? () => setOpenGroup(s.group) : undefined}
+                onClick={groupsView ? () => setOpenGroup(s.groupId) : undefined}
                 onKeyDown={
                   groupsView
                     ? (e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
-                          setOpenGroup(s.group)
+                          setOpenGroup(s.groupId)
                         }
                       }
                     : undefined

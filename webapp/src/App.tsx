@@ -3,10 +3,12 @@ import { AccountsScreen } from './AccountsScreen'
 import {
   fetchAccounts,
   fetchCategories,
+  fetchCategoryGroups,
   fetchMe,
   fetchTransactions,
   type Account,
   type Category,
+  type CategoryGroup,
   type Me,
   type Transaction,
 } from './api'
@@ -26,6 +28,7 @@ import { ThemeContext } from './ThemeSettings'
 type Data = {
   me: Me
   accounts: Account[]
+  groups: CategoryGroup[]
   categories: Category[]
   transactions: Transaction[]
 }
@@ -95,11 +98,11 @@ export function App() {
     try {
       const me = await fetchMe()
       if (me.budget.base_currency === null) {
-        setState({ kind: 'ready', data: { me, accounts: [], categories: [], transactions: [] } })
+        setState({ kind: 'ready', data: { me, accounts: [], groups: [], categories: [], transactions: [] } })
         return
       }
-      const [accounts, categories, transactions] = await Promise.all([fetchAccounts(), fetchCategories(), fetchTransactions()])
-      setState({ kind: 'ready', data: { me, accounts, categories, transactions } })
+      const [accounts, groups, categories, transactions] = await Promise.all([fetchAccounts(), fetchCategoryGroups(), fetchCategories(), fetchTransactions()])
+      setState({ kind: 'ready', data: { me, accounts, groups, categories, transactions } })
     } catch {
       setState({ kind: 'error' })
     }
@@ -140,7 +143,7 @@ export function App() {
         </main>
       )
     case 'ready': {
-      const { me, accounts, categories } = state.data
+      const { me, accounts, groups, categories } = state.data
       const base = me.budget.base_currency
       if (base === null) {
         return <CurrencyScreen currencies={me.base_currencies} onDone={() => void load()} />
@@ -168,6 +171,7 @@ export function App() {
         overlay = (
           <EntryForm
             accounts={accounts}
+            groups={groups}
             categories={categories}
             allCurrencies={me.currencies}
             presetCategoryId={screen.categoryId}
@@ -179,6 +183,7 @@ export function App() {
         overlay = (
           <EntryForm
             accounts={accounts}
+            groups={groups}
             categories={categories}
             allCurrencies={me.currencies}
             entry={screen.entry}
@@ -200,6 +205,7 @@ export function App() {
           body = (
             <CategoryScreen
               category={category}
+              groupName={groups.find((g) => g.id === category.group_id)?.name ?? ''}
               entries={entries.filter((e) => e.categoryId === category.id)}
               accounts={accounts}
               categories={categories}
@@ -217,13 +223,14 @@ export function App() {
               {tab === 'operations' && <OperationsScreen entries={entries} accounts={accounts} categories={categories} today={today} onOpen={(entry) => openEntry(entry, home)} />}
               {tab === 'categories' && (
                 <CategoriesScreen
+                  groups={groups}
                   categories={categories}
                   onChanged={reload}
                   onOpenCategory={(id) => go({ kind: 'category', categoryId: id })}
                   onAddTo={(id) => go({ kind: 'add', categoryId: id, returnTo: home })}
                 />
               )}
-              {tab === 'reports' && <ReportsScreen entries={entries} categories={categories} baseCurrency={base} today={today} />}
+              {tab === 'reports' && <ReportsScreen entries={entries} groups={groups} categories={categories} baseCurrency={base} today={today} />}
               {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} onChanged={reload} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>

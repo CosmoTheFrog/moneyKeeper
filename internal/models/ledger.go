@@ -7,27 +7,49 @@ import (
 	"moneykeeper/pkg/money"
 )
 
-type CategoryGroup string
+// GroupKey это ключ стартовой группы категорий. У групп, созданных пользователем, ключа нет.
+type GroupKey string
 
 const (
-	GroupCritical CategoryGroup = "critical"
-	GroupDebt     CategoryGroup = "debt"
-	GroupDaily    CategoryGroup = "daily"
-	GroupRainy    CategoryGroup = "rainy"
-	GroupGoal     CategoryGroup = "goal"
+	GroupCritical GroupKey = "critical"
+	GroupDebt     GroupKey = "debt"
+	GroupDaily    GroupKey = "daily"
+	GroupRainy    GroupKey = "rainy"
+	GroupGoal     GroupKey = "goal"
 )
+
+// CategoryGroup это группа категорий бюджета. Position задаёт порядок показа.
+type CategoryGroup struct {
+	ID       int64
+	BudgetID int64
+	Key      GroupKey
+	Name     string
+	Position int
+}
+
+// DefaultGroup и DefaultCategory описывают стартовый набор, который кладётся в новый бюджет.
+type DefaultGroup struct {
+	Key  GroupKey
+	Name string
+}
+
+type DefaultCategory struct {
+	Group       GroupKey
+	Name        string
+	Description string
+}
 
 type Category struct {
 	ID          int64
 	BudgetID    int64
-	Group       CategoryGroup
+	GroupID     int64
 	Name        string
 	Description string
 	Hidden      bool
 }
 
 type NewCategory struct {
-	Group       CategoryGroup
+	GroupID     int64
 	Name        string
 	Description string
 }

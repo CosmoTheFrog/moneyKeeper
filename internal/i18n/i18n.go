@@ -4,9 +4,20 @@ package i18n
 
 import "moneykeeper/internal/models"
 
+// DefaultGroups — стартовые группы категорий в порядке показа, русский язык.
+func DefaultGroups() []models.DefaultGroup {
+	return []models.DefaultGroup{
+		{Key: models.GroupCritical, Name: "Критичные"},
+		{Key: models.GroupDebt, Name: "Долги"},
+		{Key: models.GroupDaily, Name: "Ежедневные"},
+		{Key: models.GroupRainy, Name: "На чёрный день"},
+		{Key: models.GroupGoal, Name: "Цели накопления"},
+	}
+}
+
 // DefaultCategories — стартовый набор категорий по группам из README, русский язык.
-func DefaultCategories() []models.NewCategory {
-	return []models.NewCategory{
+func DefaultCategories() []models.DefaultCategory {
+	return []models.DefaultCategory{
 		{Group: models.GroupCritical, Name: "Аренда и ипотека", Description: "Жильё: аренда или платёж по ипотеке"},
 		{Group: models.GroupCritical, Name: "Коммунальные услуги", Description: "Свет, вода, газ, отопление"},
 		{Group: models.GroupCritical, Name: "Налоги", Description: "Обязательные налоги и сборы"},

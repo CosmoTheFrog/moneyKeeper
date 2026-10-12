@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -94,14 +95,28 @@ func TestSeedCategories(t *testing.T) {
 	if len(cats) != 15 {
 		t.Fatalf("got %d categories, want 15", len(cats))
 	}
-	byName := map[string]models.CategoryGroup{}
+	groups, err := l.s.ListCategoryGroups(context.Background(), l.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyOf := map[int64]models.GroupKey{}
+	var order []string
+	for _, g := range groups {
+		keyOf[g.ID] = g.Key
+		order = append(order, g.Name)
+	}
+	if want := []string{"Критичные", "Долги", "Ежедневные", "На чёрный день", "Цели накопления"}; !slices.Equal(order, want) {
+		t.Errorf("groups = %v, want %v", order, want)
+	}
+
+	byName := map[string]models.GroupKey{}
 	for _, c := range cats {
-		byName[c.Name] = c.Group
+		byName[c.Name] = keyOf[c.GroupID]
 		if c.Description == "" || c.Hidden {
 			t.Errorf("category %q: description %q hidden %v", c.Name, c.Description, c.Hidden)
 		}
 	}
-	want := map[string]models.CategoryGroup{
+	want := map[string]models.GroupKey{
 		"Аренда и ипотека": models.GroupCritical, "Погашение долгов": models.GroupDebt,
 		"Продукты": models.GroupDaily, "Сбережения": models.GroupGoal,
 	}
@@ -111,22 +126,22 @@ func TestSeedCategories(t *testing.T) {
 		}
 	}
 }
-
 func TestCategoryManagement(t *testing.T) {
 	ctx := context.Background()
 	l := newLedger(t)
 
-	created, err := l.s.CreateCategory(ctx, l.u, "  Питомцы ", "daily")
-	if err != nil || created.Name != "Питомцы" || created.Group != models.GroupDaily {
+	daily := l.group(t, models.GroupDaily)
+	created, err := l.s.CreateCategory(ctx, l.u, "  Питомцы ", daily)
+	if err != nil || created.Name != "Питомцы" || created.GroupID != daily {
 		t.Fatalf("create = %+v, %v", created, err)
 	}
-	if _, err := l.s.CreateCategory(ctx, l.u, "Питомцы", "daily"); !errors.Is(err, models.ErrInvalidCategory) {
+	if _, err := l.s.CreateCategory(ctx, l.u, "Питомцы", daily); !errors.Is(err, models.ErrInvalidCategory) {
 		t.Errorf("duplicate name: err = %v, want ErrInvalidCategory", err)
 	}
-	if _, err := l.s.CreateCategory(ctx, l.u, "Х", "weird"); !errors.Is(err, models.ErrInvalidCategory) {
+	if _, err := l.s.CreateCategory(ctx, l.u, "Х", 999999); !errors.Is(err, models.ErrInvalidCategory) {
 		t.Errorf("unknown group: err = %v, want ErrInvalidCategory", err)
 	}
-	if _, err := l.s.CreateCategory(ctx, l.u, "  ", "daily"); !errors.Is(err, models.ErrInvalidCategory) {
+	if _, err := l.s.CreateCategory(ctx, l.u, "  ", daily); !errors.Is(err, models.ErrInvalidCategory) {
 		t.Errorf("empty name: err = %v, want ErrInvalidCategory", err)
 	}
 

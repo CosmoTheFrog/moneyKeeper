@@ -6,8 +6,6 @@ export type Range = { from: string; to: string }
 
 export type PresetPeriod = 'week' | 'twoWeeks' | 'threeWeeks' | 'month'
 
-export const groupOrder: CategoryGroup[] = ['critical', 'debt', 'daily', 'rainy', 'goal']
-
 export function addDays(day: string, n: number): string {
   const [y, m, d] = day.split('-').map(Number)
   return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + n)).toISOString().slice(0, 10)
@@ -31,7 +29,7 @@ export type Slice = {
   key: string
   label: string
   totalMinor: number
-  group: CategoryGroup
+  groupId: number
 }
 
 export type CurrencyTotal = {
@@ -65,23 +63,23 @@ export function spendByCategory(entries: Entry[], categories: Category[], range:
   const out: Slice[] = []
   for (const [id, totalMinor] of totals) {
     const c = byId.get(id)
-    if (c !== undefined) out.push({ key: String(id), label: c.name, totalMinor, group: c.group })
+    if (c !== undefined) out.push({ key: String(id), label: c.name, totalMinor, groupId: c.group_id })
   }
   return out.sort((a, b) => b.totalMinor - a.totalMinor || a.label.localeCompare(b.label, 'ru'))
 }
 
-export function spendByGroup(slices: Slice[], label: (g: CategoryGroup) => string): Slice[] {
-  const totals = new Map<CategoryGroup, number>()
-  for (const s of slices) totals.set(s.group, (totals.get(s.group) ?? 0) + s.totalMinor)
-  return groupOrder
-    .filter((g) => totals.has(g))
-    .map((g) => ({ key: g, label: label(g), totalMinor: totals.get(g) ?? 0, group: g }))
+export function spendByGroup(slices: Slice[], groups: CategoryGroup[]): Slice[] {
+  const totals = new Map<number, number>()
+  for (const s of slices) totals.set(s.groupId, (totals.get(s.groupId) ?? 0) + s.totalMinor)
+  return groups
+    .filter((g) => totals.has(g.id))
+    .map((g) => ({ key: String(g.id), label: g.name, totalMinor: totals.get(g.id) ?? 0, groupId: g.id }))
     .sort((a, b) => b.totalMinor - a.totalMinor)
 }
 
 // inGroup оставляет категории одной группы, порядок (от большей суммы к меньшей) сохраняется.
-export function inGroup(slices: Slice[], group: CategoryGroup): Slice[] {
-  return slices.filter((s) => s.group === group)
+export function inGroup(slices: Slice[], groupId: number): Slice[] {
+  return slices.filter((s) => s.groupId === groupId)
 }
 
 export function percent(part: number, total: number): number {

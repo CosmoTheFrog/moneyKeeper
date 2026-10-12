@@ -1,23 +1,25 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError, createCategory, updateCategory, type Category, type CategoryGroup } from './api'
+import { ApiError, createCategory, createCategoryGroup, updateCategory, type Category, type CategoryGroup } from './api'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { ChipPicker } from './Pickers'
-import { groupOrder } from './report'
 
 type Props = {
+  groups: CategoryGroup[]
   categories: Category[]
   onChanged: () => void
   onOpenCategory: (id: number) => void
   onAddTo: (id: number) => void
 }
 
-const groupOptions = groupOrder.map((g) => ({ value: g, label: t.groups[g] }))
-
-export function CategoriesScreen({ categories, onChanged, onOpenCategory, onAddTo }: Props) {
+export function CategoriesScreen({ groups, categories, onChanged, onOpenCategory, onAddTo }: Props) {
   const [editMode, setEditMode] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [creatingGroup, setCreatingGroup] = useState(false)
   const [editing, setEditing] = useState<Category | null>(null)
+
+  const groupOptions = groups.map((g) => ({ value: g.id, label: g.name }))
+  const firstGroup = groups[0]?.id ?? 0
 
   return (
     <main className="screen">
@@ -30,13 +32,16 @@ export function CategoriesScreen({ categories, onChanged, onOpenCategory, onAddT
         <button type="button" className="chip" onClick={() => setCreating(true)}>
           {t.categories.new}
         </button>
+        <button type="button" className="chip" onClick={() => setCreatingGroup(true)}>
+          {t.categories.newGroup}
+        </button>
       </div>
 
-      {groupOrder.map((g) => {
-        const inGroup = categories.filter((c) => c.group === g)
+      {groups.map((g) => {
+        const inGroup = categories.filter((c) => c.group_id === g.id)
         return (
-          <section key={g}>
-            <h2 className="day">{t.groups[g]}</h2>
+          <section key={g.id}>
+            <h2 className="day">{g.name}</h2>
             <div className="card list-card">
               {inGroup.length === 0 && <p className="hint tight pad">{t.categories.empty}</p>}
               {inGroup.map((c) => (
@@ -71,11 +76,23 @@ export function CategoriesScreen({ categories, onChanged, onOpenCategory, onAddT
       {creating && (
         <Modal title={t.categories.new} onClose={() => setCreating(false)}>
           <CategoryForm
-            initial={{ name: '', description: '', group: 'daily', hidden: false }}
-            withGroup
+            initial={{ name: '', description: '', groupId: firstGroup, hidden: false }}
+            groupOptions={groupOptions}
             onSubmit={async (v) => {
-              await createCategory(v.name, v.group)
+              await createCategory(v.name, v.groupId)
               setCreating(false)
+              onChanged()
+            }}
+          />
+        </Modal>
+      )}
+
+      {creatingGroup && (
+        <Modal title={t.categories.newGroup} onClose={() => setCreatingGroup(false)}>
+          <GroupForm
+            onSubmit={async (name) => {
+              await createCategoryGroup(name)
+              setCreatingGroup(false)
               onChanged()
             }}
           />
@@ -85,7 +102,7 @@ export function CategoriesScreen({ categories, onChanged, onOpenCategory, onAddT
       {editing !== null && (
         <Modal title={t.categories.editTitle} onClose={() => setEditing(null)}>
           <CategoryForm
-            initial={{ name: editing.name, description: editing.description, group: editing.group, hidden: editing.hidden }}
+            initial={{ name: editing.name, description: editing.description, groupId: editing.group_id, hidden: editing.hidden }}
             withDetails
             onSubmit={async (v) => {
               const patch: { name?: string; description?: string; hidden?: boolean } = {}
@@ -103,45 +120,71 @@ export function CategoriesScreen({ categories, onChanged, onOpenCategory, onAddT
   )
 }
 
-type Values = {
-  name: string
-  description: string
-  group: CategoryGroup
-  hidden: boolean
-}
-
-type FormProps = {
-  initial: Values
-  // withGroup: выбор группы при создании. withDetails: описание и «скрыта» при правке.
-  withGroup?: boolean
-  withDetails?: boolean
-  onSubmit: (v: Values) => Promise<void>
-}
-
-function CategoryForm({ initial, withGroup = false, withDetails = false, onSubmit }: FormProps) {
-  const [v, setV] = useState(initial)
+// useSubmit держит общее состояние форм: занято, текст ошибки сервера.
+function useSubmit() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function submit(e: FormEvent) {
+  async function run(e: FormEvent, action: () => Promise<void>) {
     e.preventDefault()
     setBusy(true)
     setError(null)
     try {
-      await onSubmit(v)
+      await action()
     } catch (err) {
       setError(errorText(err instanceof ApiError ? err.code : 'internal'))
       setBusy(false)
     }
   }
+  return { busy, error, run }
+}
+
+function GroupForm({ onSubmit }: { onSubmit: (name: string) => Promise<void> }) {
+  const [name, setName] = useState('')
+  const { busy, error, run } = useSubmit()
 
   return (
-    <form className="form" onSubmit={submit}>
+    <form className="form" onSubmit={(e) => void run(e, () => onSubmit(name))}>
+      <label className="field">
+        <span className="label">{t.categories.name}</span>
+        <input value={name} maxLength={40} autoFocus onChange={(e) => setName(e.target.value)} />
+      </label>
+      {error !== null && <p className="error">{error}</p>}
+      <button type="submit" className="primary" disabled={busy || name.trim() === ''}>
+        {t.save}
+      </button>
+    </form>
+  )
+}
+
+type Values = {
+  name: string
+  description: string
+  groupId: number
+  hidden: boolean
+}
+
+type FormProps = {
+  initial: Values
+  // groupOptions: выбор группы при создании. withDetails: описание и «скрыта» при правке.
+  groupOptions?: { value: number; label: string }[]
+  withDetails?: boolean
+  onSubmit: (v: Values) => Promise<void>
+}
+
+function CategoryForm({ initial, groupOptions, withDetails = false, onSubmit }: FormProps) {
+  const [v, setV] = useState(initial)
+  const { busy, error, run } = useSubmit()
+
+  return (
+    <form className="form" onSubmit={(e) => void run(e, () => onSubmit(v))}>
       <label className="field">
         <span className="label">{t.categories.name}</span>
         <input value={v.name} maxLength={40} autoFocus onChange={(e) => setV({ ...v, name: e.target.value })} />
       </label>
-      {withGroup && <ChipPicker label={t.categories.group} value={v.group} options={groupOptions} onChange={(group) => setV({ ...v, group })} />}
+      {groupOptions !== undefined && (
+        <ChipPicker label={t.categories.group} value={v.groupId} options={groupOptions} onChange={(groupId) => setV({ ...v, groupId })} />
+      )}
       {withDetails && (
         <>
           <label className="field">

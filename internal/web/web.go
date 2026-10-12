@@ -31,7 +31,9 @@ type Service interface {
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
-	CreateCategory(ctx context.Context, u models.User, name, group string) (models.Category, error)
+	CreateCategory(ctx context.Context, u models.User, name string, groupID int64) (models.Category, error)
+	ListCategoryGroups(ctx context.Context, u models.User) ([]models.CategoryGroup, error)
+	CreateCategoryGroup(ctx context.Context, u models.User, name string) (models.CategoryGroup, error)
 	UpdateCategory(ctx context.Context, u models.User, id int64, p models.CategoryPatch) (models.Category, error)
 
 	ListTransactions(ctx context.Context, u models.User, limit, offset int) ([]models.Transaction, error)
@@ -60,6 +62,8 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
 	mux.HandleFunc("GET /api/accounts", h.auth(h.listAccounts))
 	mux.HandleFunc("POST /api/accounts", h.auth(h.createAccount))
+	mux.HandleFunc("GET /api/category-groups", h.auth(h.listCategoryGroups))
+	mux.HandleFunc("POST /api/category-groups", h.auth(h.createCategoryGroup))
 	mux.HandleFunc("GET /api/categories", h.auth(h.listCategories))
 	mux.HandleFunc("POST /api/categories", h.auth(h.createCategory))
 	mux.HandleFunc("PATCH /api/categories/{id}", h.auth(h.updateCategory))
