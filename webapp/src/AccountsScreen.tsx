@@ -61,11 +61,18 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }
               {a.is_default && <span className="badge">{t.accounts.defaultBadge}</span>}
             </div>
             <div className="account-balance">
-              <Money minor={a.balance_minor} currency={a.currency} />
+              <Money minor={a.balances[0]?.balance_minor ?? 0} currency={a.currency} />
             </div>
+            {a.balances.length > 1 && (
+              <div className="account-others">
+                {a.balances.slice(1).map((b) => (
+                  <Money key={b.currency} minor={b.balance_minor} currency={b.currency} />
+                ))}
+              </div>
+            )}
             <div className="row account-meta">
               <span>{t.accountKinds[a.kind]}</span>
-              <span>{a.currency}</span>
+              <span>{a.multi_currency ? t.accounts.many : a.currency}</span>
             </div>
           </div>
         ))}
@@ -100,6 +107,7 @@ function AccountForm({ currencies, baseCurrency, onDone }: FormProps) {
   const [name, setName] = useState('')
   const [kind, setKind] = useState<AccountKind>('debit')
   const [currency, setCurrency] = useState(baseCurrency)
+  const [mode, setMode] = useState<'one' | 'many'>('one')
   const [opening, setOpening] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -112,7 +120,7 @@ function AccountForm({ currencies, baseCurrency, onDone }: FormProps) {
 
     setBusy(true)
     try {
-      await createAccount(name, kind, currency, openingMinor)
+      await createAccount(name, kind, currency, mode === 'many', openingMinor)
       onDone()
     } catch (err) {
       setError(errorText(err instanceof ApiError ? err.code : 'internal'))
@@ -127,7 +135,22 @@ function AccountForm({ currencies, baseCurrency, onDone }: FormProps) {
         <input value={name} maxLength={40} placeholder={t.accounts.namePlaceholder} autoFocus onChange={(e) => setName(e.target.value)} />
       </label>
       <ChipPicker label={t.accounts.kind} value={kind} options={kindOptions} onChange={setKind} />
-      <ChipPicker label={t.accounts.currency} value={currency} options={currencies.map((c) => ({ value: c, label: c }))} onChange={setCurrency} />
+      <ChipPicker
+        label={t.accounts.currencyMode}
+        value={mode}
+        options={[
+          { value: 'one' as const, label: t.accounts.one },
+          { value: 'many' as const, label: t.accounts.many },
+        ]}
+        onChange={setMode}
+      />
+      {mode === 'many' && <p className="hint tight">{t.accounts.manyHint}</p>}
+      <ChipPicker
+        label={mode === 'many' ? t.accounts.mainCurrency : t.accounts.currency}
+        value={currency}
+        options={currencies.map((c) => ({ value: c, label: c }))}
+        onChange={setCurrency}
+      />
       <label className="field">
         <span className="label">{t.accounts.opening}</span>
         <input inputMode="decimal" value={opening} placeholder="0,00" onChange={(e) => setOpening(e.target.value)} />

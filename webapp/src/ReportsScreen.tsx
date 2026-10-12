@@ -1,15 +1,14 @@
 import { useMemo, useState } from 'react'
-import type { Account, Category, CategoryGroup } from './api'
+import type { Category, CategoryGroup } from './api'
 import { t } from './i18n'
 import type { Entry } from './ledger'
 import { Money } from './MoneyText'
 import { ChipPicker } from './Pickers'
-import { RADIUS, addDays, arcs, inGroup, percent, rangeFor, spendByCategory, spendByGroup, type PresetPeriod, type Range, type Slice } from './report'
+import { RADIUS, addDays, arcs, inGroup, percent, rangeFor, spendByCategory, spendByGroup, spendTotals, type PresetPeriod, type Range, type Slice } from './report'
 
 type Props = {
   entries: Entry[]
   categories: Category[]
-  accounts: Account[]
   baseCurrency: string
   today: string
 }
@@ -26,7 +25,7 @@ const byOptions = [
 // Цвета групп; у категорий цвет берётся по кругу из этой же палитры.
 const palette = ['#0e7c7b', '#4c5bd4', '#d9892b', '#d4577a', '#7a8794', '#5fb3b0', '#7c88e0', '#a9b1ec', '#cdd2f5', '#a5d3d1']
 
-export function ReportsScreen({ entries, categories, accounts, baseCurrency, today }: Props) {
+export function ReportsScreen({ entries, categories, baseCurrency, today }: Props) {
   const [period, setPeriod] = useState<Period>('month')
   const [custom, setCustom] = useState<Range>({ from: addDays(today, -29), to: today })
   const [by, setBy] = useState<By>('groups')
@@ -34,8 +33,11 @@ export function ReportsScreen({ entries, categories, accounts, baseCurrency, tod
   // Открытая группа: кольцо показывает её категории, а не все группы сразу.
   const [openGroup, setOpenGroup] = useState<CategoryGroup | null>(null)
 
-  const currencies = useMemo(() => [...new Set(accounts.map((a) => a.currency))], [accounts])
   const range = period === 'custom' ? custom : rangeFor(period, today)
+  // Траты за период по валютам: пока нет курсов, они не складываются, но все видны.
+  const totals = spendTotals(entries, range, baseCurrency)
+  const currencies = totals.some((x) => x.currency === currency) ? totals.map((x) => x.currency) : [currency, ...totals.map((x) => x.currency)]
+  const others = totals.filter((x) => x.currency !== currency)
 
   const slices = useMemo(() => spendByCategory(entries, categories, range, currency), [entries, categories, range, currency])
   const groupsView = by === 'groups' && openGroup === null
@@ -68,7 +70,16 @@ export function ReportsScreen({ entries, categories, accounts, baseCurrency, tod
           setOpenGroup(null)
         }}
       />
-      {currencies.length > 1 && <ChipPicker value={currency} options={currencies.map((c) => ({ value: c, label: c }))} onChange={setCurrency} />}
+      {currencies.length > 1 && (
+        <ChipPicker
+          value={currency}
+          options={currencies.map((c) => ({ value: c, label: c }))}
+          onChange={(c) => {
+            setCurrency(c)
+            setOpenGroup(null)
+          }}
+        />
+      )}
 
       {openGroup !== null && (
         <div className="row group-head">
@@ -87,19 +98,37 @@ export function ReportsScreen({ entries, categories, accounts, baseCurrency, tod
             <svg viewBox="0 0 200 200" role="img" aria-label={t.reports.spent}>
               <g transform="rotate(-90 100 100)">
                 <circle cx="100" cy="100" r={RADIUS} fill="none" style={{ stroke: 'var(--line)' }} strokeWidth="24" />
-                {drawn.map((a, i) => (
-                  <circle
-                    key={shown[i]?.key}
-                    cx="100"
-                    cy="100"
-                    r={RADIUS}
-                    fill="none"
-                    stroke={palette[i % palette.length]}
-                    strokeWidth="24"
-                    strokeDasharray={`${a.length} 1000`}
-                    strokeDashoffset={a.offset}
-                  />
-                ))}
+                {drawn.map((a, i) => {
+                  const slice = shown[i]
+                  return (
+                    <circle
+                      key={slice?.key}
+                      className={groupsView ? 'donut-seg donut-seg-tap' : 'donut-seg'}
+                      cx="100"
+                      cy="100"
+                      r={RADIUS}
+                      fill="none"
+                      stroke={palette[i % palette.length]}
+                      strokeWidth="24"
+                      strokeDasharray={`${a.length} 1000`}
+                      strokeDashoffset={a.offset}
+                      role={groupsView ? 'button' : undefined}
+                      tabIndex={groupsView ? 0 : undefined}
+                      aria-label={groupsView ? slice?.label : undefined}
+                      onClick={groupsView && slice !== undefined ? () => setOpenGroup(slice.group) : undefined}
+                      onKeyDown={
+                        groupsView && slice !== undefined
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                setOpenGroup(slice.group)
+                              }
+                            }
+                          : undefined
+                      }
+                    />
+                  )
+                })}
               </g>
             </svg>
             <div className="donut-center">
@@ -141,7 +170,35 @@ export function ReportsScreen({ entries, categories, accounts, baseCurrency, tod
           </div>
         </div>
       )}
-      {currencies.length > 1 && <p className="hint tight">{t.reports.noRates}</p>}
+      {others.length > 0 && (
+        <div className="also">
+          <span className="label">{t.reports.alsoSpent}</span>
+          <div className="chips">
+            {others.map((x) => (
+              <div
+                key={x.currency}
+                className="pill pill-money"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setCurrency(x.currency)
+                  setOpenGroup(null)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setCurrency(x.currency)
+                    setOpenGroup(null)
+                  }
+                }}
+              >
+                <Money minor={x.totalMinor} currency={x.currency} />
+              </div>
+            ))}
+          </div>
+          <p className="hint tight">{t.reports.noRates}</p>
+        </div>
+      )}
     </main>
   )
 }

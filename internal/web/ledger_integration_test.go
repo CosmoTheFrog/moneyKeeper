@@ -78,7 +78,7 @@ func TestLedgerFlow(t *testing.T) {
 	// Счета: основной с остатком и наличные без остатка.
 	var acc apidto.AccountDTO
 	igor.ok("POST", "/api/accounts", `{"name":"TBC","kind":"debit","currency":"GEL","opening_balance_minor":100000}`, 201, &acc)
-	if acc.ID != 1 || acc.BalanceMinor != 100000 {
+	if acc.ID != 1 || len(acc.Balances) != 1 || acc.Balances[0].BalanceMinor != 100000 {
 		t.Fatalf("account = %+v", acc)
 	}
 	igor.ok("POST", "/api/accounts", `{"name":"Наличные","kind":"cash","currency":"GEL"}`, 201, &acc)
@@ -189,10 +189,32 @@ func TestLedgerFlow(t *testing.T) {
 		igor.fails("PATCH", path, `{"note":"поздно"}`, 404, apidto.CodeNotFound)
 	})
 
+	t.Run("multi-currency account", func(t *testing.T) {
+		var wallet apidto.AccountDTO
+		igor.ok("POST", "/api/accounts", `{"name":"Binance","kind":"cash","currency":"USDT","multi_currency":true}`, 201, &wallet)
+		if !wallet.MultiCurrency || wallet.Currency != "USDT" {
+			t.Fatalf("wallet = %+v", wallet)
+		}
+		path := fmt.Sprintf(`{"kind":"income","account_id":%d,"amount_minor":25000,"currency":"EUR"}`, wallet.ID)
+		igor.ok("POST", "/api/transactions", path, 201, &list)
+		if list.Transactions[0].Currency != "EUR" || list.Transactions[0].AccountID != wallet.ID {
+			t.Errorf("record = %+v", list.Transactions[0])
+		}
+		igor.fails("POST", "/api/transactions", `{"kind":"income","account_id":1,"amount_minor":100,"currency":"EUR"}`, 400, apidto.CodeCurrencyMismatch)
+		igor.fails("POST", "/api/transactions", fmt.Sprintf(`{"kind":"income","account_id":%d,"amount_minor":100,"currency":"XXX"}`, wallet.ID), 400, apidto.CodeInvalidCurrency)
+
+		var accs apidto.AccountsResponse
+		igor.ok("GET", "/api/accounts", "", 200, &accs)
+		got := accs.Accounts[len(accs.Accounts)-1]
+		if got.ID != wallet.ID || len(got.Balances) != 2 || got.Balances[0].Currency != "USDT" || got.Balances[1].Currency != "EUR" || got.Balances[1].BalanceMinor != 25000 {
+			t.Errorf("balances = %+v", got.Balances)
+		}
+	})
+
 	// 100000 остаток + 20000 доход - 3000 перевод; расход удалён. На наличных 3000.
 	var accounts apidto.AccountsResponse
 	igor.ok("GET", "/api/accounts", "", 200, &accounts)
-	if accounts.Accounts[0].BalanceMinor != 117000 || accounts.Accounts[1].BalanceMinor != 3000 {
-		t.Errorf("balances = %d and %d, want 117000 and 3000", accounts.Accounts[0].BalanceMinor, accounts.Accounts[1].BalanceMinor)
+	if accounts.Accounts[0].Balances[0].BalanceMinor != 117000 || accounts.Accounts[1].Balances[0].BalanceMinor != 3000 {
+		t.Errorf("balances = %d and %d, want 117000 and 3000", accounts.Accounts[0].Balances[0].BalanceMinor, accounts.Accounts[1].Balances[0].BalanceMinor)
 	}
 }

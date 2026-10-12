@@ -83,7 +83,7 @@ func (h *handler) createTransaction(w http.ResponseWriter, r *http.Request, u mo
 	}
 	txs, err := h.svc.CreateTransaction(r.Context(), u, models.NewTransaction{
 		Kind: models.TransactionKind(req.Kind), AccountID: req.AccountID, ToAccountID: req.ToAccountID,
-		CategoryID: req.CategoryID, AmountMinor: req.AmountMinor, OccurredOn: day, Note: req.Note,
+		CategoryID: req.CategoryID, AmountMinor: req.AmountMinor, Currency: req.Currency, OccurredOn: day, Note: req.Note,
 	})
 	if err != nil {
 		h.fail(w, err)
@@ -106,7 +106,7 @@ func (h *handler) updateTransaction(w http.ResponseWriter, r *http.Request, u mo
 		return
 	}
 	txs, err := h.svc.UpdateTransaction(r.Context(), u, id, models.TransactionPatch{
-		AccountID: req.AccountID, CategoryID: req.CategoryID, AmountMinor: req.AmountMinor, OccurredOn: day, Note: req.Note,
+		AccountID: req.AccountID, CategoryID: req.CategoryID, AmountMinor: req.AmountMinor, Currency: req.Currency, OccurredOn: day, Note: req.Note,
 	})
 	if err != nil {
 		h.fail(w, err)

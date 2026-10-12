@@ -34,6 +34,24 @@ export type Slice = {
   group: CategoryGroup
 }
 
+export type CurrencyTotal = {
+  currency: string
+  totalMinor: number
+}
+
+// spendTotals считает расходы за период отдельно по каждой валюте: пока нет курсов, валюты не складываются,
+// но ни одна трата не должна пропадать из виду. Первой идёт валюта first (если в ней были траты), остальные по сумме.
+export function spendTotals(entries: Entry[], range: Range, first: string): CurrencyTotal[] {
+  const totals = new Map<string, number>()
+  for (const e of entries) {
+    if (e.kind !== 'expense' || e.date < range.from || e.date > range.to) continue
+    totals.set(e.currency, (totals.get(e.currency) ?? 0) - e.amountMinor)
+  }
+  return [...totals]
+    .map(([currency, totalMinor]) => ({ currency, totalMinor }))
+    .sort((a, b) => Number(b.currency === first) - Number(a.currency === first) || b.totalMinor - a.totalMinor || a.currency.localeCompare(b.currency))
+}
+
 // spendByCategory суммирует расходы за период в одной валюте: курсов пока нет, разные валюты не складываем.
 export function spendByCategory(entries: Entry[], categories: Category[], range: Range, currency: string): Slice[] {
   const byId = new Map(categories.map((c) => [c.id, c]))

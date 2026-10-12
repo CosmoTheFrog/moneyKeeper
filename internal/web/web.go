@@ -28,7 +28,7 @@ type Service interface {
 	Budget(ctx context.Context, u models.User) (models.Budget, error)
 	SetBaseCurrency(ctx context.Context, u models.User, code string) (models.Budget, error)
 	ListAccounts(ctx context.Context, u models.User) ([]models.Account, error)
-	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, openingMinor int64) (models.Account, error)
+	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
 	CreateCategory(ctx context.Context, u models.User, name, group string) (models.Category, error)
@@ -160,7 +160,7 @@ func (h *handler) createAccount(w http.ResponseWriter, r *http.Request, u models
 	if !h.decode(w, r, &req) {
 		return
 	}
-	a, err := h.svc.CreateAccount(r.Context(), u, req.Name, req.Kind, req.Currency, req.OpeningBalanceMinor)
+	a, err := h.svc.CreateAccount(r.Context(), u, req.Name, req.Kind, req.Currency, req.MultiCurrency, req.OpeningBalanceMinor)
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -178,9 +178,13 @@ func budgetDTO(b models.Budget) apidto.BudgetDTO {
 }
 
 func accountDTO(a models.Account) apidto.AccountDTO {
+	balances := make([]apidto.BalanceDTO, 0, len(a.Balances))
+	for _, b := range a.Balances {
+		balances = append(balances, apidto.BalanceDTO{Currency: string(b.Currency), BalanceMinor: b.BalanceMinor, SpentMinor: b.SpentMinor})
+	}
 	return apidto.AccountDTO{
 		ID: a.ID, Name: a.Name, Kind: string(a.Kind), Currency: string(a.Currency),
-		IsDefault: a.IsDefault, BalanceMinor: a.BalanceMinor, SpentMinor: a.SpentMinor,
+		MultiCurrency: a.MultiCurrency, IsDefault: a.IsDefault, Balances: balances,
 	}
 }
 

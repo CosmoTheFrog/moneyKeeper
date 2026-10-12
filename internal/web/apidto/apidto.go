@@ -41,14 +41,22 @@ type SetCurrencyRequest struct {
 	Currency string `json:"currency"`
 }
 
-type AccountDTO struct {
-	ID           int64  `json:"id"`
-	Name         string `json:"name"`
-	Kind         string `json:"kind"`
+// BalanceDTO это остаток и расходы счёта в одной валюте. SpentMinor положительная: расходы за всё время.
+type BalanceDTO struct {
 	Currency     string `json:"currency"`
-	IsDefault    bool   `json:"is_default"`
 	BalanceMinor int64  `json:"balance_minor"`
 	SpentMinor   int64  `json:"spent_minor"`
+}
+
+// AccountDTO.Currency это основная валюта счёта, в Balances она первая.
+type AccountDTO struct {
+	ID            int64        `json:"id"`
+	Name          string       `json:"name"`
+	Kind          string       `json:"kind"`
+	Currency      string       `json:"currency"`
+	MultiCurrency bool         `json:"multi_currency"`
+	IsDefault     bool         `json:"is_default"`
+	Balances      []BalanceDTO `json:"balances"`
 }
 
 type AccountsResponse struct {
@@ -59,6 +67,7 @@ type CreateAccountRequest struct {
 	Name                string `json:"name"`
 	Kind                string `json:"kind"`
 	Currency            string `json:"currency"`
+	MultiCurrency       bool   `json:"multi_currency"`
 	OpeningBalanceMinor int64  `json:"opening_balance_minor"`
 }
 
@@ -109,6 +118,7 @@ type CreateTransactionRequest struct {
 	ToAccountID *int64  `json:"to_account_id"`
 	CategoryID  *int64  `json:"category_id"`
 	AmountMinor int64   `json:"amount_minor"`
+	Currency    string  `json:"currency"`
 	Date        *string `json:"date"`
 	Note        string  `json:"note"`
 }
@@ -117,6 +127,7 @@ type UpdateTransactionRequest struct {
 	AccountID   *int64  `json:"account_id"`
 	CategoryID  *int64  `json:"category_id"`
 	AmountMinor *int64  `json:"amount_minor"`
+	Currency    *string `json:"currency"`
 	Date        *string `json:"date"`
 	Note        *string `json:"note"`
 }

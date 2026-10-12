@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Category } from './api'
 import type { Entry } from './ledger'
-import { CIRCLE, addDays, arcs, inGroup, percent, rangeFor, spendByCategory, spendByGroup } from './report'
+import { CIRCLE, addDays, arcs, inGroup, percent, rangeFor, spendByCategory, spendByGroup, spendTotals } from './report'
 
 function cat(id: number, name: string, group: Category['group']): Category {
   return { id, name, group, description: '', hidden: false }
@@ -86,6 +86,39 @@ describe('spendByGroup', () => {
       ['CRITICAL', 90000],
       ['DAILY', 1300],
     ])
+  })
+})
+
+describe('spendTotals', () => {
+  const range = { from: '2026-10-01', to: '2026-10-31' }
+
+  it('sums expenses per currency, base currency first, then by amount', () => {
+    const entries = [
+      exp(1, 2, -500, '2026-10-02'),
+      exp(2, 2, -2500, '2026-10-03', 'USD'),
+      exp(3, 2, -700, '2026-10-04', 'EUR'),
+      exp(4, 2, -300, '2026-10-05'),
+    ]
+    expect(spendTotals(entries, range, 'GEL')).toEqual([
+      { currency: 'GEL', totalMinor: 800 },
+      { currency: 'USD', totalMinor: 2500 },
+      { currency: 'EUR', totalMinor: 700 },
+    ])
+  })
+
+  it('does not put the base currency first when it has no spending', () => {
+    expect(spendTotals([exp(1, 2, -700, '2026-10-04', 'EUR')], range, 'GEL')).toEqual([{ currency: 'EUR', totalMinor: 700 }])
+  })
+
+  it('ignores income, transfers, openings and dates outside the range', () => {
+    const entries: Entry[] = [
+      { ...exp(1, 2, 900, '2026-10-02'), kind: 'income', categoryId: null },
+      { ...exp(2, 2, 900, '2026-10-02'), kind: 'opening', categoryId: null },
+      { ...exp(3, 2, 900, '2026-10-02'), kind: 'transfer', categoryId: null },
+      exp(4, 2, -100, '2026-09-30'),
+      exp(5, 2, -100, '2026-11-01'),
+    ]
+    expect(spendTotals(entries, range, 'GEL')).toEqual([])
   })
 })
 

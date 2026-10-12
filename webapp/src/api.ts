@@ -16,15 +16,22 @@ export type Me = {
 
 export type AccountKind = 'cash' | 'debit' | 'credit'
 
+// Остаток и расходы счёта в одной валюте. spent_minor положительная: расходы за всё время, без переводов и доходов.
+export type Balance = {
+  currency: string
+  balance_minor: number
+  spent_minor: number
+}
+
+// currency это основная валюта счёта, в balances она первая. У счёта с multi_currency записи возможны в любой валюте.
 export type Account = {
   id: number
   name: string
   kind: AccountKind
   currency: string
+  multi_currency: boolean
   is_default: boolean
-  balance_minor: number
-  // Расходы со счёта за всё время, положительная сумма. Переводы и доходы не входят.
-  spent_minor: number
+  balances: Balance[]
 }
 
 export type CategoryGroup = 'critical' | 'debt' | 'daily' | 'rainy' | 'goal'
@@ -74,6 +81,7 @@ export type NewTransaction = {
   to_account_id?: number
   category_id?: number
   amount_minor: number
+  currency?: string
   date?: string
   note: string
 }
@@ -82,6 +90,7 @@ export type TransactionPatch = {
   account_id?: number
   category_id?: number
   amount_minor?: number
+  currency?: string
   date?: string
   note?: string
 }
@@ -128,8 +137,8 @@ export const setBaseCurrency = (currency: string) => request<Budget>('PUT', '/ap
 
 export const fetchAccounts = async () => (await request<{ accounts: Account[] }>('GET', '/api/accounts')).accounts
 
-export const createAccount = (name: string, kind: AccountKind, currency: string, openingBalanceMinor: number) =>
-  request<Account>('POST', '/api/accounts', { name, kind, currency, opening_balance_minor: openingBalanceMinor })
+export const createAccount = (name: string, kind: AccountKind, currency: string, multiCurrency: boolean, openingBalanceMinor: number) =>
+  request<Account>('POST', '/api/accounts', { name, kind, currency, multi_currency: multiCurrency, opening_balance_minor: openingBalanceMinor })
 
 export const fetchCategories = async () => (await request<{ categories: Category[] }>('GET', '/api/categories')).categories
 

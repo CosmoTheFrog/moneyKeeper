@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"moneykeeper/internal/models"
+	"moneykeeper/pkg/money"
 )
 
 const (
@@ -35,8 +36,12 @@ func (s *Service) CreateTransaction(ctx context.Context, u models.User, in model
 		if err != nil {
 			return err
 		}
+		cur, err := currencyFor(acc, in.Currency)
+		if err != nil {
+			return err
+		}
 		base := models.Transaction{
-			BudgetID: u.ActiveBudgetID, AccountID: acc.ID, Currency: acc.Currency,
+			BudgetID: u.ActiveBudgetID, AccountID: acc.ID, Currency: cur,
 			OccurredOn: day, Note: note, CreatedBy: u.ID,
 		}
 
@@ -68,8 +73,8 @@ func (s *Service) CreateTransaction(ctx context.Context, u models.User, in model
 			if err != nil {
 				return err
 			}
-			if to.Currency != acc.Currency {
-				return fmt.Errorf("%s to %s: %w", acc.Currency, to.Currency, models.ErrCurrencyMismatch)
+			if !to.Allows(cur) {
+				return fmt.Errorf("%s to account %d: %w", cur, to.ID, models.ErrCurrencyMismatch)
 			}
 			transferID, err := s.transactions.NextTransferID(ctx)
 			if err != nil {
@@ -138,14 +143,26 @@ func (s *Service) UpdateTransaction(ctx context.Context, u models.User, id int64
 			if p.Note != nil {
 				v.Note = *p.Note
 			}
-			if p.AccountID != nil {
-				acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, *p.AccountID)
+			if p.AccountID != nil || p.Currency != nil {
+				accID := leg.AccountID
+				if p.AccountID != nil {
+					accID = *p.AccountID
+				}
+				acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, accID)
 				if err != nil {
 					return err
 				}
-				// Смена счёта на счёт в другой валюте меняет и валюту записи: сумма остаётся той же цифрой,
-				// записи нужна валюта её счёта.
-				v.AccountID, v.Currency = acc.ID, acc.Currency
+				cur := leg.Currency
+				switch {
+				case p.Currency != nil:
+					if cur, err = currencyFor(acc, *p.Currency); err != nil {
+						return err
+					}
+				case !acc.Allows(cur):
+					// Переезд на обычный счёт в другой валюте меняет валюту записи: сумма та же цифра, валюта счёта.
+					cur = acc.Currency
+				}
+				v.AccountID, v.Currency = acc.ID, cur
 			}
 			if p.CategoryID != nil {
 				cat, err := s.usableCategory(ctx, u, p.CategoryID)
@@ -222,10 +239,25 @@ func checkPatchAllowed(kind models.TransactionKind, p models.TransactionPatch) e
 	if p.CategoryID != nil && kind != models.KindExpense {
 		return fmt.Errorf("category of %s: %w", kind, models.ErrInvalidTransaction)
 	}
-	if p.AccountID != nil && kind != models.KindExpense && kind != models.KindIncome {
-		return fmt.Errorf("account of %s: %w", kind, models.ErrInvalidTransaction)
+	if (p.AccountID != nil || p.Currency != nil) && kind != models.KindExpense && kind != models.KindIncome {
+		return fmt.Errorf("account or currency of %s: %w", kind, models.ErrInvalidTransaction)
 	}
 	return nil
+}
+
+// currencyFor выбирает валюту записи: пустая значит основная валюта счёта, иначе она должна быть допустима на счёте.
+func currencyFor(acc models.Account, requested string) (money.Currency, error) {
+	if requested == "" {
+		return acc.Currency, nil
+	}
+	c, err := money.Parse(requested)
+	if err != nil {
+		return "", err
+	}
+	if !acc.Allows(c) {
+		return "", fmt.Errorf("%s on account %d: %w", c, acc.ID, models.ErrCurrencyMismatch)
+	}
+	return c, nil
 }
 
 func validNote(note string) (string, error) {

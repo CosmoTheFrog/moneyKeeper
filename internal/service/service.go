@@ -101,7 +101,7 @@ func (s *Service) ListAccounts(ctx context.Context, u models.User) ([]models.Acc
 }
 
 // CreateAccount заводит счёт. Положительный начальный остаток пишется доходом на сегодняшний день пользователя.
-func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, currency string, openingMinor int64) (models.Account, error) {
+func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || utf8.RuneCountInString(name) > maxNameRunes {
 		return models.Account{}, fmt.Errorf("name: %w", models.ErrInvalidAccount)
@@ -123,7 +123,7 @@ func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, 
 	var acc models.Account
 	err = s.db.InTx(ctx, func(ctx context.Context) error {
 		var err error
-		acc, err = s.accounts.Create(ctx, u.ActiveBudgetID, models.NewAccount{Name: name, Kind: k, Currency: c})
+		acc, err = s.accounts.Create(ctx, u.ActiveBudgetID, models.NewAccount{Name: name, Kind: k, Currency: c, MultiCurrency: multiCurrency})
 		if err != nil {
 			return err
 		}
@@ -134,7 +134,7 @@ func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, 
 			BudgetID: u.ActiveBudgetID, AccountID: acc.ID, Kind: models.KindOpening,
 			AmountMinor: openingMinor, Currency: c, OccurredOn: s.today(u), CreatedBy: u.ID,
 		})
-		acc.BalanceMinor = openingMinor
+		acc.Balances = []models.CurrencyBalance{{Currency: c, BalanceMinor: openingMinor}}
 		return err
 	})
 	if err != nil {

@@ -394,6 +394,26 @@ h1 {
   font-size: 28px;
 }
 
+.account-others {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 6px;
+  font-size: 15px;
+  opacity: 0.9;
+}
+
+.account-spent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-spent .account-balance {
+  margin-top: 0;
+  font-size: 24px;
+}
+
 .account-meta {
   margin-top: 14px;
   font-size: 13px;
@@ -504,6 +524,14 @@ h1 {
   border-color: var(--accent);
   background: var(--accent);
   color: #fff;
+}
+
+.pill-money {
+  cursor: pointer;
+}
+
+.also {
+  margin-top: 16px;
 }
 
 .pill:disabled {
@@ -821,6 +849,20 @@ h1 {
 .donut svg {
   width: 100%;
   height: 100%;
+}
+
+.donut-seg {
+  transition: stroke-width 0.12s;
+}
+
+.donut-seg-tap {
+  cursor: pointer;
+}
+
+.donut-seg-tap:hover,
+.donut-seg-tap:focus-visible {
+  stroke-width: 29;
+  outline: 0;
 }
 
 .donut-center {

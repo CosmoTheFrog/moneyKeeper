@@ -165,9 +165,27 @@ export function App() {
 
       let overlay = null
       if (screen.kind === 'add') {
-        overlay = <EntryForm accounts={accounts} categories={categories} presetCategoryId={screen.categoryId} onDone={() => finish(screen.returnTo)} onCancel={() => go(screen.returnTo)} />
+        overlay = (
+          <EntryForm
+            accounts={accounts}
+            categories={categories}
+            allCurrencies={me.currencies}
+            presetCategoryId={screen.categoryId}
+            onDone={() => finish(screen.returnTo)}
+            onCancel={() => go(screen.returnTo)}
+          />
+        )
       } else if (screen.kind === 'edit') {
-        overlay = <EntryForm accounts={accounts} categories={categories} entry={screen.entry} onDone={() => finish(screen.returnTo)} onCancel={() => go(screen.returnTo)} />
+        overlay = (
+          <EntryForm
+            accounts={accounts}
+            categories={categories}
+            allCurrencies={me.currencies}
+            entry={screen.entry}
+            onDone={() => finish(screen.returnTo)}
+            onCancel={() => go(screen.returnTo)}
+          />
+        )
       }
 
       let body
@@ -205,7 +223,7 @@ export function App() {
                   onAddTo={(id) => go({ kind: 'add', categoryId: id, returnTo: home })}
                 />
               )}
-              {tab === 'reports' && <ReportsScreen entries={entries} categories={categories} accounts={accounts} baseCurrency={base} today={today} />}
+              {tab === 'reports' && <ReportsScreen entries={entries} categories={categories} baseCurrency={base} today={today} />}
               {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} onChanged={reload} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>

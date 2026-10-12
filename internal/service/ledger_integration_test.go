@@ -34,7 +34,7 @@ func newLedger(t *testing.T) ledger {
 		t.Fatal(err)
 	}
 	mk := func(name, kind, cur string, opening int64) models.Account {
-		a, err := s.CreateAccount(ctx, u, name, kind, cur, opening)
+		a, err := s.CreateAccount(ctx, u, name, kind, cur, false, opening)
 		if err != nil {
 			t.Fatalf("create account %s: %v", name, err)
 		}
@@ -66,7 +66,7 @@ func (l ledger) balance(t *testing.T, accountID int64) int64 {
 	}
 	for _, a := range list {
 		if a.ID == accountID {
-			return a.BalanceMinor
+			return a.Balance(a.Currency)
 		}
 	}
 	t.Fatalf("account %d not found", accountID)
@@ -159,7 +159,7 @@ func TestOpeningBalance(t *testing.T) {
 	if txs[0].Kind != models.KindOpening || txs[0].AmountMinor != 100000 || txs[0].OccurredOn.String() != "2026-10-12" {
 		t.Errorf("opening = %+v, want opening 100000 on 2026-10-12 (user's today)", txs[0])
 	}
-	if _, err := l.s.CreateAccount(ctx, l.u, "Минус", "debit", "GEL", -1); !errors.Is(err, models.ErrInvalidAccount) {
+	if _, err := l.s.CreateAccount(ctx, l.u, "Минус", "debit", "GEL", false, -1); !errors.Is(err, models.ErrInvalidAccount) {
 		t.Errorf("negative opening: err = %v, want ErrInvalidAccount", err)
 	}
 }
@@ -208,7 +208,7 @@ func (l ledger) spent(t *testing.T, accountID int64) int64 {
 	}
 	for _, a := range list {
 		if a.ID == accountID {
-			return a.SpentMinor
+			return a.Spent(a.Currency)
 		}
 	}
 	t.Fatalf("account %d not found", accountID)

@@ -65,12 +65,14 @@ type Transaction struct {
 }
 
 // NewTransaction описывает ввод пользователя. AmountMinor всегда положительная.
+// Currency пустая означает основную валюту счёта. Для обычного счёта допустима только она.
 type NewTransaction struct {
 	Kind        TransactionKind
 	AccountID   int64
 	ToAccountID *int64
 	CategoryID  *int64
 	AmountMinor int64
+	Currency    string
 	OccurredOn  *apptime.Day
 	Note        string
 }
@@ -80,6 +82,7 @@ type TransactionPatch struct {
 	AccountID   *int64
 	CategoryID  *int64
 	AmountMinor *int64
+	Currency    *string
 	OccurredOn  *apptime.Day
 	Note        *string
 }
