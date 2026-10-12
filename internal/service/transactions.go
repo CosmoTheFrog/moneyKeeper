@@ -143,10 +143,9 @@ func (s *Service) UpdateTransaction(ctx context.Context, u models.User, id int64
 				if err != nil {
 					return err
 				}
-				if acc.Currency != leg.Currency {
-					return fmt.Errorf("%s to %s: %w", leg.Currency, acc.Currency, models.ErrCurrencyMismatch)
-				}
-				v.AccountID = acc.ID
+				// Смена счёта на счёт в другой валюте меняет и валюту записи: сумма остаётся той же цифрой,
+				// записи нужна валюта её счёта.
+				v.AccountID, v.Currency = acc.ID, acc.Currency
 			}
 			if p.CategoryID != nil {
 				cat, err := s.usableCategory(ctx, u, p.CategoryID)

@@ -413,6 +413,11 @@ h1 {
   color: #fff;
 }
 
+.pill:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .card .field + .field,
 .card .field + .chips {
   margin-top: 12px;

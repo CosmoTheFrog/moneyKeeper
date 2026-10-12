@@ -11,16 +11,25 @@ type ChipProps<T> = {
   value: T
   options: Option<T>[]
   onChange: (value: T) => void
+  disabled?: boolean
 }
 
 // ChipPicker показывает все варианты рядом, подходит для коротких списков: тип счёта, валюта, группа.
-export function ChipPicker<T extends string | number>({ label, value, options, onChange }: ChipProps<T>) {
+export function ChipPicker<T extends string | number>({ label, value, options, onChange, disabled = false }: ChipProps<T>) {
   return (
     <div className="field">
       {label !== undefined && <span className="label">{label}</span>}
       <div className="chips" role="radiogroup" aria-label={label}>
         {options.map((o) => (
-          <button key={o.value} type="button" role="radio" aria-checked={o.value === value} className={o.value === value ? 'pill pill-on' : 'pill'} onClick={() => onChange(o.value)}>
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={o.value === value}
+            disabled={disabled}
+            className={o.value === value ? 'pill pill-on' : 'pill'}
+            onClick={() => onChange(o.value)}
+          >
             {o.label}
           </button>
         ))}

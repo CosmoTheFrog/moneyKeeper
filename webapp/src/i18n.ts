@@ -112,6 +112,7 @@ export const t = {
     noteChanged: 'Заметка',
     accountChanged: 'Счёт',
     categoryChanged: 'Категория',
+    currencyLocked: 'У перевода и начального остатка валюта не меняется: она задана счетом.',
   },
 
   categories: {

@@ -208,12 +208,18 @@ export function EntryForm({ accounts, categories, entry, presetCategoryId, onDon
             <span className="label">{t.add.amount}</span>
             <span className="amount-row">
               <input inputMode="decimal" value={amount} placeholder="0,00" onChange={(e) => setAmount(e.target.value)} />
-              {editing && <span className="amount-cur">{currency}</span>}
             </span>
           </label>
-          {!editing && currencies.length > 0 && (
-            <ChipPicker label={t.add.currency} value={currency} options={currencies.map((c) => ({ value: c, label: c }))} onChange={chooseCurrency} />
+          {currencies.length > 0 && (
+            <ChipPicker
+              label={t.add.currency}
+              value={currency}
+              options={currencies.map((c) => ({ value: c, label: c }))}
+              onChange={chooseCurrency}
+              disabled={editing && !canPickAccount}
+            />
           )}
+          {editing && !canPickAccount && <p className="hint tight">{t.edit.currencyLocked}</p>}
         </div>
 
         {canPickAccount && (

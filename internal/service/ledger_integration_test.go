@@ -341,7 +341,7 @@ func TestUpdateTransaction(t *testing.T) {
 		}{
 			{"category on income", inc[0].ID, models.TransactionPatch{CategoryID: &transport}, models.ErrInvalidTransaction},
 			{"zero amount", exp.ID, models.TransactionPatch{AmountMinor: &zero}, models.ErrInvalidTransaction},
-			{"account in another currency", exp.ID, models.TransactionPatch{AccountID: &l.eur.ID}, models.ErrCurrencyMismatch},
+			{"unknown account", exp.ID, models.TransactionPatch{AccountID: ptr(int64(9999))}, models.ErrNotFound},
 			{"unknown transaction", 9999, models.TransactionPatch{Note: &note}, models.ErrNotFound},
 			{"unknown category", exp.ID, models.TransactionPatch{CategoryID: ptr(int64(9999))}, models.ErrNotFound},
 		}
@@ -353,6 +353,48 @@ func TestUpdateTransaction(t *testing.T) {
 		events, _ := l.s.TransactionEvents(ctx, l.u, exp.ID)
 		if len(events) != 2 {
 			t.Errorf("events after rejected patches = %d, want 2", len(events))
+		}
+	})
+
+	t.Run("switching to an account in another currency changes the record's currency", func(t *testing.T) {
+		got, err := l.s.UpdateTransaction(ctx, l.u, exp.ID, models.TransactionPatch{AccountID: &l.eur.ID})
+		if err != nil || len(got) != 1 {
+			t.Fatalf("update = %+v, %v", got, err)
+		}
+		if got[0].Currency != "EUR" || got[0].AccountID != l.eur.ID || got[0].AmountMinor != -7500 {
+			t.Errorf("record = %+v, want EUR on the EUR account, amount unchanged", got[0])
+		}
+		// Запись ушла со счёта в лари и легла на счёт в евро.
+		if l.balance(t, l.cash.ID) != 0 || l.balance(t, l.eur.ID) != -7500 {
+			t.Errorf("balances: cash %d, eur %d, want 0 and -7500", l.balance(t, l.cash.ID), l.balance(t, l.eur.ID))
+		}
+		list, _ := l.s.ListTransactions(ctx, l.u, 10, 0)
+		for _, tx := range list {
+			if tx.ID == exp.ID && tx.Currency != "EUR" {
+				t.Errorf("listed currency = %s, want EUR", tx.Currency)
+			}
+		}
+	})
+
+	t.Run("a transfer or an opening balance cannot change account", func(t *testing.T) {
+		legs, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{
+			Kind: models.KindTransfer, AccountID: l.main.ID, ToAccountID: &l.cash.ID, AmountMinor: 100,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := l.s.UpdateTransaction(ctx, l.u, legs[0].ID, models.TransactionPatch{AccountID: &l.eur.ID}); !errors.Is(err, models.ErrInvalidTransaction) {
+			t.Errorf("transfer: err = %v, want ErrInvalidTransaction", err)
+		}
+		all, _ := l.s.ListTransactions(ctx, l.u, 50, 0)
+		for _, tx := range all {
+			if tx.Kind != models.KindOpening {
+				continue
+			}
+			if _, err := l.s.UpdateTransaction(ctx, l.u, tx.ID, models.TransactionPatch{AccountID: &l.eur.ID}); !errors.Is(err, models.ErrInvalidTransaction) {
+				t.Errorf("opening: err = %v, want ErrInvalidTransaction", err)
+			}
+			break
 		}
 	})
 }
