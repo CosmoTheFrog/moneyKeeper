@@ -13,6 +13,7 @@ import {
 } from './api'
 import { errorText, t } from './i18n'
 import type { Entry } from './ledger'
+import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { formatInput, formatMinor, parseAmount } from './money'
 import { ChipPicker, SheetPicker } from './Pickers'
@@ -168,15 +169,7 @@ export function EntryForm({ accounts, categories, entry, presetCategoryId, onDon
   }
 
   return (
-    <main className="screen">
-      <header className="row">
-        <button type="button" className="chip" onClick={onCancel}>
-          {t.cancel}
-        </button>
-        <h1 className="h1-small">{editing ? t.edit.title : t.add.title}</h1>
-        <span className="spacer" />
-      </header>
-
+    <Modal title={editing ? t.edit.title : t.add.title} onClose={onCancel}>
       {!editing && (
         <div className="top-gap">
           <ChipPicker value={kind === 'opening' ? 'expense' : kind} options={kindOptions} onChange={setKind} />
@@ -295,7 +288,7 @@ export function EntryForm({ accounts, categories, entry, presetCategoryId, onDon
           )}
         </div>
       )}
-    </main>
+    </Modal>
   )
 }
 

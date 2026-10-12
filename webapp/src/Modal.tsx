@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { t } from './i18n'
 
 type Props = {
@@ -9,17 +10,30 @@ type Props = {
   sheet?: boolean
 }
 
+// Открытые окна друг над другом: Esc закрывает только верхнее.
+const open: symbol[] = []
+
 // Окно поверх экрана: фон размывается, справа сверху крестик, закрывается по Esc и по нажатию на фон.
+// Рисуется в body, поэтому вложенные окна (выбор категории в форме записи) не обрезаются родителем.
 export function Modal({ title, onClose, children, sheet = false }: Props) {
+  const id = useRef(Symbol('modal'))
+  const close = useRef(onClose)
+  close.current = onClose
+
   useEffect(() => {
+    const me = id.current
+    open.push(me)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && open[open.length - 1] === me) close.current()
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      open.splice(open.indexOf(me), 1)
+    }
+  }, [])
 
-  return (
+  return createPortal(
     <div
       className={sheet ? 'backdrop backdrop-sheet' : 'backdrop'}
       onMouseDown={(e) => {
@@ -37,6 +51,7 @@ export function Modal({ title, onClose, children, sheet = false }: Props) {
         </header>
         <div className="modal-body">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

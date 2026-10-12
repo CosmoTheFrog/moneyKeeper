@@ -94,10 +94,13 @@ export function App() {
 
   const entries = useMemo(() => (state.kind === 'ready' ? toEntries(state.data.transactions) : []), [state])
 
-  // Новый экран открывается с самого верха, а не с позиции прошлого.
+  // Форма записи открывается окном поверх экрана, из которого её вызвали, этот экран остаётся под ней.
+  const layer: Screen = screen.kind === 'add' || screen.kind === 'edit' ? screen.returnTo : screen
+
+  // Новый экран открывается с самого верха, а окно поверх не сдвигает экран под собой.
   useEffect(() => {
     window.scrollTo(0, 0)
-  }, [tab, screen.kind])
+  }, [tab, layer.kind])
 
   switch (state.kind) {
     case 'loading':
@@ -137,16 +140,17 @@ export function App() {
         else go({ kind: 'add', returnTo: home })
       }
 
+      let overlay = null
+      if (screen.kind === 'add') {
+        overlay = <EntryForm accounts={accounts} categories={categories} presetCategoryId={screen.categoryId} onDone={() => finish(screen.returnTo)} onCancel={() => go(screen.returnTo)} />
+      } else if (screen.kind === 'edit') {
+        overlay = <EntryForm accounts={accounts} categories={categories} entry={screen.entry} onDone={() => finish(screen.returnTo)} onCancel={() => go(screen.returnTo)} />
+      }
+
       let body
-      switch (screen.kind) {
-        case 'add':
-          body = <EntryForm accounts={accounts} categories={categories} presetCategoryId={screen.categoryId} onDone={() => finish(screen.returnTo)} onCancel={() => go(screen.returnTo)} />
-          break
-        case 'edit':
-          body = <EntryForm accounts={accounts} categories={categories} entry={screen.entry} onDone={() => finish(screen.returnTo)} onCancel={() => go(screen.returnTo)} />
-          break
+      switch (layer.kind) {
         case 'category': {
-          const category = categories.find((c) => c.id === screen.categoryId)
+          const category = categories.find((c) => c.id === layer.categoryId)
           if (category === undefined) {
             body = null
             break
@@ -184,9 +188,16 @@ export function App() {
             </>
           )
           break
+        default:
+          body = null
       }
 
-      return <PrivacyContext.Provider value={privacy}>{body}</PrivacyContext.Provider>
+      return (
+        <PrivacyContext.Provider value={privacy}>
+          {body}
+          {overlay}
+        </PrivacyContext.Provider>
+      )
     }
   }
 }
