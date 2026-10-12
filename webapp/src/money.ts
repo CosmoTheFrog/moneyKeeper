@@ -59,6 +59,24 @@ export function parseAmount(input: string, currency: string): number | null {
   return minor > 0 && minor <= MAX_MINOR ? minor : null
 }
 
+// formatRate показывает курс из десятичной строки сервера: без float, с округлением до значимых цифр.
+// Курс от 100 с двумя знаками, от 1 с четырьмя, меньше единицы четыре значащих цифры после нулей.
+export function formatRate(rate: string): string {
+  const [whole = '0', frac = ''] = rate.split('.')
+  const digits = 12
+  const padded = frac.padEnd(digits, '0').slice(0, digits)
+  const leadingZeros = whole === '0' ? (/^0*/.exec(padded)?.[0].length ?? 0) : 0
+  const keep = whole === '0' ? Math.min(leadingZeros + 4, digits) : whole.length >= 3 ? 2 : 4
+  const scale = 10n ** BigInt(digits - keep)
+  const all = BigInt(whole + padded)
+  let q = all / scale
+  if ((all % scale) * 2n >= scale) q += 1n
+  const text = q.toString().padStart(keep + 1, '0')
+  const intPart = text.slice(0, text.length - keep)
+  const fracPart = text.slice(text.length - keep).replace(/0+$/, '')
+  return `${groupDigits(Number(intPart))}${fracPart === '' ? '' : `,${fracPart}`}`
+}
+
 // formatInput возвращает сумму в виде для поля ввода: 123450 в GEL → «1234,50».
 export function formatInput(minor: number, currency: string): string {
   const u = unitsOf(currency)

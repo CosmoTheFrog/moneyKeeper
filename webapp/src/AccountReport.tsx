@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Account, Category, CategoryGroup } from './api'
 import { daysInRange } from './calendar'
+import { DisplayCurrency } from './DisplayCurrency'
 import { EntryList } from './EntryList'
 import { t } from './i18n'
 import type { Entry } from './ledger'
@@ -20,6 +21,8 @@ type Props = {
   groups: CategoryGroup[]
   categories: Category[]
   baseCurrency: string
+  currencies: string[]
+  onDisplay: (code: string) => void
   today: string
   onBack: () => void
   onOpen: (entry: Entry) => void
@@ -31,7 +34,7 @@ const BASE = 'base'
 
 // Куда и когда ушли деньги со счёта: траты по группам и категориям, по дням или месяцам и списком.
 // Нажатие на столбик «когда» сужает и кольцо, и список до этого дня или месяца.
-export function AccountReport({ account, entries, accounts, groups, categories, baseCurrency, today, onBack, onOpen }: Props) {
+export function AccountReport({ account, entries, accounts, groups, categories, baseCurrency, currencies, onDisplay, today, onBack, onOpen }: Props) {
   const [period, setPeriod] = useState<Period>('all')
   const [custom, setCustom] = useState<Range>({ from: addDays(today, -29), to: today })
   const [view, setView] = useState(BASE)
@@ -67,6 +70,7 @@ export function AccountReport({ account, entries, accounts, groups, categories, 
         <button type="button" className="chip" onClick={onBack}>
           {t.back}
         </button>
+        <DisplayCurrency display={baseCurrency} currencies={currencies} onChange={onDisplay} />
       </header>
 
       <h1>{account.name}</h1>

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { formatInput, formatMinor, isCoin, parseAmount, registerCurrencies, unitsOf } from './money'
+import { formatInput, formatMinor, formatRate, isCoin, parseAmount, registerCurrencies, unitsOf } from './money'
 
 beforeAll(() => {
   registerCurrencies([
@@ -91,5 +91,22 @@ describe('currency registry', () => {
     expect(unitsOf('XXX')).toBe(2)
     expect(isCoin('BTC')).toBe(true)
     expect(isCoin('GEL')).toBe(false)
+  })
+})
+
+describe('formatRate', () => {
+  it.each([
+    ['2.6005', '2,6005'],
+    ['1', '1'],
+    ['0.369221680697', '0,3692'],
+    ['92305.420174272633', '92 305,42'],
+    ['215291.5', '215 291,5'],
+    ['0.00000579', '0,00000579'],
+    ['0.000005794999', '0,000005795'],
+    ['999.999', '1 000'],
+    ['99.99999', '100'],
+    ['0', '0'],
+  ])('%s → %s', (rate, want) => {
+    expect(formatRate(rate)).toBe(want)
   })
 })

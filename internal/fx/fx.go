@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"moneykeeper/pkg/apptime"
@@ -19,9 +20,10 @@ import (
 )
 
 const (
-	nbgURL     = "https://nbg.gov.ge"
-	binanceURL = "https://api.binance.com"
-	timeout    = 10 * time.Second
+	nbgURL      = "https://nbg.gov.ge"
+	binanceURL  = "https://api.binance.com"
+	timeout     = 10 * time.Second
+	maxParallel = 5
 )
 
 // fiat — валюты, которые берём у НБГ.
@@ -50,15 +52,30 @@ func (p *Provider) GelPerUnit(ctx context.Context, day apptime.Day, coins []mone
 	}
 	out[money.USDT] = usdt
 
-	var errs []error
+	// Монет бывает до двух десятков, поэтому запросы идут параллельно, но не больше maxParallel сразу.
+	var (
+		mu   sync.Mutex
+		wg   sync.WaitGroup
+		errs []error
+		sem  = make(chan struct{}, maxParallel)
+	)
 	for _, c := range coins {
-		price, err := p.dailyClose(ctx, string(c)+"USDT", day)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("binance %s: %w", c, err))
-			continue
-		}
-		out[c] = new(big.Rat).Mul(price, usdt) // цена монеты в USDT на лари за USDT
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			price, err := p.dailyClose(ctx, string(c)+"USDT", day)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("binance %s: %w", c, err))
+				return
+			}
+			out[c] = new(big.Rat).Mul(price, usdt) // цена монеты в USDT на лари за USDT
+		}()
 	}
+	wg.Wait()
 	return out, errors.Join(errs...)
 }
 

@@ -5,11 +5,13 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"moneykeeper/internal/models"
 	"moneykeeper/internal/testdb"
 	"moneykeeper/pkg/apptime"
+	"moneykeeper/pkg/money"
 )
 
 // «Сегодня» в тестах леджера, 2026-10-12 по Тбилиси (см. ledgerNow).
@@ -39,7 +41,7 @@ func (l ledger) setBase(t *testing.T, code string) {
 
 func (l ledger) listBase(t *testing.T) map[int64]*int64 {
 	t.Helper()
-	ts, err := l.s.ListTransactions(context.Background(), l.u, 0, 0)
+	ts, err := l.s.ListTransactions(context.Background(), l.u, 0, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +94,7 @@ func TestTransactionsConvertedByRateOfTheirDay(t *testing.T) {
 
 	// Курс дня берётся один раз: повторные запросы того же дня не ходят в источник.
 	calls := l.fx().Calls()
-	if _, err := l.s.ListTransactions(ctx, l.u, 0, 0); err != nil {
+	if _, err := l.s.ListTransactions(ctx, l.u, 0, 0, ""); err != nil {
 		t.Fatal(err)
 	}
 	if n := l.fx().Calls(); n != calls {
@@ -251,5 +253,98 @@ func TestCoinsAreConvertedAndFetchedOnlyWhenUsed(t *testing.T) {
 	l.listBase(t)
 	if n := l.fx().CoinRequests(); n != before {
 		t.Errorf("known coin rate fetched again: %d -> %d", before, n)
+	}
+}
+
+func TestConvertIntoChosenCurrency(t *testing.T) {
+	ctx := context.Background()
+	l := newLedger(t)
+	l.setBase(t, "GEL")
+	food := l.category(t, "Продукты")
+
+	// 10,00 € = 31,59 ₾ = 11,67 $ (по 2,7084 ₾ за доллар) = 11,57 USDT (по 2,73 ₾).
+	if _, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindExpense, AccountID: l.eur.ID, CategoryID: &food, AmountMinor: 1000}); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		in   string
+		want int64
+	}{
+		{"", -3159},
+		{"GEL", -3159},
+		{"USD", -1167},
+		{"USDT", -1157},
+		{"EUR", -1000},
+		{"BTC", -12638}, // 31,594 ₾ при 250 000 ₾ за монету это 0,000126376 BTC, то есть 12638 единиц по 8 знакам
+	}
+	for _, tt := range tests {
+		t.Run("in "+tt.in, func(t *testing.T) {
+			ts, err := l.s.ListTransactions(ctx, l.u, 0, 0, tt.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if b := ts[0].BaseMinor; b == nil || *b != tt.want {
+				t.Errorf("BaseMinor = %v, want %d", b, tt.want)
+			}
+		})
+	}
+
+	if _, err := l.s.ListTransactions(ctx, l.u, 0, 0, "XXX"); !errors.Is(err, money.ErrUnknownCurrency) {
+		t.Errorf("unknown target: err = %v, want ErrUnknownCurrency", err)
+	}
+}
+
+func TestAccountsInChosenCurrency(t *testing.T) {
+	ctx := context.Background()
+	l := newLedger(t)
+	l.setBase(t, "GEL")
+
+	// На основном счёте 1000,00 ₾: это 369,22 $ по 2,7084.
+	accs, err := l.s.ListAccounts(ctx, l.u, "USD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range accs {
+		if a.ID != l.main.ID {
+			continue
+		}
+		if b := a.Balances[0].BaseBalanceMinor; b == nil || *b != 36922 {
+			t.Errorf("1000 GEL in USD = %v, want 36922", b)
+		}
+	}
+}
+
+func TestRateTable(t *testing.T) {
+	ctx := context.Background()
+	l := newLedger(t)
+
+	table, err := l.s.Rates(ctx, l.u, "USD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if table.In != "USD" || table.Day.String() != "2026-10-12" {
+		t.Fatalf("table = %+v", table)
+	}
+	got := map[money.Currency]string{}
+	for _, q := range table.Quotes {
+		got[q.Currency] = q.Rate
+	}
+	// 1 ₾ = 1/2,7084 $; евро 3,1594/2,7084; доллар к самому себе не выводится.
+	if got["GEL"] != "0.369221680697" || got["EUR"] != "1.166518977994" || got["USD"] != "" {
+		t.Errorf("rates = GEL %q EUR %q USD %q", got["GEL"], got["EUR"], got["USD"])
+	}
+	// 250 000 ₾ за монету это около 92 305 $.
+	if !strings.HasPrefix(got["BTC"], "92305.") {
+		t.Errorf("BTC = %q, want about 92305", got["BTC"])
+	}
+	// Подменный источник знает только BTC и DOGE: GEL, EUR, RUB, USDT и две монеты, доллара к самому себе нет.
+	if len(table.Quotes) != 6 {
+		t.Errorf("%d quotes, want 6: %v", len(table.Quotes), got)
+	}
+
+	// Без базовой валюты и без параметра таблица строится к лари.
+	byDefault, err := l.s.Rates(ctx, l.u, "")
+	if err != nil || byDefault.In != "GEL" {
+		t.Errorf("default table = %+v, %v", byDefault, err)
 	}
 }

@@ -101,12 +101,13 @@ func (s *Service) SetBaseCurrency(ctx context.Context, u models.User, code strin
 	return s.budgets.Get(ctx, u.ActiveBudgetID)
 }
 
-func (s *Service) ListAccounts(ctx context.Context, u models.User) ([]models.Account, error) {
+// ListAccounts: in задаёт валюту, в которую пересчитываются суммы, пусто значит базовая валюта бюджета.
+func (s *Service) ListAccounts(ctx context.Context, u models.User, in string) ([]models.Account, error) {
 	accs, err := s.accounts.List(ctx, u.ActiveBudgetID)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.priceAccounts(ctx, u, accs); err != nil {
+	if err := s.priceAccounts(ctx, u, accs, in); err != nil {
 		return nil, err
 	}
 	return accs, nil
@@ -153,7 +154,7 @@ func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, 
 		return models.Account{}, err
 	}
 	accs := []models.Account{acc}
-	if err := s.priceAccounts(ctx, u, accs); err != nil {
+	if err := s.priceAccounts(ctx, u, accs, ""); err != nil {
 		return models.Account{}, err
 	}
 	return accs[0], nil

@@ -45,6 +45,16 @@ type Screen =
   | { kind: 'account'; accountId: number }
 
 const HIDDEN_KEY = 'mk.hidden'
+const DISPLAY_KEY = 'mk.display'
+
+// Валюта, в которой показаны отчёты и итоги. Пусто значит базовая валюта бюджета.
+function readDisplay(): string {
+  try {
+    return localStorage.getItem(DISPLAY_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
 
 function readHidden(): boolean {
   try {
@@ -60,6 +70,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>({ kind: 'tabs' })
   const [hidden, setHidden] = useState(readHidden)
   const [themeMode, setThemeMode] = useState<ThemeMode>(readMode)
+  const [displayChoice, setDisplayChoice] = useState(readDisplay)
 
   const theme = useMemo(
     () => ({
@@ -105,12 +116,14 @@ export function App() {
         setState({ kind: 'ready', data: { me, accounts: [], groups: [], categories: [], transactions: [] } })
         return
       }
-      const [accounts, groups, categories, transactions] = await Promise.all([fetchAccounts(), fetchCategoryGroups(), fetchCategories(), fetchTransactions()])
+      // Сохранённая валюта могла пропасть из списка: тогда считаем в базовой.
+      const target = me.currencies.includes(displayChoice) ? displayChoice : ''
+      const [accounts, groups, categories, transactions] = await Promise.all([fetchAccounts(target), fetchCategoryGroups(), fetchCategories(), fetchTransactions(target)])
       setState({ kind: 'ready', data: { me, accounts, groups, categories, transactions } })
     } catch {
       setState({ kind: 'error' })
     }
-  }, [])
+  }, [displayChoice])
 
   useEffect(() => {
     const webApp = window.Telegram?.WebApp
@@ -149,6 +162,15 @@ export function App() {
     case 'ready': {
       const { me, accounts, groups, categories } = state.data
       const base = me.budget.base_currency
+      const display = me.currencies.includes(displayChoice) ? displayChoice : (base ?? '')
+      const changeDisplay = (code: string) => {
+        try {
+          localStorage.setItem(DISPLAY_KEY, code)
+        } catch {
+          // не сохранилось, не страшно
+        }
+        setDisplayChoice(code)
+      }
       if (base === null) {
         return <CurrencyScreen currencies={me.base_currencies} onDone={() => void load()} />
       }
@@ -235,7 +257,9 @@ export function App() {
               accounts={accounts}
               groups={groups}
               categories={categories}
-              baseCurrency={base}
+              baseCurrency={display}
+              currencies={me.currencies}
+              onDisplay={changeDisplay}
               today={today}
               onBack={() => {
                 setTab('accounts')
@@ -259,8 +283,8 @@ export function App() {
                   onAddTo={(id) => go({ kind: 'add', categoryId: id, returnTo: home })}
                 />
               )}
-              {tab === 'reports' && <ReportsScreen entries={entries} groups={groups} categories={categories} baseCurrency={base} today={today} />}
-              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} />}
+              {tab === 'reports' && <ReportsScreen entries={entries} groups={groups} categories={categories} baseCurrency={display} currencies={me.currencies} onDisplay={changeDisplay} today={today} />}
+              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>
           )

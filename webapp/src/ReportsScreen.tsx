@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Category, CategoryGroup } from './api'
+import { DisplayCurrency } from './DisplayCurrency'
 import { t } from './i18n'
 import type { Entry } from './ledger'
 import { currencySign } from './money'
@@ -12,7 +13,10 @@ type Props = {
   entries: Entry[]
   groups: CategoryGroup[]
   categories: Category[]
+  // Валюта, в которой посчитаны суммы «по курсу», и список валют для её выбора.
   baseCurrency: string
+  currencies: string[]
+  onDisplay: (code: string) => void
   today: string
 }
 
@@ -20,7 +24,7 @@ const presets = ['week', 'twoWeeks', 'threeWeeks', 'month'] as const
 
 const BASE = 'base'
 
-export function ReportsScreen({ entries, groups, categories, baseCurrency, today }: Props) {
+export function ReportsScreen({ entries, groups, categories, baseCurrency, currencies, onDisplay, today }: Props) {
   const [period, setPeriod] = useState<Period>('month')
   const [custom, setCustom] = useState<Range>({ from: addDays(today, -29), to: today })
   // 'base': всё в базовой валюте по курсу дня каждой траты; код валюты: только траты в ней, как есть.
@@ -39,7 +43,10 @@ export function ReportsScreen({ entries, groups, categories, baseCurrency, today
 
   return (
     <main className="screen">
-      <h1>{t.reports.title}</h1>
+      <header className="row">
+        <h1>{t.reports.title}</h1>
+        <DisplayCurrency display={baseCurrency} currencies={currencies} onChange={onDisplay} />
+      </header>
 
       <PeriodPicker
         presets={presets}

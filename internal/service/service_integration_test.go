@@ -169,7 +169,7 @@ func TestCreateAccount(t *testing.T) {
 		})
 	}
 
-	list, err := s.ListAccounts(ctx, u)
+	list, err := s.ListAccounts(ctx, u, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestAccountsAreScopedToBudget(t *testing.T) {
 	if _, err := s.CreateAccount(ctx, igor, "TBC", "debit", "GEL", false, 0); err != nil {
 		t.Fatal(err)
 	}
-	list, err := s.ListAccounts(ctx, other)
+	list, err := s.ListAccounts(ctx, other, "")
 	if err != nil {
 		t.Fatal(err)
 	}

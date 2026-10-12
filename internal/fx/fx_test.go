@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"moneykeeper/pkg/apptime"
@@ -121,10 +122,15 @@ func TestGelPerUnitErrors(t *testing.T) {
 }
 
 func TestGelPerUnitCoins(t *testing.T) {
-	var symbols []string
+	var (
+		mu      sync.Mutex
+		symbols []string
+	)
 	p := newProvider(t, ok(nbgBody), func(w http.ResponseWriter, r *http.Request) {
 		sym := r.URL.Query().Get("symbol")
+		mu.Lock()
 		symbols = append(symbols, sym)
+		mu.Unlock()
 		switch sym {
 		case "BTCUSDT":
 			fmt.Fprint(w, `[[1,"1","1","1","100000.50"]]`)
@@ -151,7 +157,8 @@ func TestGelPerUnitCoins(t *testing.T) {
 	if got[money.USDT] == nil || got[money.EUR] == nil {
 		t.Errorf("core rates must stay when a coin fails: %v", got)
 	}
-	if want := []string{"EURUSDT", "BTCUSDT", "NOPEUSDT"}; !slices.Equal(symbols, want) {
+	slices.Sort(symbols) // монеты запрашиваются параллельно, порядок не задан
+	if want := []string{"BTCUSDT", "EURUSDT", "NOPEUSDT"}; !slices.Equal(symbols, want) {
 		t.Errorf("binance symbols = %v, want %v", symbols, want)
 	}
 }

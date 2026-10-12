@@ -130,6 +130,23 @@ func TestLedgerFlow(t *testing.T) {
 		anna.fails("POST", "/api/categories", fmt.Sprintf(`{"name":"Х","group_id":%d}`, g.ID), 400, apidto.CodeInvalidCategory)
 	})
 
+	t.Run("rates and display currency", func(t *testing.T) {
+		var r apidto.RatesResponse
+		igor.ok("GET", "/api/rates?in=USD", "", 200, &r)
+		if r.In != "USD" || r.Day == "" || len(r.Rates) == 0 {
+			t.Fatalf("rates = %+v", r)
+		}
+		for _, q := range r.Rates {
+			if q.Currency == "USD" || q.Rate == "" {
+				t.Errorf("bad quote %+v", q)
+			}
+		}
+		igor.fails("GET", "/api/rates?in=XXX", "", 400, apidto.CodeInvalidCurrency)
+		igor.fails("GET", "/api/accounts?in=XXX", "", 400, apidto.CodeInvalidCurrency)
+		igor.fails("GET", "/api/transactions?in=XXX", "", 400, apidto.CodeInvalidCurrency)
+		igor.ok("GET", "/api/accounts?in=USDT", "", 200, nil)
+	})
+
 	t.Run("quick input", func(t *testing.T) {
 		var p apidto.ParseResponse
 		igor.ok("POST", "/api/transactions/parse", `{"text":"кофе 5 EUR"}`, 200, &p)

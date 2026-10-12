@@ -148,7 +148,14 @@ export const fetchMe = () => request<Me>('GET', '/api/me')
 
 export const setBaseCurrency = (currency: string) => request<Budget>('PUT', '/api/budget/currency', { currency })
 
-export const fetchAccounts = async () => (await request<{ accounts: Account[] }>('GET', '/api/accounts')).accounts
+// inCurrency: валюта, в которую сервер пересчитывает суммы (поля base_*); пусто значит базовая валюта бюджета.
+export const fetchAccounts = async (inCurrency: string) =>
+  (await request<{ accounts: Account[] }>('GET', `/api/accounts?in=${inCurrency}`)).accounts
+
+// Rate: сколько единиц валюты In стоит одна целая единица currency, десятичной строкой.
+export type RateTable = { day: string; in: string; rates: { currency: string; rate: string }[] }
+
+export const fetchRates = (inCurrency: string) => request<RateTable>('GET', `/api/rates?in=${inCurrency}`)
 
 export const createAccount = (name: string, kind: AccountKind, currency: string, multiCurrency: boolean, openingBalanceMinor: number) =>
   request<Account>('POST', '/api/accounts', { name, kind, currency, multi_currency: multiCurrency, opening_balance_minor: openingBalanceMinor })
@@ -164,8 +171,8 @@ export const createCategory = (name: string, groupId: number) => request<Categor
 export const updateCategory = (id: number, patch: { name?: string; description?: string; hidden?: boolean }) =>
   request<Category>('PATCH', `/api/categories/${id}`, patch)
 
-export const fetchTransactions = async (limit = 200) =>
-  (await request<{ transactions: Transaction[] }>('GET', `/api/transactions?limit=${limit}`)).transactions
+export const fetchTransactions = async (inCurrency: string, limit = 200) =>
+  (await request<{ transactions: Transaction[] }>('GET', `/api/transactions?limit=${limit}&in=${inCurrency}`)).transactions
 
 export const createTransaction = (tx: NewTransaction) => request<{ transactions: Transaction[] }>('POST', '/api/transactions', tx)
 

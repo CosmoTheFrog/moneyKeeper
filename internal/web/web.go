@@ -27,7 +27,7 @@ type Service interface {
 	Resolve(ctx context.Context, tg models.TelegramUser, timezone string) (models.User, error)
 	Budget(ctx context.Context, u models.User) (models.Budget, error)
 	SetBaseCurrency(ctx context.Context, u models.User, code string) (models.Budget, error)
-	ListAccounts(ctx context.Context, u models.User) ([]models.Account, error)
+	ListAccounts(ctx context.Context, u models.User, in string) ([]models.Account, error)
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
@@ -36,7 +36,8 @@ type Service interface {
 	CreateCategoryGroup(ctx context.Context, u models.User, name string) (models.CategoryGroup, error)
 	UpdateCategory(ctx context.Context, u models.User, id int64, p models.CategoryPatch) (models.Category, error)
 
-	ListTransactions(ctx context.Context, u models.User, limit, offset int) ([]models.Transaction, error)
+	ListTransactions(ctx context.Context, u models.User, limit, offset int, in string) ([]models.Transaction, error)
+	Rates(ctx context.Context, u models.User, in string) (models.RateTable, error)
 	CreateTransaction(ctx context.Context, u models.User, in models.NewTransaction) ([]models.Transaction, error)
 	UpdateTransaction(ctx context.Context, u models.User, id int64, p models.TransactionPatch) ([]models.Transaction, error)
 	DeleteTransaction(ctx context.Context, u models.User, id int64) error
@@ -60,6 +61,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("GET /healthz", h.healthz)
 	mux.HandleFunc("GET /api/me", h.auth(h.me))
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
+	mux.HandleFunc("GET /api/rates", h.auth(h.rates))
 	mux.HandleFunc("GET /api/accounts", h.auth(h.listAccounts))
 	mux.HandleFunc("POST /api/accounts", h.auth(h.createAccount))
 	mux.HandleFunc("GET /api/category-groups", h.auth(h.listCategoryGroups))
@@ -157,7 +159,7 @@ func (h *handler) setBaseCurrency(w http.ResponseWriter, r *http.Request, u mode
 }
 
 func (h *handler) listAccounts(w http.ResponseWriter, r *http.Request, u models.User) {
-	accounts, err := h.svc.ListAccounts(r.Context(), u)
+	accounts, err := h.svc.ListAccounts(r.Context(), u, r.URL.Query().Get("in"))
 	if err != nil {
 		h.fail(w, err)
 		return

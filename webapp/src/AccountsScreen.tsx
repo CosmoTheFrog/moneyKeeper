@@ -12,13 +12,15 @@ type Props = {
   accounts: Account[]
   currencies: string[]
   baseCurrency: string
+  // Валюта, в которой показаны итоги на обороте карты.
+  displayCurrency: string
   onChanged: () => void
   onOpenReport: (accountId: number) => void
 }
 
 const kindOptions = (['debit', 'credit', 'cash'] as const).map((k) => ({ value: k, label: t.accountKinds[k] }))
 
-export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged, onOpenReport }: Props) {
+export function AccountsScreen({ accounts, currencies, baseCurrency, displayCurrency, onChanged, onOpenReport }: Props) {
   const [adding, setAdding] = useState(accounts.length === 0)
   const [settings, setSettings] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
@@ -82,7 +84,7 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged, 
       {focusedAccount !== undefined && (
         <AccountFocus
           account={focusedAccount}
-          baseCurrency={baseCurrency}
+          baseCurrency={displayCurrency}
           onReport={() => {
             setFocused(null)
             onOpenReport(focusedAccount.id)

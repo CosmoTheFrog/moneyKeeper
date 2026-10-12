@@ -100,7 +100,7 @@ func (s *Service) CreateTransaction(ctx context.Context, u models.User, in model
 	if err != nil {
 		return nil, err
 	}
-	if err := s.priceTransactions(ctx, u, out); err != nil {
+	if err := s.priceTransactions(ctx, u, out, ""); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -184,7 +184,7 @@ func (s *Service) UpdateTransaction(ctx context.Context, u models.User, id int64
 	if err != nil {
 		return nil, err
 	}
-	if err := s.priceTransactions(ctx, u, out); err != nil {
+	if err := s.priceTransactions(ctx, u, out, ""); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -212,7 +212,8 @@ func (s *Service) DeleteTransaction(ctx context.Context, u models.User, id int64
 	})
 }
 
-func (s *Service) ListTransactions(ctx context.Context, u models.User, limit, offset int) ([]models.Transaction, error) {
+// ListTransactions: in задаёт валюту, в которую пересчитываются суммы, пусто значит базовая валюта бюджета.
+func (s *Service) ListTransactions(ctx context.Context, u models.User, limit, offset int, in string) ([]models.Transaction, error) {
 	if limit <= 0 {
 		limit = defaultPageSize
 	}
@@ -222,7 +223,7 @@ func (s *Service) ListTransactions(ctx context.Context, u models.User, limit, of
 	if err != nil {
 		return nil, err
 	}
-	if err := s.priceTransactions(ctx, u, ts); err != nil {
+	if err := s.priceTransactions(ctx, u, ts, in); err != nil {
 		return nil, err
 	}
 	return ts, nil

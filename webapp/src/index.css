@@ -245,6 +245,33 @@ h1 {
   color: #fff;
 }
 
+.chip-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rates {
+  margin-top: 8px;
+}
+
+.rate-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.rate-from {
+  font-weight: 700;
+}
+
+.rate-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
 .plus {
   display: flex;
   flex: none;

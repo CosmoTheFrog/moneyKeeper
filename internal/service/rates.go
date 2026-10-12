@@ -118,9 +118,18 @@ func (s *Service) baseCurrency(ctx context.Context, u models.User) (money.Curren
 	return *b.BaseCurrency, true, nil
 }
 
-// priceTransactions проставляет BaseMinor по курсу дня каждой записи.
-func (s *Service) priceTransactions(ctx context.Context, u models.User, ts []models.Transaction) error {
-	base, ok, err := s.baseCurrency(ctx, u)
+// target выбирает валюту пересчёта: in, если задана, иначе базовая валюта бюджета. false, если пересчитывать не во что.
+func (s *Service) target(ctx context.Context, u models.User, in string) (money.Currency, bool, error) {
+	if in == "" {
+		return s.baseCurrency(ctx, u)
+	}
+	c, err := money.Parse(in)
+	return c, err == nil, err
+}
+
+// priceTransactions проставляет BaseMinor по курсу дня каждой записи в валюте in (пусто: базовая).
+func (s *Service) priceTransactions(ctx context.Context, u models.User, ts []models.Transaction, in string) error {
+	base, ok, err := s.target(ctx, u, in)
 	if err != nil || !ok || len(ts) == 0 {
 		return err
 	}
@@ -132,7 +141,7 @@ func (s *Service) priceTransactions(ctx context.Context, u models.User, ts []mod
 	for _, t := range ts {
 		coins = append(coins, t.Currency)
 	}
-	book := s.rates(ctx, days, onlyCoins(coins))
+	book := s.rates(ctx, days, onlyCoins(append(coins, base)))
 	for i, t := range ts {
 		if v, ok := book.convert(t.AmountMinor, t.Currency, base, s.rateDay(u, t.OccurredOn)); ok {
 			ts[i].BaseMinor = &v
@@ -141,9 +150,9 @@ func (s *Service) priceTransactions(ctx context.Context, u models.User, ts []mod
 	return nil
 }
 
-// priceAccounts проставляет остатки в базовой валюте по сегодняшнему курсу и расходы по курсу дня каждой записи.
-func (s *Service) priceAccounts(ctx context.Context, u models.User, accs []models.Account) error {
-	base, ok, err := s.baseCurrency(ctx, u)
+// priceAccounts проставляет остатки в валюте in (пусто: базовая) по сегодняшнему курсу и расходы по курсу дня каждой записи.
+func (s *Service) priceAccounts(ctx context.Context, u models.User, accs []models.Account, in string) error {
+	base, ok, err := s.target(ctx, u, in)
 	if err != nil || !ok || len(accs) == 0 {
 		return err
 	}
@@ -169,7 +178,7 @@ func (s *Service) priceAccounts(ctx context.Context, u models.User, accs []model
 			held = append(held, b.Currency)
 		}
 	}
-	book := s.rates(ctx, days, onlyCoins(held))
+	book := s.rates(ctx, days, onlyCoins(append(held, base)))
 
 	for ai := range accs {
 		for bi := range accs[ai].Balances {

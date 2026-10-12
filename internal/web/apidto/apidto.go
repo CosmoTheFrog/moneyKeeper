@@ -192,3 +192,15 @@ type ParseResponse struct {
 	Currency    string `json:"currency"`
 	Note        string `json:"note"`
 }
+
+// RateDTO.Rate: сколько единиц валюты In стоит одна целая единица Currency, десятичной строкой без округления.
+type RateDTO struct {
+	Currency string `json:"currency"`
+	Rate     string `json:"rate"`
+}
+
+type RatesResponse struct {
+	Day   string    `json:"day"`
+	In    string    `json:"in"`
+	Rates []RateDTO `json:"rates"`
+}

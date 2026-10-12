@@ -61,7 +61,7 @@ func (l ledger) category(t *testing.T, name string) int64 {
 
 func (l ledger) balance(t *testing.T, accountID int64) int64 {
 	t.Helper()
-	list, err := l.s.ListAccounts(context.Background(), l.u)
+	list, err := l.s.ListAccounts(context.Background(), l.u, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestOpeningBalance(t *testing.T) {
 	if got := l.balance(t, l.main.ID); got != 100000 {
 		t.Errorf("balance = %d, want 100000", got)
 	}
-	txs, err := l.s.ListTransactions(ctx, l.u, 0, 0)
+	txs, err := l.s.ListTransactions(ctx, l.u, 0, 0, "")
 	if err != nil || len(txs) != 1 {
 		t.Fatalf("list = %+v, %v", txs, err)
 	}
@@ -202,14 +202,14 @@ func TestExpenseAndIncomeChangeBalance(t *testing.T) {
 	}
 
 	// Порядок: сначала по дню (новые выше), внутри дня по номеру. Расход и остаток 12 октября, доход 1 октября.
-	txs, err := l.s.ListTransactions(ctx, l.u, 10, 0)
+	txs, err := l.s.ListTransactions(ctx, l.u, 10, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(txs) != 3 || txs[0].ID != exp.ID || txs[1].Kind != models.KindOpening || txs[2].ID != inc[0].ID {
 		t.Errorf("order = %+v", txs)
 	}
-	page, err := l.s.ListTransactions(ctx, l.u, 1, 1)
+	page, err := l.s.ListTransactions(ctx, l.u, 1, 1, "")
 	if err != nil || len(page) != 1 || page[0].Kind != models.KindOpening {
 		t.Errorf("page = %+v, %v", page, err)
 	}
@@ -217,7 +217,7 @@ func TestExpenseAndIncomeChangeBalance(t *testing.T) {
 
 func (l ledger) spent(t *testing.T, accountID int64) int64 {
 	t.Helper()
-	list, err := l.s.ListAccounts(context.Background(), l.u)
+	list, err := l.s.ListAccounts(context.Background(), l.u, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,7 +443,7 @@ func TestUpdateTransaction(t *testing.T) {
 		if l.balance(t, l.cash.ID) != 0 || l.balance(t, l.eur.ID) != -7500 {
 			t.Errorf("balances: cash %d, eur %d, want 0 and -7500", l.balance(t, l.cash.ID), l.balance(t, l.eur.ID))
 		}
-		list, _ := l.s.ListTransactions(ctx, l.u, 10, 0)
+		list, _ := l.s.ListTransactions(ctx, l.u, 10, 0, "")
 		for _, tx := range list {
 			if tx.ID == exp.ID && tx.Currency != "EUR" {
 				t.Errorf("listed currency = %s, want EUR", tx.Currency)
@@ -461,7 +461,7 @@ func TestUpdateTransaction(t *testing.T) {
 		if _, err := l.s.UpdateTransaction(ctx, l.u, legs[0].ID, models.TransactionPatch{AccountID: &l.eur.ID}); !errors.Is(err, models.ErrInvalidTransaction) {
 			t.Errorf("transfer: err = %v, want ErrInvalidTransaction", err)
 		}
-		all, _ := l.s.ListTransactions(ctx, l.u, 50, 0)
+		all, _ := l.s.ListTransactions(ctx, l.u, 50, 0, "")
 		for _, tx := range all {
 			if tx.Kind != models.KindOpening {
 				continue
@@ -485,7 +485,7 @@ func TestDeleteTransaction(t *testing.T) {
 	if got := l.balance(t, l.main.ID); got != 100000 {
 		t.Errorf("balance = %d, want 100000", got)
 	}
-	txs, _ := l.s.ListTransactions(ctx, l.u, 0, 0)
+	txs, _ := l.s.ListTransactions(ctx, l.u, 0, 0, "")
 	if len(txs) != 1 {
 		t.Errorf("list has %d records, want only the opening one", len(txs))
 	}
@@ -527,7 +527,7 @@ func TestLedgerIsScopedToBudget(t *testing.T) {
 			t.Errorf("%s: err = %v, want ErrNotFound", name, err)
 		}
 	}
-	if txs, _ := l.s.ListTransactions(ctx, stranger, 0, 0); len(txs) != 0 {
+	if txs, _ := l.s.ListTransactions(ctx, stranger, 0, 0, ""); len(txs) != 0 {
 		t.Errorf("stranger sees %d transactions", len(txs))
 	}
 	if l.balance(t, l.main.ID) != 95000 {

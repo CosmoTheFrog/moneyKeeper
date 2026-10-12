@@ -91,7 +91,7 @@ func (h *handler) listTransactions(w http.ResponseWriter, r *http.Request, u mod
 	if !ok {
 		return
 	}
-	txs, err := h.svc.ListTransactions(r.Context(), u, limit, offset)
+	txs, err := h.svc.ListTransactions(r.Context(), u, limit, offset, r.URL.Query().Get("in"))
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -262,4 +262,18 @@ func snapshotDTO(s *models.TransactionSnapshot) *apidto.SnapshotDTO {
 		return nil
 	}
 	return &apidto.SnapshotDTO{AccountID: s.AccountID, CategoryID: s.CategoryID, AmountMinor: s.AmountMinor, Date: s.OccurredOn.String(), Note: s.Note}
+}
+
+// rates отдаёт курсы всех валют к валюте из параметра in (по умолчанию базовая) на сегодня.
+func (h *handler) rates(w http.ResponseWriter, r *http.Request, u models.User) {
+	table, err := h.svc.Rates(r.Context(), u, r.URL.Query().Get("in"))
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	out := apidto.RatesResponse{Day: table.Day.String(), In: string(table.In), Rates: make([]apidto.RateDTO, 0, len(table.Quotes))}
+	for _, q := range table.Quotes {
+		out.Rates = append(out.Rates, apidto.RateDTO{Currency: string(q.Currency), Rate: q.Rate})
+	}
+	h.writeJSON(w, http.StatusOK, out)
 }

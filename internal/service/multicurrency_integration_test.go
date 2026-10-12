@@ -13,7 +13,7 @@ import (
 
 func (l ledger) account(t *testing.T, id int64) models.Account {
 	t.Helper()
-	list, err := l.s.ListAccounts(context.Background(), l.u)
+	list, err := l.s.ListAccounts(context.Background(), l.u, "")
 	if err != nil {
 		t.Fatal(err)
 	}
