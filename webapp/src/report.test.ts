@@ -1,0 +1,113 @@
+import { describe, expect, it } from 'vitest'
+import type { Category } from './api'
+import type { Entry } from './ledger'
+import { CIRCLE, addDays, arcs, percent, rangeFor, spendByCategory, spendByGroup } from './report'
+
+function cat(id: number, name: string, group: Category['group']): Category {
+  return { id, name, group, description: '', hidden: false }
+}
+
+function exp(id: number, categoryId: number, amountMinor: number, date: string, currency = 'GEL'): Entry {
+  return { id, kind: 'expense', date, amountMinor, currency, accountId: 1, toAccountId: null, categoryId, note: '' }
+}
+
+const categories = [cat(1, 'Аренда', 'critical'), cat(2, 'Продукты', 'daily'), cat(3, 'Кафе', 'daily')]
+
+describe('addDays', () => {
+  it.each([
+    ['2026-10-12', -6, '2026-10-06'],
+    ['2026-10-03', -6, '2026-09-27'],
+    ['2026-01-02', -6, '2025-12-27'],
+    ['2024-03-01', -1, '2024-02-29'],
+    ['2026-10-31', 1, '2026-11-01'],
+    ['2026-10-12', 0, '2026-10-12'],
+  ])('%s %i → %s', (day, n, want) => {
+    expect(addDays(day, n)).toBe(want)
+  })
+})
+
+describe('rangeFor', () => {
+  it('counts back from today', () => {
+    expect(rangeFor('week', '2026-10-12')).toEqual({ from: '2026-10-06', to: '2026-10-12' })
+    expect(rangeFor('twoWeeks', '2026-10-12')).toEqual({ from: '2026-09-29', to: '2026-10-12' })
+    expect(rangeFor('threeWeeks', '2026-10-12')).toEqual({ from: '2026-09-22', to: '2026-10-12' })
+  })
+
+  it('takes the calendar month for month', () => {
+    expect(rangeFor('month', '2026-10-12')).toEqual({ from: '2026-10-01', to: '2026-10-12' })
+  })
+})
+
+describe('spendByCategory', () => {
+  const range = { from: '2026-10-01', to: '2026-10-31' }
+
+  it('sums expenses per category, biggest first', () => {
+    const entries = [exp(1, 2, -500, '2026-10-02'), exp(2, 2, -300, '2026-10-05'), exp(3, 1, -90000, '2026-10-01'), exp(4, 3, -800, '2026-10-09')]
+    const out = spendByCategory(entries, categories, range, 'GEL')
+    expect(out.map((s) => [s.label, s.totalMinor])).toEqual([
+      ['Аренда', 90000],
+      ['Кафе', 800],
+      ['Продукты', 800],
+    ])
+  })
+
+  it('ignores other currencies, other kinds and dates outside the range', () => {
+    const entries: Entry[] = [
+      exp(1, 2, -500, '2026-10-02'),
+      exp(2, 2, -700, '2026-10-02', 'EUR'),
+      exp(3, 2, -900, '2026-09-30'),
+      exp(4, 2, -900, '2026-11-01'),
+      { ...exp(5, 2, 100, '2026-10-03'), kind: 'income', categoryId: null },
+    ]
+    expect(spendByCategory(entries, categories, range, 'GEL').map((s) => s.totalMinor)).toEqual([500])
+    expect(spendByCategory(entries, categories, range, 'EUR').map((s) => s.totalMinor)).toEqual([700])
+  })
+
+  it('includes both ends of the range', () => {
+    const entries = [exp(1, 2, -100, '2026-10-01'), exp(2, 2, -200, '2026-10-31')]
+    expect(spendByCategory(entries, categories, range, 'GEL')[0]?.totalMinor).toBe(300)
+  })
+
+  it('returns nothing when there are no expenses', () => {
+    expect(spendByCategory([], categories, range, 'GEL')).toEqual([])
+  })
+})
+
+describe('spendByGroup', () => {
+  it('sums categories into groups, biggest first', () => {
+    const slices = spendByCategory(
+      [exp(1, 2, -500, '2026-10-02'), exp(2, 3, -800, '2026-10-03'), exp(3, 1, -90000, '2026-10-01')],
+      categories,
+      { from: '2026-10-01', to: '2026-10-31' },
+      'GEL',
+    )
+    const groups = spendByGroup(slices, (g) => g.toUpperCase())
+    expect(groups.map((g) => [g.label, g.totalMinor])).toEqual([
+      ['CRITICAL', 90000],
+      ['DAILY', 1300],
+    ])
+  })
+})
+
+describe('percent and arcs', () => {
+  it('rounds shares', () => {
+    expect(percent(1, 3)).toBe(33)
+    expect(percent(2, 3)).toBe(67)
+    expect(percent(0, 0)).toBe(0)
+  })
+
+  it('splits the circle proportionally', () => {
+    const a = arcs([50, 30, 20])
+    expect(a).toHaveLength(3)
+    expect(a[0]?.offset).toBe(-0)
+    expect(a[0]?.length).toBeCloseTo(CIRCLE * 0.5)
+    expect(a[1]?.offset).toBeCloseTo(-CIRCLE * 0.5)
+    expect(a[2]?.offset).toBeCloseTo(-CIRCLE * 0.8)
+    expect(a.reduce((s, x) => s + x.length, 0)).toBeCloseTo(CIRCLE)
+  })
+
+  it('returns nothing for zero total', () => {
+    expect(arcs([])).toEqual([])
+    expect(arcs([0, 0])).toEqual([])
+  })
+})

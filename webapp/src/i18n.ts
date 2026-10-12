@@ -5,11 +5,14 @@ export const t = {
   retry: 'Повторить',
   save: 'Сохранить',
   cancel: 'Отмена',
+  close: 'Закрыть',
+  back: 'Назад',
   today: 'Сегодня',
 
   tabs: {
     operations: 'Операции',
     categories: 'Категории',
+    reports: 'Отчёты',
     accounts: 'Счета',
     add: 'Добавить запись',
   },
@@ -69,8 +72,9 @@ export const t = {
     quick: 'Быстрый ввод',
     quickPlaceholder: 'Например, кофе 5 EUR',
     understood: 'Понял так',
-    noAccountInCurrency: 'Нет счёта в этой валюте: выберите счёт сами',
+    noAccountInCurrency: 'Нет счёта в этой валюте: добавьте счёт на вкладке «Счета»',
     amount: 'Сумма',
+    currency: 'Валюта',
     account: 'Счёт',
     fromAccount: 'Откуда',
     toAccount: 'Куда',
@@ -101,12 +105,18 @@ export const t = {
 
   categories: {
     title: 'Категории',
-    add: 'Новая категория',
+    new: 'Новая категория',
+    edit: 'Изменить категории',
+    editDone: 'Готово',
+    editTitle: 'Изменить категорию',
     name: 'Название',
     group: 'Группа',
     description: 'Описание',
     hidden: 'Скрыта',
     empty: 'В группе пока пусто',
+    addExpense: 'Добавить трату в категорию',
+    spendHere: 'Траты по категории',
+    noSpend: 'Трат в этой категории пока нет',
   },
   groups: {
     critical: 'Критичные',
@@ -114,6 +124,24 @@ export const t = {
     daily: 'Ежедневные',
     rainy: 'На чёрный день',
     goal: 'Цели накопления',
+  },
+
+  reports: {
+    title: 'Отчёты',
+    periods: {
+      week: 'Неделя',
+      twoWeeks: '2 недели',
+      threeWeeks: '3 недели',
+      month: 'Месяц',
+      custom: 'Период',
+    },
+    from: 'С',
+    to: 'По',
+    byGroups: 'Группы',
+    byCategories: 'Категории',
+    spent: 'Потрачено',
+    empty: 'За этот период трат нет',
+    noRates: 'Суммы в разных валютах не складываются: курсов пока нет.',
   },
 
   errors: {

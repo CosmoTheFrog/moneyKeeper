@@ -11,12 +11,14 @@ import {
   type Transaction,
 } from './api'
 import { CategoriesScreen } from './CategoriesScreen'
+import { CategoryScreen } from './CategoryScreen'
 import { CurrencyScreen } from './CurrencyScreen'
 import { EntryForm } from './EntryForm'
 import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
 import { PrivacyContext } from './MoneyText'
 import { OperationsScreen } from './OperationsScreen'
+import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
 
 type Data = {
@@ -28,7 +30,11 @@ type Data = {
 
 type State = { kind: 'loading' } | { kind: 'outside' } | { kind: 'error' } | { kind: 'ready'; data: Data }
 
-type Screen = { kind: 'tabs' } | { kind: 'add' } | { kind: 'edit'; entry: Entry }
+type Screen =
+  | { kind: 'tabs' }
+  | { kind: 'add'; categoryId?: number; returnTo: Screen }
+  | { kind: 'edit'; entry: Entry; returnTo: Screen }
+  | { kind: 'category'; categoryId: number }
 
 const HIDDEN_KEY = 'mk.hidden'
 
@@ -88,6 +94,11 @@ export function App() {
 
   const entries = useMemo(() => (state.kind === 'ready' ? toEntries(state.data.transactions) : []), [state])
 
+  // Новый экран открывается с самого верха, а не с позиции прошлого.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [tab, screen.kind])
+
   switch (state.kind) {
     case 'loading':
       return <p className="screen hint">{t.loading}</p>
@@ -109,40 +120,73 @@ export function App() {
         return <CurrencyScreen currencies={me.base_currencies} onDone={() => void load()} />
       }
 
-      const back = () => setScreen({ kind: 'tabs' })
-      const done = () => {
-        back()
-        void load()
+      const today = dayIn(me.timezone)
+      const reload = () => void load()
+      const go = (to: Screen) => setScreen(to)
+      const home: Screen = { kind: 'tabs' }
+
+      const openEntry = (entry: Entry, returnTo: Screen) => go({ kind: 'edit', entry, returnTo })
+      const finish = (returnTo: Screen) => {
+        go(returnTo)
+        reload()
       }
 
       // Пока счетов нет, записывать некуда: «+» ведёт на вкладку счетов, где форма уже открыта.
       const onAdd = () => {
         if (accounts.length === 0) setTab('accounts')
-        else setScreen({ kind: 'add' })
+        else go({ kind: 'add', returnTo: home })
       }
 
-      return (
-        <PrivacyContext.Provider value={privacy}>
-          {screen.kind === 'add' && <EntryForm accounts={accounts} categories={categories} onDone={done} onCancel={back} />}
-          {screen.kind === 'edit' && <EntryForm accounts={accounts} categories={categories} entry={screen.entry} onDone={done} onCancel={back} />}
-          {screen.kind === 'tabs' && (
+      let body
+      switch (screen.kind) {
+        case 'add':
+          body = <EntryForm accounts={accounts} categories={categories} presetCategoryId={screen.categoryId} onDone={() => finish(screen.returnTo)} onCancel={() => go(screen.returnTo)} />
+          break
+        case 'edit':
+          body = <EntryForm accounts={accounts} categories={categories} entry={screen.entry} onDone={() => finish(screen.returnTo)} onCancel={() => go(screen.returnTo)} />
+          break
+        case 'category': {
+          const category = categories.find((c) => c.id === screen.categoryId)
+          if (category === undefined) {
+            body = null
+            break
+          }
+          const here: Screen = { kind: 'category', categoryId: category.id }
+          body = (
+            <CategoryScreen
+              category={category}
+              entries={entries.filter((e) => e.categoryId === category.id)}
+              accounts={accounts}
+              categories={categories}
+              today={today}
+              onBack={() => go(home)}
+              onAdd={() => go({ kind: 'add', categoryId: category.id, returnTo: here })}
+              onOpen={(entry) => openEntry(entry, here)}
+            />
+          )
+          break
+        }
+        case 'tabs':
+          body = (
             <>
-              {tab === 'operations' && (
-                <OperationsScreen
-                  entries={entries}
-                  accounts={accounts}
+              {tab === 'operations' && <OperationsScreen entries={entries} accounts={accounts} categories={categories} today={today} onOpen={(entry) => openEntry(entry, home)} />}
+              {tab === 'categories' && (
+                <CategoriesScreen
                   categories={categories}
-                  today={dayIn(me.timezone)}
-                  onOpen={(entry) => setScreen({ kind: 'edit', entry })}
+                  onChanged={reload}
+                  onOpenCategory={(id) => go({ kind: 'category', categoryId: id })}
+                  onAddTo={(id) => go({ kind: 'add', categoryId: id, returnTo: home })}
                 />
               )}
-              {tab === 'categories' && <CategoriesScreen categories={categories} onChanged={() => void load()} />}
-              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} onChanged={() => void load()} />}
+              {tab === 'reports' && <ReportsScreen entries={entries} categories={categories} accounts={accounts} baseCurrency={base} today={today} />}
+              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} onChanged={reload} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>
-          )}
-        </PrivacyContext.Provider>
-      )
+          )
+          break
+      }
+
+      return <PrivacyContext.Provider value={privacy}>{body}</PrivacyContext.Provider>
     }
   }
 }

@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import { t } from './i18n'
 import { currencySign, formatMinor } from './money'
 
 type Privacy = {
@@ -15,8 +16,13 @@ type Props = {
 }
 
 // Все суммы в интерфейсе показываются только этим компонентом: табличные цифры и звёздочки при режиме приватности.
+// Нажатие на цифры переключает режим для всех сумм сразу.
 export function Money({ minor, currency, signed = false }: Props) {
-  const { hidden } = useContext(PrivacyContext)
+  const { hidden, toggle } = useContext(PrivacyContext)
   const tone = minor < 0 ? 'neg' : minor > 0 && signed ? 'pos' : ''
-  return <span className={`money ${tone}`}>{hidden ? `*** ${currencySign(currency)}` : formatMinor(minor, currency, signed)}</span>
+  return (
+    <button type="button" className={`money ${tone}`} aria-label={hidden ? t.privacy.show : t.privacy.hide} onClick={toggle}>
+      {hidden ? `*** ${currencySign(currency)}` : formatMinor(minor, currency, signed)}
+    </button>
+  )
 }

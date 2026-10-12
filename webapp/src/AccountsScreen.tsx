@@ -1,8 +1,10 @@
-import { useContext, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { ApiError, createAccount, type Account, type AccountKind } from './api'
 import { errorText, t } from './i18n'
-import { Money, PrivacyContext } from './MoneyText'
+import { Modal } from './Modal'
+import { Money } from './MoneyText'
 import { parseAmount } from './money'
+import { ChipPicker } from './Pickers'
 
 type Props = {
   accounts: Account[]
@@ -11,52 +13,18 @@ type Props = {
   onChanged: () => void
 }
 
-const kinds: AccountKind[] = ['debit', 'credit', 'cash']
+const kindOptions = (['debit', 'credit', 'cash'] as const).map((k) => ({ value: k, label: t.accountKinds[k] }))
 
 export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }: Props) {
-  const { hidden, toggle } = useContext(PrivacyContext)
   const [adding, setAdding] = useState(accounts.length === 0)
-  const [name, setName] = useState('')
-  const [kind, setKind] = useState<AccountKind>('debit')
-  const [currency, setCurrency] = useState(baseCurrency)
-  const [opening, setOpening] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function submit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    const openingMinor = opening.trim() === '' ? 0 : parseAmount(opening)
-    if (openingMinor === null) return setError(errorText('invalid_amount'))
-
-    setBusy(true)
-    try {
-      await createAccount(name, kind, currency, openingMinor)
-      setName('')
-      setOpening('')
-      setAdding(false)
-      onChanged()
-    } catch (err) {
-      setError(errorText(err instanceof ApiError ? err.code : 'internal'))
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <main className="screen">
       <header className="row">
         <h1>{t.accounts.title}</h1>
-        <span className="row-tight">
-          <button type="button" className="chip" onClick={toggle}>
-            {hidden ? t.privacy.show : t.privacy.hide}
-          </button>
-          {!adding && (
-            <button type="button" className="chip" onClick={() => setAdding(true)}>
-              {t.accounts.add}
-            </button>
-          )}
-        </span>
+        <button type="button" className="chip" onClick={() => setAdding(true)}>
+          {t.accounts.add}
+        </button>
       </header>
 
       {accounts.length === 0 && <p className="hint">{t.accounts.empty}</p>}
@@ -80,49 +48,68 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }
       </div>
 
       {adding && (
-        <form className="card" onSubmit={submit}>
-          <label>
-            {t.accounts.name}
-            <input value={name} maxLength={40} placeholder={t.accounts.namePlaceholder} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label>
-            {t.accounts.kind}
-            <select value={kind} onChange={(e) => setKind(kinds.find((k) => k === e.target.value) ?? 'debit')}>
-              {kinds.map((k) => (
-                <option key={k} value={k}>
-                  {t.accountKinds[k]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t.accounts.currency}
-            <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {currencies.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t.accounts.opening}
-            <input inputMode="decimal" value={opening} placeholder="0,00" onChange={(e) => setOpening(e.target.value)} />
-          </label>
-          <p className="hint tight">{t.accounts.openingHint}</p>
-          {error !== null && <p className="error">{error}</p>}
-          <div className="row">
-            <button type="submit" className="primary" disabled={busy || name.trim() === ''}>
-              {t.save}
-            </button>
-            {accounts.length > 0 && (
-              <button type="button" className="chip" onClick={() => setAdding(false)}>
-                {t.cancel}
-              </button>
-            )}
-          </div>
-        </form>
+        <Modal title={t.accounts.add} onClose={() => setAdding(false)}>
+          <AccountForm
+            currencies={currencies}
+            baseCurrency={baseCurrency}
+            onDone={() => {
+              setAdding(false)
+              onChanged()
+            }}
+          />
+        </Modal>
       )}
     </main>
+  )
+}
+
+type FormProps = {
+  currencies: string[]
+  baseCurrency: string
+  onDone: () => void
+}
+
+function AccountForm({ currencies, baseCurrency, onDone }: FormProps) {
+  const [name, setName] = useState('')
+  const [kind, setKind] = useState<AccountKind>('debit')
+  const [currency, setCurrency] = useState(baseCurrency)
+  const [opening, setOpening] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    const openingMinor = opening.trim() === '' ? 0 : parseAmount(opening)
+    if (openingMinor === null) return setError(errorText('invalid_amount'))
+
+    setBusy(true)
+    try {
+      await createAccount(name, kind, currency, openingMinor)
+      onDone()
+    } catch (err) {
+      setError(errorText(err instanceof ApiError ? err.code : 'internal'))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="form" onSubmit={submit}>
+      <label className="field">
+        <span className="label">{t.accounts.name}</span>
+        <input value={name} maxLength={40} placeholder={t.accounts.namePlaceholder} autoFocus onChange={(e) => setName(e.target.value)} />
+      </label>
+      <ChipPicker label={t.accounts.kind} value={kind} options={kindOptions} onChange={setKind} />
+      <ChipPicker label={t.accounts.currency} value={currency} options={currencies.map((c) => ({ value: c, label: c }))} onChange={setCurrency} />
+      <label className="field">
+        <span className="label">{t.accounts.opening}</span>
+        <input inputMode="decimal" value={opening} placeholder="0,00" onChange={(e) => setOpening(e.target.value)} />
+      </label>
+      <p className="hint tight">{t.accounts.openingHint}</p>
+      {error !== null && <p className="error">{error}</p>}
+      <button type="submit" className="primary" disabled={busy || name.trim() === ''}>
+        {t.save}
+      </button>
+    </form>
   )
 }

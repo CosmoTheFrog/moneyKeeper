@@ -8,7 +8,6 @@ import {
   updateTransaction,
   type Account,
   type Category,
-  type CategoryGroup,
   type TransactionPatch,
   type TxEvent,
 } from './api'
@@ -16,6 +15,8 @@ import { errorText, t } from './i18n'
 import type { Entry } from './ledger'
 import { Money } from './MoneyText'
 import { formatInput, formatMinor, parseAmount } from './money'
+import { ChipPicker, SheetPicker } from './Pickers'
+import { groupOrder } from './report'
 
 type FormKind = 'expense' | 'income' | 'transfer' | 'opening'
 
@@ -24,18 +25,19 @@ type Props = {
   categories: Category[]
   // Без entry форма создаёт запись, с entry правит её.
   entry?: Entry
+  // Категория, которую нужно выбрать заранее (кнопка «+» у категории).
+  presetCategoryId?: number
   onDone: () => void
   onCancel: () => void
 }
 
-const groupOrder: CategoryGroup[] = ['critical', 'debt', 'daily', 'rainy', 'goal']
-const newKinds: FormKind[] = ['expense', 'income', 'transfer']
+const kindOptions = (['expense', 'income', 'transfer'] as const).map((k) => ({ value: k, label: t.kinds[k] }))
 
 function kindLabel(kind: FormKind): string {
   return kind === 'opening' ? t.ledger.opening : t.kinds[kind]
 }
 
-export function EntryForm({ accounts, categories, entry, onDone, onCancel }: Props) {
+export function EntryForm({ accounts, categories, entry, presetCategoryId, onDone, onCancel }: Props) {
   const editing = entry !== undefined
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
@@ -43,9 +45,10 @@ export function EntryForm({ accounts, categories, entry, onDone, onCancel }: Pro
   const [quick, setQuick] = useState('')
   const [understood, setUnderstood] = useState<string | null>(null)
   const [amount, setAmount] = useState(entry === undefined ? '' : formatInput(entry.amountMinor))
+  const [currency, setCurrency] = useState(entry?.currency ?? defaultAccount?.currency ?? '')
   const [accountId, setAccountId] = useState(entry?.accountId ?? defaultAccount?.id ?? 0)
   const [toAccountId, setToAccountId] = useState(entry?.toAccountId ?? 0)
-  const [categoryId, setCategoryId] = useState(entry?.categoryId ?? 0)
+  const [categoryId, setCategoryId] = useState(entry?.categoryId ?? presetCategoryId ?? 0)
   const [date, setDate] = useState(entry?.date ?? '')
   const [note, setNote] = useState(entry?.note ?? '')
   const [busy, setBusy] = useState(false)
@@ -53,16 +56,29 @@ export function EntryForm({ accounts, categories, entry, onDone, onCancel }: Pro
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [events, setEvents] = useState<TxEvent[] | null>(null)
 
-  const account = accounts.find((a) => a.id === accountId)
-  const currency = account?.currency ?? entry?.currency ?? ''
+  const currencies = [...new Set(accounts.map((a) => a.currency))]
+  const accountsInCurrency = accounts.filter((a) => a.currency === currency)
   const accountName = new Map(accounts.map((a) => [a.id, a.name]))
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
 
-  // В правке и при переводе счета выбираются только среди счетов той же валюты.
-  const sameCurrency = accounts.filter((a) => a.currency === currency)
   const canPickAccount = editing ? kind === 'expense' || kind === 'income' : true
   const canPickTarget = !editing && kind === 'transfer'
-  const targets = sameCurrency.filter((a) => a.id !== accountId)
+  const targets = accountsInCurrency.filter((a) => a.id !== accountId)
+
+  const categoryGroups = groupOrder
+    .map((g) => ({
+      title: t.groups[g],
+      options: categories.filter((c) => c.group === g && (!c.hidden || c.id === entry?.categoryId)).map((c) => ({ value: c.id, label: c.name })),
+    }))
+    .filter((g) => g.options.length > 0)
+
+  // Смена валюты переключает счёт на основной счёт этой валюты (или первый). Если счетов в ней нет, счёт сбрасывается.
+  function chooseCurrency(next: string) {
+    setCurrency(next)
+    const account = accounts.find((a) => a.currency === next && a.is_default) ?? accounts.find((a) => a.currency === next)
+    setAccountId(account?.id ?? 0)
+    setToAccountId(0)
+  }
 
   function pickAccount(id: number) {
     setAccountId(id)
@@ -79,12 +95,8 @@ export function EntryForm({ accounts, categories, entry, onDone, onCancel }: Pro
       if (p.note !== '') setNote(p.note)
       let cur = currency
       if (p.currency !== '' && p.currency !== currency) {
-        const match = accounts.find((a) => a.currency === p.currency)
-        if (match === undefined) {
-          setError(t.add.noAccountInCurrency)
-        } else {
-          pickAccount(match.id)
-        }
+        if (currencies.includes(p.currency)) chooseCurrency(p.currency)
+        else setError(t.add.noAccountInCurrency)
         cur = p.currency
       }
       setUnderstood(`${formatMinor(p.amount_minor, cur)}${p.note !== '' ? ` · ${p.note}` : ''}`)
@@ -99,6 +111,7 @@ export function EntryForm({ accounts, categories, entry, onDone, onCancel }: Pro
     setError(null)
     const minor = parseAmount(amount)
     if (minor === null) return setError(errorText('invalid_amount'))
+    if (accountId === 0) return setError(t.add.noAccountInCurrency)
     if (!editing && kind === 'expense' && categoryId === 0) return setError(t.add.pickCategory)
     if (canPickTarget && toAccountId === 0) return setError(t.add.noTarget)
 
@@ -165,12 +178,8 @@ export function EntryForm({ accounts, categories, entry, onDone, onCancel }: Pro
       </header>
 
       {!editing && (
-        <div className="segmented" role="tablist">
-          {newKinds.map((k) => (
-            <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'seg seg-on' : 'seg'} onClick={() => setKind(k)}>
-              {kindLabel(k)}
-            </button>
-          ))}
+        <div className="top-gap">
+          <ChipPicker value={kind === 'opening' ? 'expense' : kind} options={kindOptions} onChange={setKind} />
         </div>
       )}
       {editing && <p className="hint">{kindLabel(kind)}</p>}
@@ -178,8 +187,8 @@ export function EntryForm({ accounts, categories, entry, onDone, onCancel }: Pro
       <form className="stack" onSubmit={submit}>
         {!editing && (
           <div className="card">
-            <label>
-              {t.add.quick}
+            <label className="field">
+              <span className="label">{t.add.quick}</span>
               <input
                 value={quick}
                 placeholder={t.add.quickPlaceholder}
@@ -202,25 +211,29 @@ export function EntryForm({ accounts, categories, entry, onDone, onCancel }: Pro
         )}
 
         <div className="card">
-          <label>
-            {t.add.amount}
+          <label className="field">
+            <span className="label">{t.add.amount}</span>
             <span className="amount-row">
               <input inputMode="decimal" value={amount} placeholder="0,00" onChange={(e) => setAmount(e.target.value)} />
-              <span className="amount-cur">{currency}</span>
+              {editing && <span className="amount-cur">{currency}</span>}
             </span>
           </label>
+          {!editing && currencies.length > 0 && (
+            <ChipPicker label={t.add.currency} value={currency} options={currencies.map((c) => ({ value: c, label: c }))} onChange={chooseCurrency} />
+          )}
         </div>
 
         {canPickAccount && (
           <div className="card">
             <span className="label">{canPickTarget ? t.add.fromAccount : t.add.account}</span>
             <div className="choices">
-              {(editing ? sameCurrency : accounts).map((a) => (
+              {accountsInCurrency.map((a) => (
                 <button key={a.id} type="button" className={a.id === accountId ? 'choice choice-on' : 'choice'} onClick={() => pickAccount(a.id)}>
                   <span>{a.name}</span>
                   <span className="choice-meta">{a.currency}</span>
                 </button>
               ))}
+              {accountsInCurrency.length === 0 && <p className="hint tight">{t.add.noAccountInCurrency}</p>}
             </div>
           </div>
         )}
@@ -243,37 +256,18 @@ export function EntryForm({ accounts, categories, entry, onDone, onCancel }: Pro
 
         {kind === 'expense' && (
           <div className="card">
-            <label>
-              {t.add.category}
-              <select value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))}>
-                <option value={0} disabled={editing}>
-                  {t.add.pickCategory}
-                </option>
-                {groupOrder.map((g) => {
-                  const inGroup = categories.filter((c) => c.group === g && (!c.hidden || c.id === entry?.categoryId))
-                  return inGroup.length === 0 ? null : (
-                    <optgroup key={g} label={t.groups[g]}>
-                      {inGroup.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )
-                })}
-              </select>
-            </label>
+            <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
           </div>
         )}
 
         <div className="card">
-          <label>
-            {t.add.date}
+          <label className="field">
+            <span className="label">{t.add.date}</span>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
           {!editing && <p className="hint tight">{t.add.dateHint}</p>}
-          <label>
-            {t.add.note}
+          <label className="field">
+            <span className="label">{t.add.note}</span>
             <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
           </label>
         </div>
