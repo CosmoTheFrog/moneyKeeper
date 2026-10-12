@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AccountReport } from './AccountReport'
 import { AccountsScreen } from './AccountsScreen'
 import {
   fetchAccounts,
@@ -40,6 +41,7 @@ type Screen =
   | { kind: 'add'; categoryId?: number; returnTo: Screen }
   | { kind: 'edit'; entry: Entry; returnTo: Screen }
   | { kind: 'category'; categoryId: number }
+  | { kind: 'account'; accountId: number }
 
 const HIDDEN_KEY = 'mk.hidden'
 
@@ -217,6 +219,31 @@ export function App() {
           )
           break
         }
+        case 'account': {
+          const account = accounts.find((a) => a.id === layer.accountId)
+          if (account === undefined) {
+            body = null
+            break
+          }
+          const here: Screen = { kind: 'account', accountId: account.id }
+          body = (
+            <AccountReport
+              account={account}
+              entries={entries}
+              accounts={accounts}
+              groups={groups}
+              categories={categories}
+              baseCurrency={base}
+              today={today}
+              onBack={() => {
+                setTab('accounts')
+                go(home)
+              }}
+              onOpen={(entry) => openEntry(entry, here)}
+            />
+          )
+          break
+        }
         case 'tabs':
           body = (
             <>
@@ -231,7 +258,7 @@ export function App() {
                 />
               )}
               {tab === 'reports' && <ReportsScreen entries={entries} groups={groups} categories={categories} baseCurrency={base} today={today} />}
-              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} onChanged={reload} />}
+              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>
           )

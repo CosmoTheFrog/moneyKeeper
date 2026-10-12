@@ -7,6 +7,8 @@ export type Entry = {
   date: string
   amountMinor: number
   currency: string
+  // Сумма в базовой валюте по курсу дня записи, null если курса нет.
+  baseMinor: number | null
   accountId: number
   toAccountId: number | null
   categoryId: number | null
@@ -40,6 +42,7 @@ export function toEntries(txs: Transaction[]): Entry[] {
       date: t.date,
       amountMinor: t.kind === 'transfer' ? Math.abs(t.amount_minor) : t.amount_minor,
       currency: t.currency,
+      baseMinor: t.base_minor !== null && t.kind === 'transfer' ? Math.abs(t.base_minor) : t.base_minor,
       accountId: t.account_id,
       toAccountId: to?.account_id ?? null,
       categoryId: t.category_id,

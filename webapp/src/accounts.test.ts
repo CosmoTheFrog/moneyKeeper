@@ -3,7 +3,7 @@ import type { Account } from './api'
 import { allows, balanceIn, pickAccount, usableCurrencies } from './accounts'
 
 function acc(id: number, currency: string, over: Partial<Account> = {}): Account {
-  return { id, name: `a${id}`, kind: 'debit', currency, multi_currency: false, is_default: false, balances: [{ currency, balance_minor: 0, spent_minor: 0 }], ...over }
+  return { id, name: `a${id}`, kind: 'debit', currency, multi_currency: false, is_default: false, balances: [{ currency, balance_minor: 0, spent_minor: 0, base_balance_minor: null, base_spent_minor: null }], ...over }
 }
 
 const all = ['GEL', 'EUR', 'USD', 'RUB', 'USDT']
@@ -21,8 +21,8 @@ describe('balanceIn', () => {
     const a = acc(1, 'USDT', {
       multi_currency: true,
       balances: [
-        { currency: 'USDT', balance_minor: 500, spent_minor: 0 },
-        { currency: 'EUR', balance_minor: 250, spent_minor: 10 },
+        { currency: 'USDT', balance_minor: 500, spent_minor: 0, base_balance_minor: null, base_spent_minor: null },
+        { currency: 'EUR', balance_minor: 250, spent_minor: 10, base_balance_minor: null, base_spent_minor: null },
       ],
     })
     expect(balanceIn(a, 'EUR')).toBe(250)

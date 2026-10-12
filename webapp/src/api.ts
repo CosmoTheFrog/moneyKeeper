@@ -17,10 +17,14 @@ export type Me = {
 export type AccountKind = 'cash' | 'debit' | 'credit'
 
 // Остаток и расходы счёта в одной валюте. spent_minor положительная: расходы за всё время, без переводов и доходов.
+// base_* это то же в базовой валюте бюджета: остаток по сегодняшнему курсу, расходы по курсу дня каждой записи.
+// null, если нужного курса нет.
 export type Balance = {
   currency: string
   balance_minor: number
   spent_minor: number
+  base_balance_minor: number | null
+  base_spent_minor: number | null
 }
 
 // currency это основная валюта счёта, в balances она первая. У счёта с multi_currency записи возможны в любой валюте.
@@ -51,6 +55,7 @@ export type Category = {
 export type TransactionKind = 'expense' | 'income' | 'transfer' | 'opening'
 
 // amount_minor со знаком: расход и уходящая нога перевода отрицательные.
+// base_minor это сумма в базовой валюте по курсу дня записи, null если курса нет.
 export type Transaction = {
   id: number
   account_id: number
@@ -58,6 +63,7 @@ export type Transaction = {
   kind: TransactionKind
   amount_minor: number
   currency: string
+  base_minor: number | null
   date: string
   note: string
   transfer_id: number | null

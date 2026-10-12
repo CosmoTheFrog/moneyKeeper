@@ -13,11 +13,12 @@ type Props = {
   currencies: string[]
   baseCurrency: string
   onChanged: () => void
+  onOpenReport: (accountId: number) => void
 }
 
 const kindOptions = (['debit', 'credit', 'cash'] as const).map((k) => ({ value: k, label: t.accountKinds[k] }))
 
-export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }: Props) {
+export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged, onOpenReport }: Props) {
   const [adding, setAdding] = useState(accounts.length === 0)
   const [settings, setSettings] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
@@ -78,7 +79,17 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }
         ))}
       </div>
 
-      {focusedAccount !== undefined && <AccountFocus account={focusedAccount} onClose={() => setFocused(null)} />}
+      {focusedAccount !== undefined && (
+        <AccountFocus
+          account={focusedAccount}
+          baseCurrency={baseCurrency}
+          onReport={() => {
+            setFocused(null)
+            onOpenReport(focusedAccount.id)
+          }}
+          onClose={() => setFocused(null)}
+        />
+      )}
       {settings && <ThemeSettings onClose={() => setSettings(false)} />}
 
       {adding && (

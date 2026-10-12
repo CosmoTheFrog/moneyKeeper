@@ -9,6 +9,7 @@ function tx(over: Partial<Transaction> & Pick<Transaction, 'id'>): Transaction {
     kind: 'income',
     amount_minor: 100,
     currency: 'GEL',
+    base_minor: null,
     date: '2026-10-12',
     note: '',
     transfer_id: null,
@@ -44,6 +45,22 @@ describe('toEntries', () => {
     expect(out.map((e) => [e.id, e.toAccountId])).toEqual([
       [1, 2],
       [3, 3],
+    ])
+  })
+})
+
+describe('toEntries base amounts', () => {
+  it('carries the base amount, absolute for transfers', () => {
+    const out = toEntries([
+      tx({ id: 2, kind: 'expense', category_id: 5, amount_minor: -1000, currency: 'EUR', base_minor: -3159 }),
+      tx({ id: 3, kind: 'transfer', account_id: 1, amount_minor: -1000, currency: 'EUR', base_minor: -3159, transfer_id: 9 }),
+      tx({ id: 4, kind: 'transfer', account_id: 2, amount_minor: 1000, currency: 'EUR', base_minor: 3159, transfer_id: 9 }),
+      tx({ id: 1, kind: 'expense', category_id: 5, amount_minor: -700, currency: 'USDT' }),
+    ])
+    expect(out.map((e) => [e.id, e.baseMinor])).toEqual([
+      [2, -3159],
+      [3, 3159],
+      [1, null],
     ])
   })
 })

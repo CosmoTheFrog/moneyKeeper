@@ -38,6 +38,26 @@ export function ChipPicker<T extends string | number>({ label, value, options, o
   )
 }
 
+type SegmentedProps<T> = {
+  label?: string
+  value: T
+  options: Option<T>[]
+  onChange: (value: T) => void
+}
+
+// Segmented: переключатель на всю ширину из двух-трёх равных частей. Для режимов экрана, не для выбора значения.
+export function Segmented<T extends string | number>({ label, value, options, onChange }: SegmentedProps<T>) {
+  return (
+    <div className="seg" role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button key={o.value} type="button" role="radio" aria-checked={o.value === value} className={o.value === value ? 'seg-item seg-on' : 'seg-item'} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export type OptionGroup<T> = {
   title: string
   options: Option<T>[]

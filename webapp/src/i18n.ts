@@ -75,7 +75,7 @@ export const t = {
       cash: 'Потрачено наличными',
     },
     spentNote: 'Все расходы с этого счёта за всё время. Переводы и пополнения не входят.',
-    flipHint: 'Нажмите на карту, чтобы перевернуть',
+    byRate: 'по курсу дня каждой траты',
     holdings: 'Остатки по валютам',
     noSpend: 'Расходов с этого счёта пока нет',
   },
@@ -152,20 +152,47 @@ export const t = {
     title: 'Отчёты',
     periods: {
       week: 'Неделя',
-      twoWeeks: '2 недели',
-      threeWeeks: '3 недели',
+      twoWeeks: '2 нед.',
+      threeWeeks: '3 нед.',
       month: 'Месяц',
-      custom: 'Период',
+      all: 'Всё время',
+      custom: 'Свой период',
     },
-    from: 'С',
-    to: 'По',
     allGroups: 'Все группы',
     byGroups: 'Группы',
     byCategories: 'Категории',
     spent: 'Потрачено',
     empty: 'За этот период трат нет',
-    noRates: 'Суммы в разных валютах не складываются: курсов пока нет.',
+    inBase: 'Всё в',
+    inBaseHint: 'Каждая трата пересчитана по курсу дня, когда она была записана.',
+    ownCurrency: 'Только траты в этой валюте, без пересчёта.',
+    missingRates: 'Без курса, в сумму не вошло',
     alsoSpent: 'Ещё потрачено в других валютах',
+    perDay: 'В среднем в день',
+    count: 'Трат',
+  },
+
+  calendar: {
+    title: 'Период',
+    apply: 'Показать',
+    pickStart: 'Выберите первый день',
+    pickEnd: 'Теперь последний день',
+    prev: 'Предыдущий месяц',
+    next: 'Следующий месяц',
+    months: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
+    monthsShort: ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'],
+    weekdays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+    days: ['день', 'дня', 'дней'] as const,
+  },
+
+  accountReport: {
+    open: 'Куда ушли деньги',
+    title: 'Расходы по счёту',
+    where: 'Куда',
+    when: 'Когда',
+    list: 'Все траты',
+    noSpend: 'Расходов с этого счёта за период нет',
+    noteTransfers: 'Переводы и пополнения не входят.',
   },
 
   errors: {
@@ -190,6 +217,16 @@ function hasKey<T extends object>(obj: T, key: string): key is Extract<keyof T, 
 
 export function errorText(code: string): string {
   return hasKey(t.errors, code) ? t.errors[code] : t.errors.internal
+}
+
+// plural выбирает форму слова по числу: 1 день, 2 дня, 5 дней, 11 дней, 21 день.
+export function plural(n: number, forms: readonly [string, string, string]): string {
+  const mod100 = n % 100
+  const mod10 = n % 10
+  if (mod100 >= 11 && mod100 <= 14) return forms[2]
+  if (mod10 === 1) return forms[0]
+  if (mod10 >= 2 && mod10 <= 4) return forms[1]
+  return forms[2]
 }
 
 export function currencyName(code: string): string {
