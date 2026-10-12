@@ -67,7 +67,7 @@ export function ReportsScreen({ entries, categories, accounts, baseCurrency, tod
           <div className="donut">
             <svg viewBox="0 0 200 200" role="img" aria-label={t.reports.spent}>
               <g transform="rotate(-90 100 100)">
-                <circle cx="100" cy="100" r={RADIUS} fill="none" stroke="#e3e8ec" strokeWidth="24" />
+                <circle cx="100" cy="100" r={RADIUS} fill="none" style={{ stroke: 'var(--line)' }} strokeWidth="24" />
                 {drawn.map((a, i) => (
                   <circle
                     key={shown[i]?.key}

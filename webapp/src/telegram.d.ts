@@ -1,5 +1,6 @@
 type TelegramWebApp = {
   initData: string
+  colorScheme?: string
   ready: () => void
 }
 

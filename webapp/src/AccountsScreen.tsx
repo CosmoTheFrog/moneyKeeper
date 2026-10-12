@@ -5,6 +5,7 @@ import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { parseAmount } from './money'
 import { ChipPicker } from './Pickers'
+import { ThemeSettings } from './ThemeSettings'
 
 type Props = {
   accounts: Account[]
@@ -17,14 +18,22 @@ const kindOptions = (['debit', 'credit', 'cash'] as const).map((k) => ({ value: 
 
 export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }: Props) {
   const [adding, setAdding] = useState(accounts.length === 0)
+  const [settings, setSettings] = useState(false)
 
   return (
     <main className="screen">
       <header className="row">
         <h1>{t.accounts.title}</h1>
-        <button type="button" className="chip" onClick={() => setAdding(true)}>
-          {t.accounts.add}
-        </button>
+        <span className="row-tight">
+          <button type="button" className="plus" aria-label={t.theme.open} onClick={() => setSettings(true)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 3v18M12 3a9 9 0 010 18" />
+            </svg>
+          </button>
+          <button type="button" className="chip" onClick={() => setAdding(true)}>
+            {t.accounts.add}
+          </button>
+        </span>
       </header>
 
       {accounts.length === 0 && <p className="hint">{t.accounts.empty}</p>}
@@ -46,6 +55,8 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, onChanged }
           </article>
         ))}
       </div>
+
+      {settings && <ThemeSettings onClose={() => setSettings(false)} />}
 
       {adding && (
         <Modal title={t.accounts.add} onClose={() => setAdding(false)}>

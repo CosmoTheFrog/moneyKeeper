@@ -20,6 +20,8 @@ import { PrivacyContext } from './MoneyText'
 import { OperationsScreen } from './OperationsScreen'
 import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
+import { applyTheme, readMode, resolveTheme, saveMode, type ThemeMode } from './theme'
+import { ThemeContext } from './ThemeSettings'
 
 type Data = {
   me: Me
@@ -51,6 +53,27 @@ export function App() {
   const [tab, setTab] = useState<Tab>('operations')
   const [screen, setScreen] = useState<Screen>({ kind: 'tabs' })
   const [hidden, setHidden] = useState(readHidden)
+  const [themeMode, setThemeMode] = useState<ThemeMode>(readMode)
+
+  const theme = useMemo(
+    () => ({
+      mode: themeMode,
+      setMode: (mode: ThemeMode) => {
+        saveMode(mode)
+        setThemeMode(mode)
+      },
+    }),
+    [themeMode],
+  )
+
+  // Тема применяется к странице целиком; «как в Telegram» берёт схему мессенджера, без него системную.
+  useEffect(() => {
+    const dark = window.matchMedia('(prefers-color-scheme: dark)')
+    const apply = () => applyTheme(resolveTheme(themeMode, window.Telegram?.WebApp.colorScheme, dark.matches))
+    apply()
+    dark.addEventListener('change', apply)
+    return () => dark.removeEventListener('change', apply)
+  }, [themeMode])
 
   const privacy = useMemo(
     () => ({
@@ -193,10 +216,12 @@ export function App() {
       }
 
       return (
-        <PrivacyContext.Provider value={privacy}>
-          {body}
-          {overlay}
-        </PrivacyContext.Provider>
+        <ThemeContext.Provider value={theme}>
+          <PrivacyContext.Provider value={privacy}>
+            {body}
+            {overlay}
+          </PrivacyContext.Provider>
+        </ThemeContext.Provider>
       )
     }
   }

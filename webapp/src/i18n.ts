@@ -20,6 +20,17 @@ export const t = {
     hide: 'Скрыть суммы',
     show: 'Показать суммы',
   },
+  theme: {
+    open: 'Оформление',
+    title: 'Оформление',
+    label: 'Тема',
+    modes: {
+      auto: 'Как в Telegram',
+      light: 'Светлая',
+      dark: 'Тёмная',
+    },
+    hint: 'Режим «Как в Telegram» сам переключается вместе с темой мессенджера.',
+  },
 
   currency: {
     step: 'Шаг 1 из 2',

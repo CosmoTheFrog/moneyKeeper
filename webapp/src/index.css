@@ -10,6 +10,21 @@
   --pos: #1f8a4c;
 }
 
+/* Тёмная тема: те же переменные, другие значения. Акцент чуть светлее, чтобы читался на тёмном. */
+:root[data-theme='dark'] {
+  --bg: #0f1720;
+  --card: #17222d;
+  --ink: #e8eef3;
+  --muted: #8fa0af;
+  --line: #263544;
+  --accent: #1fa3a1;
+  --accent-soft: #123f3e;
+  --danger: #f0675c;
+  --pos: #4cc27e;
+
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -88,6 +103,12 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.row-tight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .toolbar {
