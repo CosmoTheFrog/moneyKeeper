@@ -22,7 +22,9 @@ import { dayIn, toEntries, type Entry } from './ledger'
 import { PrivacyContext } from './MoneyText'
 import { registerCurrencies } from './money'
 import { OperationsScreen } from './OperationsScreen'
+import { PortfolioScreen } from './PortfolioScreen'
 import { ReportsScreen } from './ReportsScreen'
+import { SavingsScreen } from './SavingsScreen'
 import { TabBar, type Tab } from './TabBar'
 import { applyTheme, readMode, resolveTheme, saveMode, type ThemeMode } from './theme'
 import { ThemeContext } from './ThemeSettings'
@@ -43,6 +45,8 @@ type Screen =
   | { kind: 'edit'; entry: Entry; returnTo: Screen }
   | { kind: 'category'; categoryId: number }
   | { kind: 'account'; accountId: number }
+  | { kind: 'savings' }
+  | { kind: 'portfolio' }
 
 const HIDDEN_KEY = 'mk.hidden'
 const DISPLAY_KEY = 'mk.display'
@@ -270,6 +274,33 @@ export function App() {
           )
           break
         }
+        case 'savings':
+          body = (
+            <SavingsScreen
+              accounts={accounts}
+              allCurrencies={me.currencies}
+              today={today}
+              onBack={() => {
+                setTab('accounts')
+                go(home)
+              }}
+              onChanged={reload}
+            />
+          )
+          break
+        case 'portfolio':
+          body = (
+            <PortfolioScreen
+              display={display}
+              currencies={me.currencies}
+              onDisplay={changeDisplay}
+              onBack={() => {
+                setTab('accounts')
+                go(home)
+              }}
+            />
+          )
+          break
         case 'tabs':
           body = (
             <>
@@ -287,7 +318,7 @@ export function App() {
                 />
               )}
               {tab === 'reports' && <ReportsScreen entries={entries} groups={groups} categories={categories} baseCurrency={display} currencies={me.currencies} onDisplay={changeDisplay} today={today} />}
-              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} />}
+              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>
           )

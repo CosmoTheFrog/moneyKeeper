@@ -16,11 +16,13 @@ type Props = {
   displayCurrency: string
   onChanged: () => void
   onOpenReport: (accountId: number) => void
+  onOpenSavings: () => void
+  onOpenPortfolio: () => void
 }
 
-const kindOptions = (['debit', 'credit', 'cash'] as const).map((k) => ({ value: k, label: t.accountKinds[k] }))
+const kindOptions = (['debit', 'credit', 'cash', 'wallet'] as const).map((k) => ({ value: k, label: t.accountKinds[k] }))
 
-export function AccountsScreen({ accounts, currencies, baseCurrency, displayCurrency, onChanged, onOpenReport }: Props) {
+export function AccountsScreen({ accounts, currencies, baseCurrency, displayCurrency, onChanged, onOpenReport, onOpenSavings, onOpenPortfolio }: Props) {
   const [adding, setAdding] = useState(accounts.length === 0)
   const [settings, setSettings] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
@@ -41,6 +43,15 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, displayCurr
           </button>
         </span>
       </header>
+
+      <div className="toolbar">
+        <button type="button" className="chip" onClick={onOpenSavings}>
+          {t.accounts.savings}
+        </button>
+        <button type="button" className="chip" onClick={onOpenPortfolio}>
+          {t.accounts.portfolio}
+        </button>
+      </div>
 
       {accounts.length === 0 && <p className="hint">{t.accounts.empty}</p>}
 
@@ -147,7 +158,17 @@ function AccountForm({ currencies, baseCurrency, onDone }: FormProps) {
         <span className="label">{t.accounts.name}</span>
         <input value={name} maxLength={40} placeholder={t.accounts.namePlaceholder} autoFocus onChange={(e) => setName(e.target.value)} />
       </label>
-      <ChipPicker label={t.accounts.kind} value={kind} options={kindOptions} onChange={setKind} />
+      <ChipPicker
+        label={t.accounts.kind}
+        value={kind}
+        options={kindOptions}
+        onChange={(k) => {
+          setKind(k)
+          // Кошелёк и биржа почти всегда держат несколько валют.
+          setMode(k === 'wallet' ? 'many' : mode)
+        }}
+      />
+      {kind === 'wallet' && <p className="hint tight">{t.accounts.walletHint}</p>}
       <ChipPicker
         label={t.accounts.currencyMode}
         value={mode}

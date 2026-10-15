@@ -15,12 +15,13 @@ import {
 import { allows, pickAccount, usableCurrencies } from './accounts'
 import { errorText, t } from './i18n'
 import type { Entry } from './ledger'
+import { ExchangeFields } from './ExchangeForm'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { formatInput, formatMinor, parseAmount } from './money'
 import { ChipPicker, CurrencyPicker, SheetPicker } from './Pickers'
 
-type FormKind = 'expense' | 'income' | 'transfer' | 'opening'
+type FormKind = 'expense' | 'income' | 'transfer' | 'opening' | 'exchange'
 
 type Props = {
   accounts: Account[]
@@ -36,7 +37,7 @@ type Props = {
   onCancel: () => void
 }
 
-const kindOptions = (['expense', 'income', 'transfer'] as const).map((k) => ({ value: k, label: t.kinds[k] }))
+const kindOptions = (['expense', 'income', 'transfer', 'exchange'] as const).map((k) => ({ value: k, label: t.kinds[k] }))
 
 function kindLabel(kind: FormKind): string {
   return kind === 'opening' ? t.ledger.opening : t.kinds[kind]
@@ -46,13 +47,14 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
   const editing = entry !== undefined
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
-  const [kind, setKind] = useState<FormKind>(entry?.kind ?? 'expense')
+  const [kind, setKind] = useState<FormKind>(entry === undefined || entry.kind === 'fee' ? 'expense' : entry.kind)
   const [quick, setQuick] = useState('')
   const [understood, setUnderstood] = useState<string | null>(null)
   const [amount, setAmount] = useState(entry === undefined ? '' : formatInput(entry.amountMinor, entry.currency))
   const [currency, setCurrency] = useState(entry?.currency ?? defaultAccount?.currency ?? '')
   const [accountId, setAccountId] = useState(entry?.accountId ?? defaultAccount?.id ?? 0)
   const [toAccountId, setToAccountId] = useState(entry?.toAccountId ?? 0)
+  const [feeAmount, setFeeAmount] = useState('')
   const [categoryId, setCategoryId] = useState(entry?.categoryId ?? presetCategoryId ?? 0)
   const [date, setDate] = useState(entry?.date ?? '')
   const [note, setNote] = useState(entry?.note ?? '')
@@ -69,6 +71,13 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
   const canPickAccount = editing ? kind === 'expense' || kind === 'income' : true
   const canPickTarget = !editing && kind === 'transfer'
   const targets = accountsInCurrency.filter((a) => a.id !== accountId)
+  const fromAccount = accounts.find((a) => a.id === accountId)
+  const toAccount = accounts.find((a) => a.id === toAccountId)
+  // Перевод со счёта бюджета на счёт вне бюджета это расход конверта; между кошельками бывает комиссия сети.
+  const crossing = canPickTarget && fromAccount !== undefined && toAccount !== undefined && !fromAccount.off_budget && toAccount.off_budget
+  const walletToWallet = canPickTarget && fromAccount?.off_budget === true && toAccount?.off_budget === true
+  const lockedAmounts = editing && kind === 'exchange'
+  const showExchange = !editing && kind === 'exchange'
 
   const categoryGroups = groups
     .map((g) => ({
@@ -88,6 +97,12 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
   function selectAccount(id: number) {
     setAccountId(id)
     if (id === toAccountId) setToAccountId(0)
+  }
+
+  // Копилка знает свой конверт: категория подставляется сама.
+  function chooseTarget(a: Account) {
+    setToAccountId(a.id)
+    if (a.kind === 'piggy' && a.category_id !== null) setCategoryId(a.category_id)
   }
 
   async function understand() {
@@ -114,21 +129,25 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
   async function submit(e: FormEvent) {
     e.preventDefault()
     setError(null)
-    const minor = parseAmount(amount, currency)
+    const minor = lockedAmounts && entry !== undefined ? Math.abs(entry.amountMinor) : parseAmount(amount, currency)
     if (minor === null) return setError(errorText('invalid_amount'))
+    const fee = feeAmount.trim() === '' ? 0 : parseAmount(feeAmount, currency)
+    if (fee === null) return setError(errorText('invalid_amount'))
     if (accountId === 0) return setError(t.add.noAccountInCurrency)
     if (!editing && kind === 'expense' && categoryId === 0) return setError(t.add.pickCategory)
     if (canPickTarget && toAccountId === 0) return setError(t.add.noTarget)
+    if (crossing && categoryId === 0) return setError(t.add.pickCategory)
 
     setBusy(true)
     try {
       if (entry === undefined) {
-        if (kind === 'opening') throw new ApiError('invalid_transaction', 400)
+        if (kind === 'opening' || kind === 'exchange') throw new ApiError('invalid_transaction', 400)
         await createTransaction({
           kind,
           account_id: accountId,
           to_account_id: kind === 'transfer' ? toAccountId : undefined,
-          category_id: kind === 'expense' ? categoryId : undefined,
+          category_id: kind === 'expense' || crossing ? categoryId : undefined,
+          fee_minor: walletToWallet && fee > 0 ? fee : undefined,
           amount_minor: minor,
           currency,
           date: date === '' ? undefined : date,
@@ -183,6 +202,8 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
       )}
       {editing && <p className="hint">{kindLabel(kind)}</p>}
 
+      {showExchange && <ExchangeFields accounts={accounts} groups={groups} categories={categories} allCurrencies={allCurrencies} onDone={onDone} />}
+      {!showExchange && (
       <form className="stack" onSubmit={submit}>
         {!editing && (
           <div className="card">
@@ -209,6 +230,21 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
           </div>
         )}
 
+        {lockedAmounts && (
+          <div className="card">
+            <b>
+              <Money minor={-(entry?.amountMinor ?? 0)} currency={currency} />
+              {entry?.inMinor != null && entry.inCurrency !== null && (
+                <>
+                  {' → '}
+                  <Money minor={entry.inMinor} currency={entry.inCurrency} signed />
+                </>
+              )}
+            </b>
+            <p className="hint tight">{t.exchange.locked}</p>
+          </div>
+        )}
+        {!lockedAmounts && (
         <div className="card">
           <label className="field">
             <span className="label">{t.add.amount}</span>
@@ -221,6 +257,7 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
           )}
           {editing && !canPickAccount && <p className="hint tight">{t.edit.currencyLocked}</p>}
         </div>
+        )}
 
         {canPickAccount && (
           <div className="card">
@@ -242,7 +279,7 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
             <span className="label">{t.add.toAccount}</span>
             <div className="choices">
               {targets.map((a) => (
-                <button key={a.id} type="button" className={a.id === toAccountId ? 'choice choice-on' : 'choice'} onClick={() => setToAccountId(a.id)}>
+                <button key={a.id} type="button" className={a.id === toAccountId ? 'choice choice-on' : 'choice'} onClick={() => chooseTarget(a)}>
                   <span>{a.name}</span>
                   <span className="choice-meta">{a.currency}</span>
                 </button>
@@ -250,6 +287,23 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
               {targets.length === 0 && <p className="hint tight">{t.add.noTarget}</p>}
             </div>
             <p className="hint tight">{t.add.transferHint}</p>
+          </div>
+        )}
+
+        {crossing && (
+          <div className="card">
+            <p className="hint tight">{t.networkFee.leavesBudget}</p>
+            <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
+          </div>
+        )}
+
+        {walletToWallet && (
+          <div className="card">
+            <label className="field">
+              <span className="label">{t.networkFee.label}</span>
+              <input inputMode="decimal" value={feeAmount} placeholder="0,00" onChange={(e) => setFeeAmount(e.target.value)} />
+            </label>
+            <p className="hint tight">{t.networkFee.hint}</p>
           </div>
         )}
 
@@ -276,6 +330,7 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
           {t.save}
         </button>
       </form>
+      )}
 
       {editing && (
         <div className="stack tail">

@@ -17,7 +17,8 @@ export type Me = {
   currency_info: CurrencyInfo[]
 }
 
-export type AccountKind = 'cash' | 'debit' | 'credit'
+// wallet и piggy (кошелёк, копилка) лежат вне бюджета.
+export type AccountKind = 'cash' | 'debit' | 'credit' | 'wallet' | 'piggy'
 
 // Остаток и расходы счёта в одной валюте. spent_minor положительная: расходы за всё время, без переводов и доходов.
 // base_* это то же в базовой валюте бюджета: остаток по сегодняшнему курсу, расходы по курсу дня каждой записи.
@@ -38,6 +39,11 @@ export type Account = {
   currency: string
   multi_currency: boolean
   is_default: boolean
+  off_budget: boolean
+  // Копилка: цель и конверт, из которого она пополняется.
+  target_minor: number | null
+  target_date: string | null
+  category_id: number | null
   balances: Balance[]
 }
 
@@ -57,7 +63,8 @@ export type Category = {
   rollover: boolean
 }
 
-export type TransactionKind = 'expense' | 'income' | 'transfer' | 'opening'
+// exchange это две записи в разных валютах, fee комиссия обмена со счёта вне бюджета.
+export type TransactionKind = 'expense' | 'income' | 'transfer' | 'opening' | 'exchange' | 'fee'
 
 // amount_minor со знаком: расход и уходящая нога перевода отрицательные.
 // base_minor это сумма в базовой валюте по курсу дня записи, null если курса нет.
@@ -97,6 +104,22 @@ export type NewTransaction = {
   category_id?: number
   amount_minor: number
   currency?: string
+  date?: string
+  note: string
+  // Комиссия сети при переводе между кошельками вне бюджета: приходит amount_minor минус комиссия.
+  fee_minor?: number
+}
+
+export type NewExchange = {
+  from_account_id: number
+  to_account_id: number
+  out_minor: number
+  out_currency: string
+  in_minor: number
+  in_currency: string
+  category_id?: number
+  fee_minor?: number
+  fee_category_id?: number
   date?: string
   note: string
 }
@@ -162,6 +185,10 @@ export const fetchRates = (inCurrency: string) => request<RateTable>('GET', `/ap
 export const createAccount = (name: string, kind: AccountKind, currency: string, multiCurrency: boolean, openingBalanceMinor: number) =>
   request<Account>('POST', '/api/accounts', { name, kind, currency, multi_currency: multiCurrency, opening_balance_minor: openingBalanceMinor })
 
+// Копилка заводится вместе с конвертом в группе «Цели накопления»; цель необязательна.
+export const createPiggy = (name: string, currency: string, targetMinor: number | null, targetDate: string | null) =>
+  request<Account>('POST', '/api/accounts', { name, kind: 'piggy', currency, target_minor: targetMinor ?? undefined, target_date: targetDate ?? undefined })
+
 export const fetchCategories = async () => (await request<{ categories: Category[] }>('GET', '/api/categories')).categories
 
 export const fetchCategoryGroups = async () => (await request<{ groups: CategoryGroup[] }>('GET', '/api/category-groups')).groups
@@ -207,4 +234,22 @@ export const deleteTransaction = async (id: number): Promise<void> => {
 export const fetchEvents = async (id: number) => (await request<{ events: TxEvent[] }>('GET', `/api/transactions/${id}/events`)).events
 
 // currency необязательна: валюта формы, по ней считается точность числа, если в тексте валюты нет.
+export const createExchange = (e: NewExchange) => request<{ transactions: Transaction[] }>('POST', '/api/exchanges', e)
+
+// Позиция по монете: стоимость, цена покупки и прибыль в валюте портфеля. profit_bp в сотых долях процента.
+export type PortfolioItem = {
+  currency: string
+  quantity_minor: number
+  value_minor: number
+  cost_minor: number
+  profit_minor: number
+  profit_bp: number | null
+  realized_minor: number
+  avg_price: string
+}
+
+export type Portfolio = { currency: string; missing_rates: number; items: PortfolioItem[] }
+
+export const fetchPortfolio = (inCurrency: string) => request<Portfolio>('GET', `/api/portfolio?in=${inCurrency}`)
+
 export const parseQuick = (text: string, currency: string) => request<ParsedInput>('POST', '/api/transactions/parse', { text, currency })

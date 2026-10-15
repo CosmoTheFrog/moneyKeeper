@@ -77,6 +77,16 @@ export function formatRate(rate: string): string {
   return `${groupDigits(Number(intPart))}${fracPart === '' ? '' : `,${fracPart}`}`
 }
 
+// dealPrice это цена одной целой единицы получаемой валюты в отдаваемой: сколько отдали на сколько получили.
+// Считается целыми числами и возвращает десятичную строку для formatRate. Пустая строка, если получено ноль.
+export function dealPrice(outMinor: number, outCurrency: string, inMinor: number, inCurrency: string): string {
+  if (inMinor <= 0 || outMinor <= 0) return ''
+  const digits = 12
+  const scaled = (BigInt(outMinor) * 10n ** BigInt(unitsOf(inCurrency) + digits)) / (BigInt(inMinor) * 10n ** BigInt(unitsOf(outCurrency)))
+  const text = scaled.toString().padStart(digits + 1, '0')
+  return `${text.slice(0, text.length - digits)}.${text.slice(text.length - digits)}`
+}
+
 // formatInput возвращает сумму в виде для поля ввода: 123450 в GEL → «1234,50».
 export function formatInput(minor: number, currency: string): string {
   const u = unitsOf(currency)

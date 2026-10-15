@@ -38,7 +38,7 @@ function cat(id: number, name: string, groupId: number): Category {
 
 // В GEL базовая сумма равна самой сумме, для остальных валют курса по умолчанию нет.
 function exp(id: number, categoryId: number, amountMinor: number, date: string, currency = 'GEL', baseMinor: number | null = currency === 'GEL' ? amountMinor : null): Entry {
-  return { id, kind: 'expense', date, amountMinor, currency, baseMinor, accountId: 1, toAccountId: null, categoryId, note: '' }
+  return { id, kind: 'expense', date, amountMinor, currency, baseMinor, accountId: 1, toAccountId: null, categoryId, note: '', inMinor: null, inCurrency: null, feeMinor: 0 }
 }
 
 const GEL: Measure = { kind: 'currency', code: 'GEL' }

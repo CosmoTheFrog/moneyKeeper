@@ -2,6 +2,7 @@ import type { Account, Category } from './api'
 import { groupByDay, type Entry } from './ledger'
 import { t } from './i18n'
 import { Money } from './MoneyText'
+import { currencySign } from './money'
 
 type Props = {
   entries: Entry[]
@@ -26,6 +27,10 @@ export function EntryList({ entries, accounts, categories, today, onOpen }: Prop
     switch (e.kind) {
       case 'transfer':
         return `${accountName.get(e.accountId) ?? ''} → ${e.toAccountId === null ? '…' : (accountName.get(e.toAccountId) ?? '')}`
+      case 'exchange':
+        return `${t.kinds.exchange} ${currencySign(e.currency)} → ${currencySign(e.inCurrency ?? e.currency)}`
+      case 'fee':
+        return t.kinds.fee
       case 'opening':
         return t.ledger.opening
       case 'income':
@@ -36,6 +41,10 @@ export function EntryList({ entries, accounts, categories, today, onOpen }: Prop
   }
 
   function subtitle(e: Entry): string {
+    if (e.kind === 'exchange') {
+      const route = `${accountName.get(e.accountId) ?? ''} → ${e.toAccountId === null ? '…' : (accountName.get(e.toAccountId) ?? '')}`
+      return [route, e.note].filter((s) => s !== '').join(' · ')
+    }
     const account = e.kind === 'transfer' ? '' : (accountName.get(e.accountId) ?? '')
     return [account, e.note].filter((s) => s !== '').join(' · ')
   }
@@ -52,7 +61,14 @@ export function EntryList({ entries, accounts, categories, today, onOpen }: Prop
                   <span className="entry-title">{title(e)}</span>
                   <span className="entry-sub">{subtitle(e)}</span>
                 </button>
-                <Money minor={e.amountMinor} currency={e.currency} signed={e.kind !== 'transfer'} />
+                {e.kind === 'exchange' ? (
+                  <span className="entry-amounts">
+                    <Money minor={-e.amountMinor} currency={e.currency} />
+                    {e.inMinor !== null && e.inCurrency !== null && <Money minor={e.inMinor} currency={e.inCurrency} signed />}
+                  </span>
+                ) : (
+                  <Money minor={e.amountMinor} currency={e.currency} signed={e.kind !== 'transfer'} />
+                )}
               </div>
             ))}
           </div>

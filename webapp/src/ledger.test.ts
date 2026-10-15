@@ -49,6 +49,41 @@ describe('toEntries', () => {
   })
 })
 
+describe('toEntries exchange', () => {
+  it('merges both legs of an exchange and shows what came in', () => {
+    const out = toEntries([
+      tx({ id: 6, kind: 'exchange', account_id: 2, amount_minor: 10000, currency: 'USD', transfer_id: 5 }),
+      tx({ id: 5, kind: 'exchange', account_id: 1, amount_minor: -950000, currency: 'RUB', transfer_id: 5 }),
+    ])
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ id: 5, kind: 'exchange', accountId: 1, toAccountId: 2, amountMinor: 950000, currency: 'RUB', inMinor: 10000, inCurrency: 'USD', feeMinor: 0 })
+  })
+
+  it('folds a wallet fee into the exchange and keeps a budget fee as an expense', () => {
+    const out = toEntries([
+      tx({ id: 9, kind: 'fee', account_id: 1, amount_minor: -50, currency: 'USDT', transfer_id: 7 }),
+      tx({ id: 8, kind: 'exchange', account_id: 1, amount_minor: 100000, currency: 'BTC', transfer_id: 7 }),
+      tx({ id: 7, kind: 'exchange', account_id: 1, amount_minor: -8000, currency: 'USDT', transfer_id: 7 }),
+      tx({ id: 12, kind: 'expense', category_id: 3, amount_minor: -500, currency: 'RUB', transfer_id: 11 }),
+      tx({ id: 11, kind: 'exchange', account_id: 1, amount_minor: -9500, currency: 'RUB', transfer_id: 11 }),
+      tx({ id: 13, kind: 'exchange', account_id: 2, amount_minor: 100, currency: 'USD', transfer_id: 11 }),
+    ])
+    expect(out.map((e) => [e.id, e.kind, e.feeMinor])).toEqual([
+      [7, 'exchange', 50],
+      [12, 'expense', 0],
+      [11, 'exchange', 0],
+    ])
+  })
+
+  it('shows the received amount of a transfer with a network fee', () => {
+    const out = toEntries([
+      tx({ id: 2, kind: 'transfer', account_id: 2, amount_minor: 49990000, currency: 'BTC', transfer_id: 4 }),
+      tx({ id: 1, kind: 'transfer', account_id: 1, amount_minor: -50000000, currency: 'BTC', transfer_id: 4 }),
+    ])
+    expect(out[0]).toMatchObject({ amountMinor: 50000000, inMinor: 49990000, inCurrency: 'BTC' })
+  })
+})
+
 describe('toEntries base amounts', () => {
   it('carries the base amount, absolute for transfers', () => {
     const out = toEntries([

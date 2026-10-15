@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { formatInput, formatMinor, formatRate, isCoin, parseAmount, registerCurrencies, unitsOf } from './money'
+import { dealPrice, formatInput, formatMinor, formatRate, isCoin, parseAmount, registerCurrencies, unitsOf } from './money'
 
 beforeAll(() => {
   registerCurrencies([
@@ -108,5 +108,26 @@ describe('formatRate', () => {
     ['0', '0'],
   ])('%s → %s', (rate, want) => {
     expect(formatRate(rate)).toBe(want)
+  })
+})
+describe('dealPrice', () => {
+  it.each([
+    // Отдали 9 500 ₽, получили 100 $: 95 ₽ за доллар.
+    [950000, 'GEL', 10000, 'GEL', '95.000000000000'],
+    // Отдали 650 ₾, получили 4,0000 DOGE: 162,50 ₾ за целую монету.
+    [65000, 'GEL', 40000, 'DOGE', '162.500000000000'],
+    // Монета отдаётся: за 0,001 BTC получили 250 ₾, цена одного лари 0,000004 BTC.
+    [100000, 'BTC', 25000, 'GEL', '0.000004000000'],
+    [0, 'GEL', 100, 'GEL', ''],
+    [100, 'GEL', 0, 'GEL', ''],
+  ])('%i %s for %i %s → %s', (out, outCur, inn, inCur, want) => {
+    expect(dealPrice(out, outCur, inn, inCur)).toBe(want)
+  })
+
+  it('shows the price of one whole coin in what was given', () => {
+    // Отдали 250,00 GEL, получили 0,00100000 BTC: 250 000 GEL за 1 BTC.
+    expect(formatRate(dealPrice(25000, 'GEL', 100000, 'BTC'))).toBe('250 000')
+    // Отдали 0,00100000 BTC, получили 250,00 GEL: за один лари отдали 0,000004 BTC.
+    expect(formatRate(dealPrice(100000, 'BTC', 25000, 'GEL'))).toBe('0,000004')
   })
 })
