@@ -12,6 +12,7 @@ import (
 	"moneykeeper/internal/models"
 	"moneykeeper/internal/web/apidto"
 	"moneykeeper/internal/web/tgauth"
+	"moneykeeper/pkg/apptime"
 	"moneykeeper/pkg/money"
 )
 
@@ -38,6 +39,8 @@ type Service interface {
 
 	ListTransactions(ctx context.Context, u models.User, limit, offset int, in string) ([]models.Transaction, error)
 	Rates(ctx context.Context, u models.User, in string) (models.RateTable, error)
+	BudgetMonth(ctx context.Context, u models.User, month apptime.Month) (models.BudgetMonth, error)
+	SetBudgeted(ctx context.Context, u models.User, categoryID int64, month apptime.Month, minor int64) error
 	CreateTransaction(ctx context.Context, u models.User, in models.NewTransaction) ([]models.Transaction, error)
 	UpdateTransaction(ctx context.Context, u models.User, id int64, p models.TransactionPatch) ([]models.Transaction, error)
 	DeleteTransaction(ctx context.Context, u models.User, id int64) error
@@ -62,6 +65,8 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("GET /api/me", h.auth(h.me))
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
 	mux.HandleFunc("GET /api/rates", h.auth(h.rates))
+	mux.HandleFunc("GET /api/budget/months/{month}", h.auth(h.budgetMonth))
+	mux.HandleFunc("PUT /api/budget/months/{month}/categories/{id}", h.auth(h.setBudgeted))
 	mux.HandleFunc("GET /api/accounts", h.auth(h.listAccounts))
 	mux.HandleFunc("POST /api/accounts", h.auth(h.createAccount))
 	mux.HandleFunc("GET /api/category-groups", h.auth(h.listCategoryGroups))
@@ -228,6 +233,8 @@ func (h *handler) fail(w http.ResponseWriter, err error) {
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidTimezone)
 	case errors.Is(err, models.ErrInvalidCategory):
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidCategory)
+	case errors.Is(err, models.ErrInvalidBudget):
+		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidBudget)
 	case errors.Is(err, models.ErrInvalidTransaction):
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidTransaction)
 	case errors.Is(err, models.ErrCurrencyMismatch):

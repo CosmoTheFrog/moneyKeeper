@@ -19,7 +19,7 @@ type Categories struct{ db *pgclient.Client }
 func NewCategories(db *pgclient.Client) *Categories { return &Categories{db: db} }
 
 const (
-	categoryColumns = `id, budget_id, group_id, name, description, hidden`
+	categoryColumns = `id, budget_id, group_id, name, description, hidden, rollover`
 	groupColumns    = `id, budget_id, COALESCE(key, ''), name, position`
 )
 
@@ -46,8 +46,8 @@ func (r *Categories) SeedDefaults(ctx context.Context, budgetID int64, groups []
 		groupKeys[i], names[i], descriptions[i] = string(c.Group), c.Name, c.Description
 	}
 	_, err = r.db.Q(ctx).Exec(ctx,
-		`INSERT INTO categories (budget_id, group_id, name, description)
-		 SELECT $1, g.id, u.n, u.d
+		`INSERT INTO categories (budget_id, group_id, name, description, rollover)
+		 SELECT $1, g.id, u.n, u.d, u.k IN ('rainy', 'goal')
 		 FROM unnest($2::text[], $3::text[], $4::text[]) WITH ORDINALITY AS u(k, n, d, ord)
 		 JOIN category_groups g ON g.budget_id = $1 AND g.key = u.k
 		 ORDER BY u.ord`,
@@ -104,7 +104,9 @@ func (r *Categories) ListGroups(ctx context.Context, budgetID int64) ([]models.C
 
 func (r *Categories) Create(ctx context.Context, budgetID int64, in models.NewCategory) (models.Category, error) {
 	c, err := scanCategory(r.db.Q(ctx).QueryRow(ctx,
-		`INSERT INTO categories (budget_id, group_id, name, description) VALUES ($1, $2, $3, $4) RETURNING `+categoryColumns,
+		// Накопительные группы переносят остаток с самого начала.
+		`INSERT INTO categories (budget_id, group_id, name, description, rollover)
+		 VALUES ($1, $2, $3, $4, EXISTS (SELECT 1 FROM category_groups WHERE id = $2 AND key IN ('rainy', 'goal'))) RETURNING `+categoryColumns,
 		budgetID, in.GroupID, in.Name, in.Description))
 	if err != nil {
 		return models.Category{}, fmt.Errorf("create category: %w", mapCategoryErr(err))
@@ -145,9 +147,10 @@ func (r *Categories) List(ctx context.Context, budgetID int64) ([]models.Categor
 
 func (r *Categories) Update(ctx context.Context, budgetID, id int64, p models.CategoryPatch) (models.Category, error) {
 	c, err := scanCategory(r.db.Q(ctx).QueryRow(ctx,
-		`UPDATE categories SET name = COALESCE($3, name), description = COALESCE($4, description), hidden = COALESCE($5, hidden)
+		`UPDATE categories SET name = COALESCE($3, name), description = COALESCE($4, description), hidden = COALESCE($5, hidden),
+		   rollover = COALESCE($6, rollover)
 		 WHERE budget_id = $1 AND id = $2 RETURNING `+categoryColumns,
-		budgetID, id, p.Name, p.Description, p.Hidden))
+		budgetID, id, p.Name, p.Description, p.Hidden, p.Rollover))
 	if err != nil {
 		return models.Category{}, fmt.Errorf("update category: %w", mapCategoryErr(err))
 	}
@@ -156,7 +159,7 @@ func (r *Categories) Update(ctx context.Context, budgetID, id int64, p models.Ca
 
 func scanCategory(row pgx.Row) (models.Category, error) {
 	var c models.Category
-	if err := row.Scan(&c.ID, &c.BudgetID, &c.GroupID, &c.Name, &c.Description, &c.Hidden); err != nil {
+	if err := row.Scan(&c.ID, &c.BudgetID, &c.GroupID, &c.Name, &c.Description, &c.Hidden, &c.Rollover); err != nil {
 		return models.Category{}, err
 	}
 	return c, nil

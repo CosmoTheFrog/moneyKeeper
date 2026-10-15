@@ -74,7 +74,7 @@ func (h *handler) updateCategory(w http.ResponseWriter, r *http.Request, u model
 	if !h.decode(w, r, &req) {
 		return
 	}
-	c, err := h.svc.UpdateCategory(r.Context(), u, id, models.CategoryPatch{Name: req.Name, Description: req.Description, Hidden: req.Hidden})
+	c, err := h.svc.UpdateCategory(r.Context(), u, id, models.CategoryPatch{Name: req.Name, Description: req.Description, Hidden: req.Hidden, Rollover: req.Rollover})
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -238,7 +238,7 @@ func (h *handler) optionalDay(w http.ResponseWriter, s *string) (*apptime.Day, b
 }
 
 func categoryDTO(c models.Category) apidto.CategoryDTO {
-	return apidto.CategoryDTO{ID: c.ID, GroupID: c.GroupID, Name: c.Name, Description: c.Description, Hidden: c.Hidden}
+	return apidto.CategoryDTO{ID: c.ID, GroupID: c.GroupID, Name: c.Name, Description: c.Description, Hidden: c.Hidden, Rollover: c.Rollover}
 }
 
 func categoryGroupDTO(g models.CategoryGroup) apidto.CategoryGroupDTO {

@@ -46,6 +46,8 @@ type Category struct {
 	Name        string
 	Description string
 	Hidden      bool
+	// Rollover: остаток (и перерасход) категории переносится в следующий месяц, иначе переносится только плюс.
+	Rollover bool
 }
 
 type NewCategory struct {
@@ -58,6 +60,7 @@ type CategoryPatch struct {
 	Name        *string
 	Description *string
 	Hidden      *bool
+	Rollover    *bool
 }
 
 type TransactionKind string

@@ -1,6 +1,6 @@
 import { t } from './i18n'
 
-export type Tab = 'operations' | 'categories' | 'reports' | 'accounts'
+export type Tab = 'operations' | 'budget' | 'reports' | 'accounts'
 
 type Props = {
   tab: Tab
@@ -10,10 +10,10 @@ type Props = {
 
 type Item = { id: Tab; label: string; icon: string }
 
-// Слева от «+» операции и категории, справа отчёты и счета.
+// Слева от «+» операции и бюджет, справа отчёты и счета.
 const left: Item[] = [
   { id: 'operations', label: t.tabs.operations, icon: 'M3 6h18M3 12h18M3 18h18' },
-  { id: 'categories', label: t.tabs.categories, icon: 'M4 5h7v7H4zM13 5h7v7h-7zM4 14h7v6H4zM13 14h7v6h-7z' },
+  { id: 'budget', label: t.tabs.budget, icon: 'M4 5h7v7H4zM13 5h7v7h-7zM4 14h7v6H4zM13 14h7v6h-7z' },
 ]
 
 const right: Item[] = [

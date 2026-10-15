@@ -53,6 +53,8 @@ export type Category = {
   name: string
   description: string
   hidden: boolean
+  // Остаток категории (и перерасход) переносится в следующий месяц.
+  rollover: boolean
 }
 
 export type TransactionKind = 'expense' | 'income' | 'transfer' | 'opening'
@@ -168,7 +170,26 @@ export const createCategoryGroup = (name: string) => request<CategoryGroup>('POS
 
 export const createCategory = (name: string, groupId: number) => request<Category>('POST', '/api/categories', { name, group_id: groupId })
 
-export const updateCategory = (id: number, patch: { name?: string; description?: string; hidden?: boolean }) =>
+// Бюджет месяца в базовой валюте. to_budget_minor накопительное: нераспределённое переходит в следующий месяц само.
+// missing_rates число сумм без курса, в итоги они не вошли.
+export type BudgetRow = { category_id: number; budgeted_minor: number; spent_minor: number; balance_minor: number }
+
+export type BudgetMonth = {
+  month: string
+  currency: string
+  income_minor: number
+  budgeted_minor: number
+  to_budget_minor: number
+  missing_rates: number
+  categories: BudgetRow[]
+}
+
+export const fetchBudgetMonth = (month: string) => request<BudgetMonth>('GET', `/api/budget/months/${month}`)
+
+export const setBudgeted = (month: string, categoryId: number, budgetedMinor: number) =>
+  request<BudgetMonth>('PUT', `/api/budget/months/${month}/categories/${categoryId}`, { budgeted_minor: budgetedMinor })
+
+export const updateCategory = (id: number, patch: { name?: string; description?: string; hidden?: boolean; rollover?: boolean }) =>
   request<Category>('PATCH', `/api/categories/${id}`, patch)
 
 export const fetchTransactions = async (inCurrency: string, limit = 200) =>

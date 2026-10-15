@@ -13,7 +13,7 @@ import {
   type Me,
   type Transaction,
 } from './api'
-import { CategoriesScreen } from './CategoriesScreen'
+import { BudgetScreen } from './BudgetScreen'
 import { CategoryScreen } from './CategoryScreen'
 import { CurrencyScreen } from './CurrencyScreen'
 import { EntryForm } from './EntryForm'
@@ -274,10 +274,13 @@ export function App() {
           body = (
             <>
               {tab === 'operations' && <OperationsScreen entries={entries} accounts={accounts} categories={categories} today={today} onOpen={(entry) => openEntry(entry, home)} />}
-              {tab === 'categories' && (
-                <CategoriesScreen
+              {tab === 'budget' && (
+                <BudgetScreen
                   groups={groups}
                   categories={categories}
+                  baseCurrency={base}
+                  today={today}
+                  ledger={state.data.transactions}
                   onChanged={reload}
                   onOpenCategory={(id) => go({ kind: 'category', categoryId: id })}
                   onAddTo={(id) => go({ kind: 'add', categoryId: id, returnTo: home })}

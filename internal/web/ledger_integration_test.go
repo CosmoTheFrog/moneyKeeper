@@ -68,7 +68,7 @@ func (c client) fails(method, path, body string, wantStatus int, wantCode string
 func TestLedgerFlow(t *testing.T) {
 	db := testdb.New(t)
 	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
-		repo.NewCategories(db), repo.NewTransactions(db), repo.NewRates(db), &testdb.Rates{}, slog.New(slog.DiscardHandler))
+		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewRates(db), &testdb.Rates{}, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(newTestHandler(svc).routes())
 	t.Cleanup(srv.Close)
 
@@ -145,6 +145,44 @@ func TestLedgerFlow(t *testing.T) {
 		igor.fails("GET", "/api/accounts?in=XXX", "", 400, apidto.CodeInvalidCurrency)
 		igor.fails("GET", "/api/transactions?in=XXX", "", 400, apidto.CodeInvalidCurrency)
 		igor.ok("GET", "/api/accounts?in=USDT", "", 200, nil)
+	})
+
+	t.Run("budget", func(t *testing.T) {
+		igor.do("PUT", "/api/budget/currency", `{"currency":"GEL"}`) // могла быть выбрана раньше в этом тесте
+
+		// Месяц берём у последней записи: начальный остаток счёта создан «сегодня».
+		var list apidto.TransactionsResponse
+		igor.ok("GET", "/api/transactions?limit=1", "", 200, &list)
+		m := list.Transactions[0].Date[:7]
+
+		var b apidto.BudgetMonthResponse
+		igor.ok("GET", "/api/budget/months/"+m, "", 200, &b)
+		if b.Month != m || b.Currency != "GEL" || b.IncomeMinor < 100000 || len(b.Categories) < 15 || b.BudgetedMinor != 0 {
+			t.Fatalf("empty month = %+v", b)
+		}
+		before := b.ToBudgetMinor
+
+		igor.ok("PUT", fmt.Sprintf("/api/budget/months/%s/categories/%d", m, food), `{"budgeted_minor":30000}`, 200, &b)
+		var row apidto.BudgetRowDTO
+		for _, r := range b.Categories {
+			if r.CategoryID == food {
+				row = r
+			}
+		}
+		if row.BudgetedMinor != 30000 || row.BalanceMinor < 30000-row.SpentMinor || b.BudgetedMinor != 30000 || b.ToBudgetMinor != before-30000 {
+			t.Errorf("after setting: row %+v, month %+v (was %d)", row, b, before)
+		}
+
+		igor.fails("PUT", fmt.Sprintf("/api/budget/months/%s/categories/%d", m, food), `{"budgeted_minor":-1}`, 400, apidto.CodeInvalidBudget)
+		igor.fails("GET", "/api/budget/months/2026-13", "", 400, apidto.CodeInvalidDate)
+		igor.fails("PUT", fmt.Sprintf("/api/budget/months/%s/categories/%d", m, food), `{"budgeted_minor":1,"x":1}`, 400, apidto.CodeInvalidRequest)
+		anna.fails("PUT", fmt.Sprintf("/api/budget/months/%s/categories/%d", m, food), `{"budgeted_minor":100}`, 404, apidto.CodeNotFound)
+
+		var c apidto.CategoryDTO
+		igor.ok("PATCH", fmt.Sprintf("/api/categories/%d", food), `{"rollover":true}`, 200, &c)
+		if !c.Rollover {
+			t.Errorf("rollover not set: %+v", c)
+		}
 	})
 
 	t.Run("quick input", func(t *testing.T) {

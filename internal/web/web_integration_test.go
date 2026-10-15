@@ -21,7 +21,7 @@ import (
 func TestFlow(t *testing.T) {
 	db := testdb.New(t)
 	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
-		repo.NewCategories(db), repo.NewTransactions(db), repo.NewRates(db), &testdb.Rates{}, slog.New(slog.DiscardHandler))
+		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewRates(db), &testdb.Rates{}, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(newTestHandler(svc).routes())
 	t.Cleanup(srv.Close)
 

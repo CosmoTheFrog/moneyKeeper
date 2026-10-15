@@ -33,7 +33,7 @@ const groups: CategoryGroup[] = [
 ]
 
 function cat(id: number, name: string, groupId: number): Category {
-  return { id, name, group_id: groupId, description: '', hidden: false }
+  return { id, name, group_id: groupId, description: '', hidden: false, rollover: false }
 }
 
 // В GEL базовая сумма равна самой сумме, для остальных валют курса по умолчанию нет.

@@ -10,6 +10,7 @@ const (
 	CodeInvalidTimezone    = "invalid_timezone"
 	CodeInvalidCategory    = "invalid_category"
 	CodeInvalidTransaction = "invalid_transaction"
+	CodeInvalidBudget      = "invalid_budget"
 	CodeInvalidDate        = "invalid_date"
 	CodeCurrencyMismatch   = "currency_mismatch"
 	CodeNoAmount           = "no_amount"
@@ -89,6 +90,7 @@ type CategoryDTO struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Hidden      bool   `json:"hidden"`
+	Rollover    bool   `json:"rollover"`
 }
 
 type CategoriesResponse struct {
@@ -118,6 +120,7 @@ type UpdateCategoryRequest struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	Hidden      *bool   `json:"hidden"`
+	Rollover    *bool   `json:"rollover"`
 }
 
 // TransactionDTO.AmountMinor со знаком: расход и уходящая нога перевода отрицательные.
@@ -203,4 +206,27 @@ type RatesResponse struct {
 	Day   string    `json:"day"`
 	In    string    `json:"in"`
 	Rates []RateDTO `json:"rates"`
+}
+
+// BudgetRowDTO: суммы категории за месяц в базовой валюте. SpentMinor положительная.
+type BudgetRowDTO struct {
+	CategoryID    int64 `json:"category_id"`
+	BudgetedMinor int64 `json:"budgeted_minor"`
+	SpentMinor    int64 `json:"spent_minor"`
+	BalanceMinor  int64 `json:"balance_minor"`
+}
+
+// BudgetMonthResponse: ToBudgetMinor накопительное («К распределению»), MissingRates число сумм без курса, не вошедших в итоги.
+type BudgetMonthResponse struct {
+	Month         string         `json:"month"`
+	Currency      string         `json:"currency"`
+	IncomeMinor   int64          `json:"income_minor"`
+	BudgetedMinor int64          `json:"budgeted_minor"`
+	ToBudgetMinor int64          `json:"to_budget_minor"`
+	MissingRates  int            `json:"missing_rates"`
+	Categories    []BudgetRowDTO `json:"categories"`
+}
+
+type SetBudgetedRequest struct {
+	BudgetedMinor int64 `json:"budgeted_minor"`
 }
