@@ -11,6 +11,7 @@ const (
 	CodeInvalidCategory    = "invalid_category"
 	CodeInvalidTransaction = "invalid_transaction"
 	CodeInvalidBudget      = "invalid_budget"
+	CodeInvalidSchedule    = "invalid_schedule"
 	CodeInvalidDate        = "invalid_date"
 	CodeCurrencyMismatch   = "currency_mismatch"
 	CodeNoAmount           = "no_amount"
@@ -275,4 +276,58 @@ type PortfolioResponse struct {
 	Currency     string             `json:"currency"`
 	MissingRates int                `json:"missing_rates"`
 	Items        []PortfolioItemDTO `json:"items"`
+}
+
+// ScheduleDTO это регулярный платёж. Повторяется раз в every_months месяцев с start_month в числа days (0 последний день
+// месяца). amount_kind: exact, approx (допуск 7,5%) или range (до amount_max_minor). weekend_shift: none, back, forward.
+type ScheduleDTO struct {
+	ID             int64  `json:"id"`
+	Name           string `json:"name"`
+	CategoryID     int64  `json:"category_id"`
+	AccountID      *int64 `json:"account_id"`
+	Currency       string `json:"currency"`
+	AmountKind     string `json:"amount_kind"`
+	AmountMinor    int64  `json:"amount_minor"`
+	AmountMaxMinor *int64 `json:"amount_max_minor"`
+	EveryMonths    int    `json:"every_months"`
+	Days           []int  `json:"days"`
+	StartMonth     string `json:"start_month"`
+	WeekendShift   string `json:"weekend_shift"`
+	RemindBefore   int    `json:"remind_before"`
+}
+
+type SchedulesResponse struct {
+	Schedules []ScheduleDTO `json:"schedules"`
+}
+
+// ScheduleRequest создаёт или заменяет расписание. start_month необязателен (пусто: текущий месяц, при правке прежний).
+type ScheduleRequest struct {
+	Name           string  `json:"name"`
+	CategoryID     int64   `json:"category_id"`
+	AccountID      *int64  `json:"account_id"`
+	Currency       string  `json:"currency"`
+	AmountKind     string  `json:"amount_kind"`
+	AmountMinor    int64   `json:"amount_minor"`
+	AmountMaxMinor *int64  `json:"amount_max_minor"`
+	EveryMonths    int     `json:"every_months"`
+	Days           []int   `json:"days"`
+	StartMonth     *string `json:"start_month"`
+	WeekendShift   string  `json:"weekend_shift"`
+	RemindBefore   int     `json:"remind_before"`
+}
+
+// OccurrenceDTO это платёж на дату со статусом: upcoming, overdue, paid или skipped. transaction_id у оплаченного.
+type OccurrenceDTO struct {
+	Schedule      ScheduleDTO `json:"schedule"`
+	DueOn         string      `json:"due_on"`
+	Status        string      `json:"status"`
+	TransactionID *int64      `json:"transaction_id"`
+}
+
+type OccurrencesResponse struct {
+	Occurrences []OccurrenceDTO `json:"occurrences"`
+}
+
+type SkipRequest struct {
+	DueOn string `json:"due_on"`
 }

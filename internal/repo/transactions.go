@@ -84,6 +84,14 @@ func (r *Transactions) CoinActivity(ctx context.Context, budgetID int64, coins [
 		budgetID, coins)
 }
 
+// Expenses возвращает расходы бюджета за период, по ним платежи расписания находят свои траты.
+func (r *Transactions) Expenses(ctx context.Context, budgetID int64, from, to apptime.Day) ([]models.Transaction, error) {
+	return r.query(ctx,
+		`SELECT `+txColumns+` FROM transactions
+		 WHERE budget_id = $1 AND deleted_at IS NULL AND kind = 'expense' AND occurred_on BETWEEN $2 AND $3
+		 ORDER BY occurred_on, id`, budgetID, from.Date(), to.Date())
+}
+
 func (r *Transactions) List(ctx context.Context, budgetID int64, limit, offset int) ([]models.Transaction, error) {
 	return r.query(ctx,
 		`SELECT `+txColumns+` FROM transactions WHERE budget_id = $1 AND deleted_at IS NULL

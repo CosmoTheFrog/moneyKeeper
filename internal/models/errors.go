@@ -15,4 +15,5 @@ var (
 	ErrInvalidTransaction = errors.New("invalid transaction")
 	ErrCurrencyMismatch   = errors.New("accounts have different currencies")
 	ErrInvalidBudget      = errors.New("invalid budget amount")
+	ErrInvalidSchedule    = errors.New("invalid schedule")
 )

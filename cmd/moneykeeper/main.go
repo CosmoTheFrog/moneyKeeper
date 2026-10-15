@@ -13,9 +13,11 @@ import (
 	_ "time/tzdata"
 
 	"moneykeeper/internal/fx"
+	"moneykeeper/internal/notify"
 	"moneykeeper/internal/pgclient"
 	"moneykeeper/internal/repo"
 	"moneykeeper/internal/service"
+	"moneykeeper/internal/telegram"
 	"moneykeeper/internal/web"
 )
 
@@ -52,7 +54,10 @@ func run(log *slog.Logger) error {
 	defer db.Close()
 
 	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
-		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewRates(db), fx.NewProvider(), log)
+		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewSchedules(db), repo.NewRates(db), fx.NewProvider(), log)
+	// Напоминания о платежах уходят из этого же процесса.
+	go notify.New(svc, telegram.New(token), log).Run(ctx)
+
 	srv := &http.Server{
 		Addr:              httpAddr,
 		Handler:           web.NewHandler(svc, token, log),

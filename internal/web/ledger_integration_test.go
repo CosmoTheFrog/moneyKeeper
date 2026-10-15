@@ -68,7 +68,7 @@ func (c client) fails(method, path, body string, wantStatus int, wantCode string
 func TestLedgerFlow(t *testing.T) {
 	db := testdb.New(t)
 	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
-		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewRates(db), &testdb.Rates{}, slog.New(slog.DiscardHandler))
+		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewSchedules(db), repo.NewRates(db), &testdb.Rates{}, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(newTestHandler(svc).routes())
 	t.Cleanup(srv.Close)
 
@@ -209,6 +209,59 @@ func TestLedgerFlow(t *testing.T) {
 			t.Errorf("portfolio = %+v", p)
 		}
 		dana.fails("GET", "/api/portfolio?in=XXX", "", 400, apidto.CodeInvalidCurrency)
+	})
+
+	t.Run("schedules", func(t *testing.T) {
+		eva := client{t, srv.URL, "tma " + signedInitData(testToken, 11, "Eva", fresh)} // отдельный пользователь
+		var cats apidto.CategoriesResponse
+		eva.ok("GET", "/api/categories", "", 200, &cats)
+		category := cats.Categories[0].ID
+
+		body := fmt.Sprintf(`{"name":"Аренда","category_id":%d,"currency":"GEL","amount_kind":"range","amount_minor":40000,"amount_max_minor":60000,"every_months":1,"days":[15,1,15],"start_month":"2026-01","weekend_shift":"back","remind_before":2}`, category)
+		var s apidto.ScheduleDTO
+		eva.ok("POST", "/api/schedules", body, 201, &s)
+		if s.ID == 0 || s.Name != "Аренда" || len(s.Days) != 2 || s.Days[0] != 1 || s.StartMonth != "2026-01" || s.AmountMaxMinor == nil || *s.AmountMaxMinor != 60000 || s.RemindBefore != 2 {
+			t.Fatalf("created = %+v", s)
+		}
+
+		var list apidto.SchedulesResponse
+		eva.ok("GET", "/api/schedules", "", 200, &list)
+		if len(list.Schedules) != 1 {
+			t.Fatalf("schedules = %+v", list)
+		}
+
+		var occ apidto.OccurrencesResponse
+		eva.ok("GET", "/api/schedules/occurrences?from=2026-03-01&to=2026-03-31", "", 200, &occ)
+		// Два числа в месяц: 1 и 15 марта; 1 марта 2026 года воскресенье и переносится назад на пятницу 27 февраля, это вне марта.
+		if len(occ.Occurrences) != 1 || occ.Occurrences[0].DueOn != "2026-03-13" || occ.Occurrences[0].Status != "overdue" {
+			t.Errorf("march = %+v", occ.Occurrences)
+		}
+		eva.fails("GET", "/api/schedules/occurrences?from=oops", "", 400, apidto.CodeInvalidDate)
+
+		eva.ok("POST", fmt.Sprintf("/api/schedules/%d/skip", s.ID), `{"due_on":"2026-03-13"}`, 204, nil)
+		eva.ok("GET", "/api/schedules/occurrences?from=2026-03-01&to=2026-03-31", "", 200, &occ)
+		if occ.Occurrences[0].Status != "skipped" {
+			t.Errorf("after skip = %+v", occ.Occurrences)
+		}
+		eva.fails("POST", fmt.Sprintf("/api/schedules/%d/skip", s.ID), `{"due_on":"2026-03-14"}`, 400, apidto.CodeInvalidSchedule)
+
+		update := fmt.Sprintf(`{"name":"Аренда квартиры","category_id":%d,"currency":"GEL","amount_kind":"exact","amount_minor":50000,"every_months":2,"days":[0],"weekend_shift":"none","remind_before":0}`, category)
+		eva.ok("PUT", fmt.Sprintf("/api/schedules/%d", s.ID), update, 200, &s)
+		if s.Name != "Аренда квартиры" || s.EveryMonths != 2 || s.StartMonth != "2026-01" || s.AmountMaxMinor != nil {
+			t.Errorf("updated = %+v", s)
+		}
+
+		eva.fails("POST", "/api/schedules", `{"name":"","category_id":1}`, 400, apidto.CodeInvalidSchedule)
+		eva.fails("POST", "/api/schedules", fmt.Sprintf(`{"name":"X","category_id":%d,"currency":"GEL","amount_kind":"exact","amount_minor":1,"every_months":1,"days":[1],"start_month":"2026-13","weekend_shift":"none"}`, category), 400, apidto.CodeInvalidDate)
+		eva.fails("POST", "/api/schedules", `{"unknown":1}`, 400, apidto.CodeInvalidRequest)
+		anna.fails("PUT", fmt.Sprintf("/api/schedules/%d", s.ID), update, 404, apidto.CodeNotFound)
+		anna.fails("DELETE", fmt.Sprintf("/api/schedules/%d", s.ID), "", 404, apidto.CodeNotFound)
+
+		eva.ok("DELETE", fmt.Sprintf("/api/schedules/%d", s.ID), "", 204, nil)
+		eva.ok("GET", "/api/schedules", "", 200, &list)
+		if len(list.Schedules) != 0 {
+			t.Errorf("after delete = %+v", list)
+		}
 	})
 
 	t.Run("quick input", func(t *testing.T) {

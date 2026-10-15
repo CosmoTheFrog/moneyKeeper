@@ -2,7 +2,12 @@
 // (стартовые категории). Тексты интерфейса живут в каталоге фронта.
 package i18n
 
-import "moneykeeper/internal/models"
+import (
+	"fmt"
+
+	"moneykeeper/internal/models"
+	"moneykeeper/pkg/money"
+)
 
 // DefaultGroups — стартовые группы категорий в порядке показа, русский язык.
 func DefaultGroups() []models.DefaultGroup {
@@ -34,4 +39,27 @@ func DefaultCategories() []models.DefaultCategory {
 		{Group: models.GroupDaily, Name: "Уход за детьми", Description: "Детский сад, няня, кружки"},
 		{Group: models.GroupGoal, Name: "Сбережения", Description: "Подушка безопасности и накопления"},
 	}
+}
+
+// ReminderText собирает текст напоминания о платеже. Суммы в чат-уведомлениях не маскируются.
+func ReminderText(r models.Reminder) string {
+	s := r.Schedule
+	amount := money.Format(s.AmountMinor, s.Currency)
+	switch s.AmountKind {
+	case models.AmountApprox:
+		amount = "около " + amount
+	case models.AmountRange:
+		if s.AmountMaxMinor != nil {
+			amount = "от " + amount + " до " + money.Format(*s.AmountMaxMinor, s.Currency)
+		}
+	}
+	when := "Сегодня платёж"
+	switch r.Lead {
+	case 0:
+	case 1:
+		when = "Завтра платёж"
+	default:
+		when = fmt.Sprintf("Через %d дн. платёж", r.Lead)
+	}
+	return fmt.Sprintf("%s «%s»: %s.\nКогда оплатите, внесите трату в категорию платежа: он отметится оплаченным. Если платить не нужно, пропустите его в приложении.", when, s.Name, amount)
 }

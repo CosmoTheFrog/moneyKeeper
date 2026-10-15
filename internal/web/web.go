@@ -42,6 +42,14 @@ type Service interface {
 	Rates(ctx context.Context, u models.User, in string) (models.RateTable, error)
 	Portfolio(ctx context.Context, u models.User, in string) (models.Portfolio, error)
 	BudgetMonth(ctx context.Context, u models.User, month apptime.Month) (models.BudgetMonth, error)
+
+	ListSchedules(ctx context.Context, u models.User) ([]models.Schedule, error)
+	CreateSchedule(ctx context.Context, u models.User, in models.NewSchedule) (models.Schedule, error)
+	UpdateSchedule(ctx context.Context, u models.User, id int64, in models.NewSchedule) (models.Schedule, error)
+	DeleteSchedule(ctx context.Context, u models.User, id int64) error
+	Occurrences(ctx context.Context, u models.User, from, to *apptime.Day) ([]models.Occurrence, error)
+	SkipOccurrence(ctx context.Context, u models.User, id int64, due apptime.Day) error
+
 	SetBudgeted(ctx context.Context, u models.User, categoryID int64, month apptime.Month, minor int64) error
 	CreateTransaction(ctx context.Context, u models.User, in models.NewTransaction) ([]models.Transaction, error)
 	CreateExchange(ctx context.Context, u models.User, in models.NewExchange) ([]models.Transaction, error)
@@ -69,6 +77,12 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
 	mux.HandleFunc("GET /api/rates", h.auth(h.rates))
 	mux.HandleFunc("GET /api/portfolio", h.auth(h.portfolio))
+	mux.HandleFunc("GET /api/schedules", h.auth(h.listSchedules))
+	mux.HandleFunc("POST /api/schedules", h.auth(h.createSchedule))
+	mux.HandleFunc("GET /api/schedules/occurrences", h.auth(h.occurrences))
+	mux.HandleFunc("PUT /api/schedules/{id}", h.auth(h.updateSchedule))
+	mux.HandleFunc("DELETE /api/schedules/{id}", h.auth(h.deleteSchedule))
+	mux.HandleFunc("POST /api/schedules/{id}/skip", h.auth(h.skipOccurrence))
 	mux.HandleFunc("GET /api/budget/months/{month}", h.auth(h.budgetMonth))
 	mux.HandleFunc("PUT /api/budget/months/{month}/categories/{id}", h.auth(h.setBudgeted))
 	mux.HandleFunc("GET /api/accounts", h.auth(h.listAccounts))
@@ -256,6 +270,8 @@ func (h *handler) fail(w http.ResponseWriter, err error) {
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidTimezone)
 	case errors.Is(err, models.ErrInvalidCategory):
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidCategory)
+	case errors.Is(err, models.ErrInvalidSchedule):
+		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidSchedule)
 	case errors.Is(err, models.ErrInvalidBudget):
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidBudget)
 	case errors.Is(err, models.ErrInvalidTransaction):

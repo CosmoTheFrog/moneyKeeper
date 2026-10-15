@@ -50,3 +50,24 @@ func (r *Users) SetActiveBudget(ctx context.Context, userID, budgetID int64) err
 	}
 	return nil
 }
+
+// Members возвращает участников бюджета: им уходят напоминания.
+func (r *Users) Members(ctx context.Context, budgetID int64) ([]models.User, error) {
+	rows, err := r.db.Q(ctx).Query(ctx,
+		`SELECT u.id, u.telegram_id, u.first_name, u.timezone, COALESCE(u.active_budget_id, 0)
+		 FROM users u JOIN budget_members m ON m.user_id = u.id WHERE m.budget_id = $1 ORDER BY u.id`, budgetID)
+	if err != nil {
+		return nil, fmt.Errorf("budget members: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.User
+	for rows.Next() {
+		var u models.User
+		if err := rows.Scan(&u.ID, &u.TelegramID, &u.FirstName, &u.Timezone, &u.ActiveBudgetID); err != nil {
+			return nil, fmt.Errorf("scan member: %w", err)
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
