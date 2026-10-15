@@ -20,6 +20,13 @@ export function registerCurrencies(infos: CurrencyInfo[]): void {
   stocks = new Set(infos.filter((i) => i.stock).map((i) => i.code))
 }
 
+// registerCurrency добавляет одну валюту, например актив, который только что завёл пользователь.
+export function registerCurrency(info: CurrencyInfo): void {
+  units = { ...units, [info.code]: info.units }
+  if (info.coin) coins = new Set([...coins, info.code])
+  if (info.stock) stocks = new Set([...stocks, info.code])
+}
+
 export function unitsOf(currency: string): number {
   return units[currency] ?? DEFAULT_UNITS
 }

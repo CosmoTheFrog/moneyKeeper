@@ -1852,3 +1852,20 @@ span.money {
   width: 100%;
   margin: 0;
 }
+
+.link-quiet {
+  align-self: flex-start;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.find-asset {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

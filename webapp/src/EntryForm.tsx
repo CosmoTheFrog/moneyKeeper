@@ -46,9 +46,8 @@ const kindOptions = (['expense', 'income', 'transfer', 'exchange'] as const).map
 function routeOf(entry: Entry, kind: FormKind, nameOf: (id: number | null) => string, categoryName: Map<number, string>): string {
   const from = nameOf(entry.accountId)
   if (kind === 'transfer' || kind === 'exchange') {
-    const category = entry.categoryId === null ? '' : (categoryName.get(entry.categoryId) ?? '')
-    const way = `${from} → ${entry.toAccountId === null ? '…' : nameOf(entry.toAccountId)}`
-    return category === '' ? way : `${way} · ${category}`
+    // Только названия счетов: конверт копилки называется так же, как она, и подпись дублировалась бы.
+    return `${from} → ${entry.toAccountId === null ? '…' : nameOf(entry.toAccountId)}`
   }
   const category = entry.categoryId === null ? '' : (categoryName.get(entry.categoryId) ?? '')
   return category === '' ? from : `${from} · ${category}`

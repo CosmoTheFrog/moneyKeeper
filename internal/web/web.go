@@ -31,6 +31,7 @@ type Service interface {
 	ListAccounts(ctx context.Context, u models.User, in string) ([]models.Account, error)
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
 	ArchiveAccount(ctx context.Context, u models.User, id int64) error
+	AddAsset(ctx context.Context, code string, stock bool) (money.Info, error)
 	CreatePiggy(ctx context.Context, u models.User, name, currency string, targetMinor *int64, targetDate *apptime.Day) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
@@ -76,6 +77,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("GET /healthz", h.healthz)
 	mux.HandleFunc("GET /api/me", h.auth(h.me))
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
+	mux.HandleFunc("POST /api/assets", h.auth(h.addAsset))
 	mux.HandleFunc("GET /api/rates", h.auth(h.rates))
 	mux.HandleFunc("GET /api/portfolio", h.auth(h.portfolio))
 	mux.HandleFunc("GET /api/schedules", h.auth(h.listSchedules))
@@ -149,9 +151,23 @@ func (h *handler) me(w http.ResponseWriter, r *http.Request, u models.User) {
 		Timezone:       u.Timezone,
 		Budget:         budgetDTO(b),
 		BaseCurrencies: currencyCodes(money.Base),
-		Currencies:     currencyCodes(money.All),
+		Currencies:     currencyCodes(money.All()),
 		CurrencyInfo:   currencyInfo(),
 	})
+}
+
+// addAsset добавляет монету или акцию по коду, цена проверяется у источника. Ответ это описание актива.
+func (h *handler) addAsset(w http.ResponseWriter, r *http.Request, _ models.User) {
+	var req apidto.AddAssetRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	i, err := h.svc.AddAsset(r.Context(), req.Code, req.Stock)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusCreated, apidto.CurrencyInfoDTO{Code: string(i.Code), Units: i.Units, Coin: i.Coin, Stock: i.Stock})
 }
 
 func currencyInfo() []apidto.CurrencyInfoDTO {
@@ -277,6 +293,10 @@ func (h *handler) decode(w http.ResponseWriter, r *http.Request, dst any) bool {
 // fail сопоставляет ошибку сервиса с HTTP-статусом и устойчивым кодом.
 func (h *handler) fail(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, models.ErrAssetNotFound):
+		h.writeError(w, http.StatusNotFound, apidto.CodeAssetNotFound)
+	case errors.Is(err, money.ErrBadCode):
+		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidCurrency)
 	case errors.Is(err, money.ErrUnknownCurrency):
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidCurrency)
 	case errors.Is(err, models.ErrInvalidAccount):

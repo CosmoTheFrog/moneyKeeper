@@ -93,6 +93,15 @@ func (p *Provider) GelPerUnit(ctx context.Context, day apptime.Day, coins []mone
 	return out, errors.Join(errs...)
 }
 
+// AssetPrice проверяет актив и возвращает его последнюю цену в долларах: монета по паре с USDT на Binance, акция на Yahoo Finance.
+func (p *Provider) AssetPrice(ctx context.Context, code money.Currency, stock bool) (*big.Rat, error) {
+	day := apptime.FromDate(time.Now().UTC())
+	if stock {
+		return p.stockClose(ctx, string(code), day)
+	}
+	return p.dailyClose(ctx, string(code)+"USDT", day)
+}
+
 type nbgDay struct {
 	Currencies []struct {
 		Code     string      `json:"code"`

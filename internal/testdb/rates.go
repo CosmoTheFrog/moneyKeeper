@@ -55,6 +55,21 @@ func (r *Rates) GelPerUnit(_ context.Context, _ apptime.Day, coins []money.Curre
 	return out, nil
 }
 
+// AssetPrices это цены активов в долларах, которые знает Rates; остальные коды источник не находит.
+var AssetPrices = map[money.Currency]string{"PEPE": "0.000012", "COIN": "250.5"}
+
+// AssetPrice подменяет проверку актива: известный код отдаёт цену, неизвестный ошибку.
+func (r *Rates) AssetPrice(_ context.Context, code money.Currency, _ bool) (*big.Rat, error) {
+	if r.Err != nil {
+		return nil, r.Err
+	}
+	if s, ok := AssetPrices[code]; ok {
+		v, _ := new(big.Rat).SetString(s)
+		return v, nil
+	}
+	return nil, errors.New("unknown asset")
+}
+
 // CoinRequests считает, сколько раз у источника просили курс монеты.
 func (r *Rates) CoinRequests() int {
 	r.mu.Lock()

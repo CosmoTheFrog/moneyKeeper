@@ -7,14 +7,14 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	if len(All) != 35 || All[0] != GEL || All[5] != "BTC" {
-		t.Fatalf("All = %v", All)
+	if all := All(); len(all) != 35 || all[0] != GEL || all[5] != "BTC" {
+		t.Fatalf("All = %v", All())
 	}
 	if !slices.Equal(Core, []Currency{EUR, USD, RUB, USDT}) {
 		t.Errorf("Core = %v", Core)
 	}
 	seen := map[Currency]bool{}
-	for _, c := range All {
+	for _, c := range All() {
 		if seen[c] {
 			t.Errorf("%s twice", c)
 		}
@@ -68,5 +68,26 @@ func TestStocks(t *testing.T) {
 	}
 	if !IsCoin("TSLA") {
 		t.Error("a stock is priced on demand like a coin")
+	}
+}
+
+func TestRegister(t *testing.T) {
+	before := len(All())
+	if err := Register(Info{Code: "PEPE", Units: 0, Coin: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !IsCoin("PEPE") || IsStock("PEPE") || MinorUnits("PEPE") != 0 || len(All()) != before+1 {
+		t.Error("registered coin is not visible")
+	}
+	if err := Register(Info{Code: "PEPE", Units: 0, Coin: true}); !errors.Is(err, ErrAssetExists) {
+		t.Errorf("twice: %v", err)
+	}
+	if err := Register(Info{Code: "BTC", Units: 8, Coin: true}); !errors.Is(err, ErrAssetExists) {
+		t.Errorf("built-in must not be replaced: %v", err)
+	}
+	for _, bad := range []Info{{Code: "pepe", Coin: true}, {Code: "A B", Coin: true}, {Code: "", Coin: true}, {Code: "TOOLONGCODE1", Coin: true}, {Code: "ZZZ", Units: 10, Coin: true}, {Code: "FIAT", Units: 2}} {
+		if err := Register(bad); !errors.Is(err, ErrBadCode) {
+			t.Errorf("%+v: %v", bad, err)
+		}
 	}
 }

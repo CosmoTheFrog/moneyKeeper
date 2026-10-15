@@ -173,7 +173,7 @@ func (s *Service) Portfolio(ctx context.Context, u models.User, in string) (mode
 	}
 	var coins []string
 	var coinList []money.Currency
-	for _, c := range money.All {
+	for _, c := range money.All() {
 		if money.IsCoin(c) {
 			coins = append(coins, string(c))
 			coinList = append(coinList, c)

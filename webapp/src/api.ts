@@ -182,6 +182,9 @@ export const fetchAccounts = async (inCurrency: string) =>
 // Rate: сколько единиц валюты In стоит одна целая единица currency, десятичной строкой.
 export type RateTable = { day: string; in: string; rates: { currency: string; rate: string }[] }
 
+// Добавить монету (цена на Binance) или акцию (Yahoo Finance) по коду. Сервер проверяет цену и подбирает точность.
+export const addAsset = (code: string, stock: boolean) => request<CurrencyInfo>('POST', '/api/assets', { code, stock })
+
 export const fetchRates = (inCurrency: string) => request<RateTable>('GET', `/api/rates?in=${inCurrency}`)
 
 export const createAccount = (name: string, kind: AccountKind, currency: string, multiCurrency: boolean, openingBalanceMinor: number) =>

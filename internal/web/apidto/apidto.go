@@ -17,6 +17,7 @@ const (
 	CodeNoAmount           = "no_amount"
 	CodeInvalidAmount      = "invalid_amount"
 	CodeNotFound           = "not_found"
+	CodeAssetNotFound      = "asset_not_found"
 	CodeInternal           = "internal"
 )
 
@@ -47,6 +48,12 @@ type MeResponse struct {
 	BaseCurrencies []string          `json:"base_currencies"`
 	Currencies     []string          `json:"currencies"`
 	CurrencyInfo   []CurrencyInfoDTO `json:"currency_info"`
+}
+
+// AddAssetRequest: код монеты или акции; Stock: искать на бирже акций, а не на Binance.
+type AddAssetRequest struct {
+	Code  string `json:"code"`
+	Stock bool   `json:"stock"`
 }
 
 type SetCurrencyRequest struct {

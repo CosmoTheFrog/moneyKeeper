@@ -20,7 +20,7 @@ func newService(t *testing.T) (*Service, *pgclient.Client) {
 	t.Helper()
 	db := testdb.New(t)
 	return New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
-		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewSchedules(db), repo.NewRates(db), &testdb.Rates{}, slog.New(slog.DiscardHandler)), db
+		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewSchedules(db), repo.NewRates(db), repo.NewAssets(db), &testdb.Rates{}, slog.New(slog.DiscardHandler)), db
 }
 
 var tgIgor = models.TelegramUser{ID: 42, FirstName: "Igor"}

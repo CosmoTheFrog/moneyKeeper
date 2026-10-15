@@ -4,7 +4,9 @@ package money
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
+	"sync"
 )
 
 type Currency string
@@ -17,7 +19,17 @@ const (
 	USDT Currency = "USDT"
 )
 
-var ErrUnknownCurrency = errors.New("unknown currency")
+var (
+	ErrUnknownCurrency = errors.New("unknown currency")
+	ErrBadCode         = errors.New("bad asset code")
+	ErrAssetExists     = errors.New("currency already registered")
+)
+
+// MaxUnits — потолок точности валюты.
+const MaxUnits = 9
+
+// mu защищает registry: пользовательские активы добавляются, пока сервер работает.
+var mu sync.RWMutex
 
 // Info описывает валюту: сколько знаков после запятой хранится и берётся ли её курс отдельно по требованию.
 // Точность монет выбрана так, чтобы предельная сумма в 10^12 минорных единиц покрывала любые разумные суммы
@@ -73,16 +85,53 @@ var registry = []Info{
 // Base — валюты, которые можно выбрать базовой при старте.
 var Base = []Currency{GEL, EUR, USD, RUB}
 
-// All — все поддерживаемые валюты счетов в порядке показа.
-var All = codes(registry)
-
 // Core — валюты, курсы которых тянутся всегда: всё, кроме лари (он опорный) и монет.
 var Core = codes(slices.DeleteFunc(slices.Clone(registry), func(i Info) bool { return i.Code == GEL || i.Coin }))
 
+// All — все поддерживаемые валюты счетов в порядке показа: встроенные, затем добавленные пользователями.
+func All() []Currency {
+	mu.RLock()
+	defer mu.RUnlock()
+	return codes(registry)
+}
+
 // Infos возвращает описание всех валют в порядке показа.
-func Infos() []Info { return slices.Clone(registry) }
+func Infos() []Info {
+	mu.RLock()
+	defer mu.RUnlock()
+	return slices.Clone(registry)
+}
+
+var assetCode = regexp.MustCompile(`^[A-Z0-9]{1,10}$`)
+
+// CheckAsset проверяет описание актива: код из заглавных латинских букв и цифр, курс по требованию, точность в пределах.
+func CheckAsset(i Info) error {
+	if !assetCode.MatchString(string(i.Code)) || !i.Coin || i.Units < 0 || i.Units > MaxUnits {
+		return fmt.Errorf("%q: %w", i.Code, ErrBadCode)
+	}
+	return nil
+}
+
+// Lookup возвращает описание валюты из реестра.
+func Lookup(c Currency) (Info, bool) { return lookup(c) }
+
+// Register добавляет актив (монету или акцию) в реестр. Встроенные и уже добавленные коды не заменяются.
+func Register(i Info) error {
+	if err := CheckAsset(i); err != nil {
+		return err
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if slices.ContainsFunc(registry, func(r Info) bool { return r.Code == i.Code }) {
+		return fmt.Errorf("%q: %w", i.Code, ErrAssetExists)
+	}
+	registry = append(registry, i)
+	return nil
+}
 
 func lookup(c Currency) (Info, bool) {
+	mu.RLock()
+	defer mu.RUnlock()
 	i := slices.IndexFunc(registry, func(i Info) bool { return i.Code == c })
 	if i < 0 {
 		return Info{}, false

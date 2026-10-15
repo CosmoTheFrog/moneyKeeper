@@ -209,6 +209,7 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
             wallets={wallets}
             allCurrencies={currencies}
             today={today}
+            onAssetAdded={onChanged}
             onDone={() => {
               setAdding(false)
               setVersion((v) => v + 1)

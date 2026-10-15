@@ -26,7 +26,7 @@ func (s *Service) Rates(ctx context.Context, u models.User, in string) (models.R
 
 	today := s.today(u)
 	var coins []money.Currency
-	for _, c := range money.All {
+	for _, c := range money.All() {
 		if money.IsCoin(c) {
 			coins = append(coins, c)
 		}
@@ -38,7 +38,7 @@ func (s *Service) Rates(ctx context.Context, u models.User, in string) (models.R
 	if !ok {
 		return table, nil
 	}
-	for _, c := range money.All {
+	for _, c := range money.All() {
 		gelFrom, ok := book.gel(c, today)
 		if c == target || !ok {
 			continue

@@ -33,17 +33,18 @@ type Service struct {
 	plan         *repo.Plan
 	schedules    *repo.Schedules
 	rateStore    *repo.Rates
+	assets       *repo.Assets
 	fx           RateSource
 	log          *slog.Logger
 	now          func() time.Time
 }
 
 func New(db *pgclient.Client, users *repo.Users, budgets *repo.Budgets, accounts *repo.Accounts,
-	categories *repo.Categories, transactions *repo.Transactions, plan *repo.Plan, schedules *repo.Schedules, rateStore *repo.Rates, fx RateSource, log *slog.Logger) *Service {
+	categories *repo.Categories, transactions *repo.Transactions, plan *repo.Plan, schedules *repo.Schedules, rateStore *repo.Rates, assets *repo.Assets, fx RateSource, log *slog.Logger) *Service {
 	return &Service{
 		db: db, users: users, budgets: budgets, accounts: accounts,
 		categories: categories, transactions: transactions,
-		plan: plan, schedules: schedules, rateStore: rateStore, fx: fx, log: log, now: time.Now,
+		plan: plan, schedules: schedules, rateStore: rateStore, assets: assets, fx: fx, log: log, now: time.Now,
 	}
 }
 

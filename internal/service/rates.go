@@ -19,6 +19,8 @@ const maxRateFetches = 8
 // по требованию. При частичном успехе возвращает полученное вместе с ошибкой.
 type RateSource interface {
 	GelPerUnit(ctx context.Context, day apptime.Day, coins []money.Currency) (map[money.Currency]*big.Rat, error)
+	// AssetPrice: цена актива в долларах для проверки при добавлении; ошибка, если источник такого не знает.
+	AssetPrice(ctx context.Context, code money.Currency, stock bool) (*big.Rat, error)
 }
 
 // rateBook это курсы на набор дней. Пересчёт идёт только по курсу своего дня, без подмены соседним.

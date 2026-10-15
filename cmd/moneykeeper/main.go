@@ -54,7 +54,10 @@ func run(log *slog.Logger) error {
 	defer db.Close()
 
 	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
-		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewSchedules(db), repo.NewRates(db), fx.NewProvider(), log)
+		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewSchedules(db), repo.NewRates(db), repo.NewAssets(db), fx.NewProvider(), log)
+	if err := svc.LoadAssets(ctx); err != nil {
+		return fmt.Errorf("load assets: %w", err)
+	}
 	// Напоминания о платежах уходят из этого же процесса.
 	go notify.New(svc, telegram.New(token), log).Run(ctx)
 
