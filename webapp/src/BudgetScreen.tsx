@@ -153,10 +153,10 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
         return (
           <section key={g.id}>
             <button type="button" className="group-toggle" aria-expanded={!collapsed.has(g.id)} onClick={() => setCollapsed(flip(collapsed, g.id))}>
+              <span className="day">{g.name}</span>
               <svg className={collapsed.has(g.id) ? 'group-chevron' : 'group-chevron group-chevron-open'} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M9 6l6 6-6 6" />
               </svg>
-              <span className="day">{g.name}</span>
             </button>
             <div className={collapsed.has(g.id) ? 'card list-card list-folded' : 'card list-card'}>
               {!collapsed.has(g.id) && visible.length === 0 && <p className="hint tight pad">{t.categories.empty}</p>}

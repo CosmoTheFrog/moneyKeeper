@@ -42,13 +42,15 @@ export function BudgetFocus({ budget, tone, accounts, categories, baseCurrency, 
     .filter((l) => l.minor !== 0)
     .sort((a, b) => b.minor - a.minor)
   const lines = back === 'accounts' ? byAccount : byCategory
+  // Карточка растёт с числом строк, но не выше экрана: дальше список прокручивается.
+  const height = Math.min(Math.max(230, 150 + 30 * lines.length), 340)
 
   return (
     <Backdrop onClose={onClose}>
       <div className="flip-scene">
         <div
           className={flipped ? 'flip flipped' : 'flip'}
-          style={{ height: 380 }}
+          style={{ height }}
           role="button"
           tabIndex={0}
           aria-pressed={flipped}

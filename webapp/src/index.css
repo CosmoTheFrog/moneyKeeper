@@ -506,71 +506,38 @@ h1 {
   padding: 8px 0;
 }
 
-/* Объёмный пузырёк: свет сверху слева, тень внизу, блик и мягкое покачивание. */
-.bubble {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: #fff;
-  font-size: 13px;
-  text-shadow: 0 1px 3px rgb(0 0 0 / 45%);
-  background: radial-gradient(circle at 32% 26%, var(--bubble-light) 0, var(--bubble) 42%, var(--bubble-dark) 100%);
-  box-shadow:
-    inset -6px -8px 14px rgb(0 0 0 / 28%),
-    inset 4px 5px 10px rgb(255 255 255 / 30%),
-    0 10px 18px -6px var(--bubble-dark);
-  animation: bob 4s ease-in-out infinite;
+/* Пузырьки: тёмное поле, круги со свечением, размер по прибыли. */
+.bubble-field {
+  display: block;
+  width: 100%;
+  border-radius: 16px;
+  background: #0b0f14;
 }
 
-.bubble::before {
-  content: '';
-  position: absolute;
-  top: 9%;
-  left: 18%;
-  width: 34%;
-  height: 22%;
-  border-radius: 50%;
-  background: linear-gradient(180deg, rgb(255 255 255 / 75%), rgb(255 255 255 / 0%));
-  transform: rotate(-24deg);
+.bubble circle {
+  fill: rgb(0 0 0 / 55%);
+  stroke-width: 2.5;
 }
 
-.bubble span {
-  font-size: 12px;
-  font-weight: 700;
+.bubble text {
+  fill: #fff;
 }
 
-.bubble-up {
-  --bubble-light: #7be0a2;
-  --bubble: #1f9d57;
-  --bubble-dark: #0d5c31;
+.bubble-up circle {
+  fill: rgb(20 120 50 / 35%);
+  stroke: #2bd45f;
+  filter: drop-shadow(0 0 5px #2bd45f);
 }
 
-.bubble-down {
-  --bubble-light: #ff9c92;
-  --bubble: #d6453a;
-  --bubble-dark: #7e1d16;
+.bubble-down circle {
+  fill: rgb(150 30 30 / 35%);
+  stroke: #e0483c;
+  filter: drop-shadow(0 0 5px #e0483c);
 }
 
-@keyframes bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-4px);
-  }
+.holding-on {
+  background: var(--bg);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .bubble {
-    animation: none;
-  }
-}
-
 .holding {
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
@@ -1646,6 +1613,8 @@ h1 {
 .donut-center {
   position: absolute;
   inset: 0;
+  /* Надпись лежит поверх кольца и не должна перехватывать нажатия на его куски. */
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1785,9 +1754,10 @@ h1 {
 .group-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
   width: 100%;
-  padding: 0;
+  margin: 18px 0 6px;
+  padding: 0 4px;
   border: 0;
   background: none;
   color: inherit;
@@ -1828,8 +1798,13 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 210px;
+  min-height: 0;
   overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.focus-list::-webkit-scrollbar {
+  display: none;
 }
 
 .focus-name {
@@ -1854,4 +1829,26 @@ h1 {
 
 span.money {
   cursor: inherit;
+}
+
+.rates-head {
+  margin: 16px 0 4px;
+  font-size: 15px;
+}
+
+.rate-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--bg);
+  font-size: 18px;
+}
+
+.rate-result .hint {
+  width: 100%;
+  margin: 0;
 }

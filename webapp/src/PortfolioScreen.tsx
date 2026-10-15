@@ -7,8 +7,8 @@ import { t } from './i18n'
 import { Money } from './MoneyText'
 import { currencySign, formatRate } from './money'
 import { Segmented } from './Pickers'
-import { bubbleSize, formatBP, shares } from './portfolio'
-import { RADIUS, arcs } from './report'
+import { bubbleSize, formatBP, packBubbles, shares } from './portfolio'
+import { CIRCLE, RADIUS, arcs } from './report'
 
 type Props = {
   display: string
@@ -24,6 +24,9 @@ type Props = {
 type Loaded = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; portfolio: Portfolio }
 type View = 'ring' | 'bubbles'
 
+// Ширина поля пузырьков в условных единицах: рисунок масштабируется под экран.
+const FIELD = 340
+
 const palette = ['#0e7c7b', '#4c5bd4', '#d9892b', '#d4577a', '#7a8794', '#5fb3b0', '#7c88e0', '#a9b1ec', '#cdd2f5', '#a5d3d1']
 
 const viewOptions = [
@@ -36,6 +39,7 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
   const [loaded, setLoaded] = useState<Loaded>({ kind: 'loading' })
   const [view, setView] = useState<View>('ring')
   const [adding, setAdding] = useState(false)
+  const [picked, setPicked] = useState<string | null>(null)
   // Растёт после добавления: портфель запрашивается заново.
   const [version, setVersion] = useState(0)
 
@@ -54,6 +58,13 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
   const drawn = arcs(items.map((i) => i.value_minor))
   const percents = shares(items)
   const cur = loaded.kind === 'ready' ? loaded.portfolio.currency : display
+  const current = items.find((i) => i.currency === picked)
+  const sizes = items.map((i) => bubbleSize(i.profit_bp))
+  const field = packBubbles(sizes, FIELD)
+
+  function pick(code: string) {
+    setPicked((now) => (now === code ? null : code))
+  }
 
   return (
     <main className="screen">
@@ -84,30 +95,65 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
                 <svg viewBox="0 0 200 200" role="img" aria-label={t.portfolio.ring}>
                   <g transform="rotate(-90 100 100)">
                     <circle cx="100" cy="100" r={RADIUS} fill="none" style={{ stroke: 'var(--line)' }} strokeWidth="24" />
-                    {drawn.map((a, i) => (
-                      <circle key={items[i]?.currency} cx="100" cy="100" r={RADIUS} fill="none" stroke={palette[i % palette.length]} strokeWidth="24" strokeDasharray={`${a.length} 1000`} strokeDashoffset={a.offset} />
-                    ))}
+                    {drawn.map((a, i) => {
+                      const item = items[i]
+                      const active = item?.currency === picked
+                      const mid = ((-a.offset + a.length / 2) / CIRCLE) * 2 * Math.PI
+                      return (
+                        <circle
+                          key={item?.currency}
+                          className="donut-seg donut-seg-tap"
+                          cx="100"
+                          cy="100"
+                          r={RADIUS}
+                          fill="none"
+                          stroke={palette[i % palette.length]}
+                          strokeWidth={active ? 30 : 24}
+                          strokeDasharray={`${a.length} 1000`}
+                          strokeDashoffset={a.offset}
+                          style={{ transform: active ? `translate(${(Math.cos(mid) * 6).toFixed(2)}px, ${(Math.sin(mid) * 6).toFixed(2)}px)` : undefined, opacity: picked === null || active ? 1 : 0.35 }}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={item?.currency}
+                          aria-pressed={active}
+                          onClick={() => item !== undefined && pick(item.currency)}
+                          onKeyDown={(e) => {
+                            if ((e.key === 'Enter' || e.key === ' ') && item !== undefined) {
+                              e.preventDefault()
+                              pick(item.currency)
+                            }
+                          }}
+                        />
+                      )
+                    })}
                   </g>
                 </svg>
                 <div className="donut-center">
-                  <span className="donut-label">{t.portfolio.total}</span>
-                  <Money minor={total} currency={cur} />
+                  <span className="donut-label">{current === undefined ? t.portfolio.total : current.currency}</span>
+                  <Money minor={current === undefined ? total : current.value_minor} currency={cur} />
+                  {current !== undefined && <span className="donut-pct">{percents[items.indexOf(current)]}%</span>}
                 </div>
               </div>
             ) : (
               <>
-                <div className="bubbles">
-                  {items.map((i) => {
-                    const size = bubbleSize(i.profit_bp)
-                    const up = (i.profit_bp ?? 0) >= 0
+                <svg className="bubble-field" viewBox={`0 0 ${FIELD} ${field.height}`} role="img" aria-label={t.portfolio.bubbles}>
+                  {items.map((i, k) => {
+                    const d = sizes[k] ?? 0
+                    const at = field.placed[k] ?? { x: 0, y: 0 }
+                    const tone = (i.profit_bp ?? 0) >= 0 ? 'bubble-up' : 'bubble-down'
                     return (
-                      <div key={i.currency} className={up ? 'bubble bubble-up' : 'bubble bubble-down'} style={{ width: size, height: size, animationDelay: `${(i.currency.length * 0.37).toFixed(2)}s` }}>
-                        <b>{i.currency}</b>
-                        <span>{i.profit_bp === null ? '–' : formatBP(i.profit_bp)}</span>
-                      </div>
+                      <g key={i.currency} className={`bubble ${tone}`}>
+                        <circle cx={at.x} cy={at.y} r={d / 2} />
+                        <text x={at.x} y={at.y - d * 0.04} textAnchor="middle" fontSize={d * 0.24} fontWeight="700">
+                          {i.currency}
+                        </text>
+                        <text x={at.x} y={at.y + d * 0.2} textAnchor="middle" fontSize={d * 0.16} fontWeight="600">
+                          {i.profit_bp === null ? '–' : formatBP(i.profit_bp)}
+                        </text>
+                      </g>
                     )
                   })}
-                </div>
+                </svg>
                 <p className="hint tight">{t.portfolio.bubbleHint}</p>
               </>
             )}
@@ -115,7 +161,7 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
 
           <div className="card list-card">
             {items.map((i, idx) => (
-              <div key={i.currency} className="holding">
+              <div key={i.currency} className={i.currency === picked ? 'holding holding-on' : 'holding'} onClick={() => pick(i.currency)}>
                 <div className="holding-top">
                   <span className="dot" style={{ background: palette[idx % palette.length] }} />
                   <b className="holding-name">{i.currency}</b>

@@ -13,6 +13,50 @@ export function bubbleSize(bp: number | null): number {
   return Math.round(56 + percent * 0.94)
 }
 
+export type Placed = { x: number; y: number }
+
+const STEP_DEG = 12
+
+// packBubbles раскладывает круги разного диаметра в полосе шириной width плотной кучей, самый большой в середине сверху.
+// Возвращает центры в порядке входных диаметров и высоту поля. Каждый следующий круг (от большего к меньшему) касается
+// уже стоящего и выбирает свободное место ближе к середине кучи.
+export function packBubbles(diameters: number[], width: number, gap = 4): { placed: Placed[]; height: number } {
+  const order = diameters.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d || a.i - b.i)
+  const placed: { x: number; y: number; r: number }[] = []
+  const out: Placed[] = diameters.map(() => ({ x: 0, y: 0 }))
+
+  for (const { d, i } of order) {
+    const r = d / 2
+    let best: { x: number; y: number } | null = null
+    if (placed.length === 0) {
+      best = { x: width / 2, y: r }
+    } else {
+      const cx = placed.reduce((s, p) => s + p.x, 0) / placed.length
+      const cy = placed.reduce((s, p) => s + p.y, 0) / placed.length
+      let bestScore = Infinity
+      for (const p of placed) {
+        for (let deg = 0; deg < 360; deg += STEP_DEG) {
+          const a = (deg * Math.PI) / 180
+          const x = p.x + Math.cos(a) * (p.r + r + gap)
+          const y = p.y + Math.sin(a) * (p.r + r + gap)
+          if (x - r < 0 || x + r > width || y - r < 0) continue
+          if (placed.some((q) => Math.hypot(q.x - x, q.y - y) < q.r + r + gap - 0.01)) continue
+          const score = Math.hypot(x - cx, y - cy)
+          if (score < bestScore) {
+            bestScore = score
+            best = { x, y }
+          }
+        }
+      }
+    }
+    // Узкое поле: если места рядом нет, круг ставится под всей кучей.
+    const spot = best ?? { x: width / 2, y: Math.max(...placed.map((q) => q.y + q.r), 0) + r + gap }
+    placed.push({ ...spot, r })
+    out[i] = spot
+  }
+  return { placed: out, height: Math.max(...placed.map((q) => q.y + q.r), 0) + gap }
+}
+
 // shares: доли позиций в стоимости портфеля в процентах, суммируются в сто. Позиции без стоимости получают ноль.
 export function shares(items: PortfolioItem[]): number[] {
   const total = items.reduce((sum, i) => sum + i.value_minor, 0)
