@@ -69,7 +69,11 @@ type Account struct {
 	IsDefault     bool
 	// OffBudget: счёт вне бюджета (кошелёк, копилка). Считается из вида счёта.
 	OffBudget bool
-	Balances  []CurrencyBalance
+	// Копилка: цель (сумма и дата) и конверт в группе «Цели накопления», из которого она пополняется.
+	TargetMinor *int64
+	TargetDate  *apptime.Day
+	CategoryID  *int64
+	Balances    []CurrencyBalance
 }
 
 // Allows говорит, можно ли вести на счёте записи в валюте c.
@@ -100,4 +104,8 @@ type NewAccount struct {
 	Currency      money.Currency
 	MultiCurrency bool
 	OpeningMinor  int64
+	// Цель копилки: сумма и дата, оба поля необязательны. CategoryID это конверт копилки.
+	TargetMinor *int64
+	TargetDate  *apptime.Day
+	CategoryID  *int64
 }

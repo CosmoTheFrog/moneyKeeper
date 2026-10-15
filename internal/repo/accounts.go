@@ -20,12 +20,22 @@ func NewAccounts(db *pgclient.Client) *Accounts { return &Accounts{db: db} }
 
 // Create делает первый счёт бюджета основным.
 func (r *Accounts) Create(ctx context.Context, budgetID int64, in models.NewAccount) (models.Account, error) {
-	a := models.Account{BudgetID: budgetID, Name: in.Name, Kind: in.Kind, Currency: in.Currency, MultiCurrency: in.MultiCurrency}
+	a := models.Account{
+		BudgetID: budgetID, Name: in.Name, Kind: in.Kind, Currency: in.Currency, MultiCurrency: in.MultiCurrency,
+		TargetMinor: in.TargetMinor, TargetDate: in.TargetDate, CategoryID: in.CategoryID,
+	}
+	var target *time.Time
+	if in.TargetDate != nil {
+		d := in.TargetDate.Date()
+		target = &d
+	}
+	// Основным становится первый счёт внутри бюджета: кошелёк или копилка не могут им быть.
 	err := r.db.Q(ctx).QueryRow(ctx,
-		`INSERT INTO accounts (budget_id, name, kind, currency, multi_currency, is_default)
-		 VALUES ($1, $2, $3, $4, $5, NOT EXISTS (SELECT 1 FROM accounts WHERE budget_id = $1))
+		`INSERT INTO accounts (budget_id, name, kind, currency, multi_currency, is_default, target_minor, target_date, category_id)
+		 VALUES ($1, $2, $3, $4, $5, $3 NOT IN ('wallet', 'piggy') AND NOT EXISTS (SELECT 1 FROM accounts WHERE budget_id = $1 AND is_default),
+		         $6, $7, $8)
 		 RETURNING id, is_default, off_budget`,
-		budgetID, in.Name, string(in.Kind), string(in.Currency), in.MultiCurrency,
+		budgetID, in.Name, string(in.Kind), string(in.Currency), in.MultiCurrency, in.TargetMinor, target, in.CategoryID,
 	).Scan(&a.ID, &a.IsDefault, &a.OffBudget)
 	if err != nil {
 		return models.Account{}, fmt.Errorf("create account: %w", err)
@@ -34,7 +44,7 @@ func (r *Accounts) Create(ctx context.Context, budgetID int64, in models.NewAcco
 	return a, nil
 }
 
-const accountColumns = `id, budget_id, name, kind, currency, multi_currency, is_default, off_budget`
+const accountColumns = `id, budget_id, name, kind, currency, multi_currency, is_default, off_budget, target_minor, target_date, category_id`
 
 func (r *Accounts) Get(ctx context.Context, budgetID, id int64) (models.Account, error) {
 	a, err := scanAccount(r.db.Q(ctx).QueryRow(ctx,
@@ -157,10 +167,15 @@ func scanAccount(row pgx.Row) (models.Account, error) {
 	var (
 		a        models.Account
 		kind, cu string
+		target   *time.Time
 	)
-	if err := row.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.MultiCurrency, &a.IsDefault, &a.OffBudget); err != nil {
+	if err := row.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.MultiCurrency, &a.IsDefault, &a.OffBudget, &a.TargetMinor, &target, &a.CategoryID); err != nil {
 		return models.Account{}, err
 	}
 	a.Kind, a.Currency = models.AccountKind(kind), money.Currency(cu)
+	if target != nil {
+		d := apptime.FromDate(*target)
+		a.TargetDate = &d
+	}
 	return a, nil
 }

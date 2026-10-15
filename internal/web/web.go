@@ -30,6 +30,7 @@ type Service interface {
 	SetBaseCurrency(ctx context.Context, u models.User, code string) (models.Budget, error)
 	ListAccounts(ctx context.Context, u models.User, in string) ([]models.Account, error)
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
+	CreatePiggy(ctx context.Context, u models.User, name, currency string, targetMinor *int64, targetDate *apptime.Day) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
 	CreateCategory(ctx context.Context, u models.User, name string, groupID int64) (models.Category, error)
@@ -185,7 +186,19 @@ func (h *handler) createAccount(w http.ResponseWriter, r *http.Request, u models
 	if !h.decode(w, r, &req) {
 		return
 	}
-	a, err := h.svc.CreateAccount(r.Context(), u, req.Name, req.Kind, req.Currency, req.MultiCurrency, req.OpeningBalanceMinor)
+	var (
+		a   models.Account
+		err error
+	)
+	if req.Kind == string(models.AccountPiggy) {
+		day, ok := h.optionalDay(w, req.TargetDate)
+		if !ok {
+			return
+		}
+		a, err = h.svc.CreatePiggy(r.Context(), u, req.Name, req.Currency, req.TargetMinor, day)
+	} else {
+		a, err = h.svc.CreateAccount(r.Context(), u, req.Name, req.Kind, req.Currency, req.MultiCurrency, req.OpeningBalanceMinor)
+	}
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -210,10 +223,16 @@ func accountDTO(a models.Account) apidto.AccountDTO {
 			BaseBalanceMinor: b.BaseBalanceMinor, BaseSpentMinor: b.BaseSpentMinor,
 		})
 	}
-	return apidto.AccountDTO{
+	dto := apidto.AccountDTO{
 		ID: a.ID, Name: a.Name, Kind: string(a.Kind), Currency: string(a.Currency),
-		MultiCurrency: a.MultiCurrency, IsDefault: a.IsDefault, Balances: balances,
+		MultiCurrency: a.MultiCurrency, IsDefault: a.IsDefault, OffBudget: a.OffBudget,
+		TargetMinor: a.TargetMinor, CategoryID: a.CategoryID, Balances: balances,
 	}
+	if a.TargetDate != nil {
+		d := a.TargetDate.String()
+		dto.TargetDate = &d
+	}
+	return dto
 }
 
 func (h *handler) decode(w http.ResponseWriter, r *http.Request, dst any) bool {

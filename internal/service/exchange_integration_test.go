@@ -330,3 +330,74 @@ func TestPortfolioFromExchanges(t *testing.T) {
 		t.Errorf("empty portfolio = %+v, %v", p, err)
 	}
 }
+
+func TestPiggyBank(t *testing.T) {
+	ctx := context.Background()
+	l := newLedger(t)
+	l.setBase(t, "GEL")
+
+	target := int64(250000)
+	until := day(t, "2027-05-01")
+	piggy, err := l.s.CreatePiggy(ctx, l.u, "Отпуск", "GEL", &target, until)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if piggy.Kind != models.AccountPiggy || !piggy.OffBudget || piggy.IsDefault || piggy.CategoryID == nil ||
+		piggy.TargetMinor == nil || *piggy.TargetMinor != 250000 || piggy.TargetDate == nil || *piggy.TargetDate != *until {
+		t.Fatalf("piggy = %+v", piggy)
+	}
+	// Конверт копилки появился в группе «Цели накопления» и переносит остаток.
+	cats, _ := l.s.ListCategories(ctx, l.u)
+	var envelope models.Category
+	for _, c := range cats {
+		if c.ID == *piggy.CategoryID {
+			envelope = c
+		}
+	}
+	if envelope.Name != "Отпуск" || envelope.GroupID != l.group(t, models.GroupGoal) || !envelope.Rollover {
+		t.Errorf("envelope = %+v", envelope)
+	}
+	// Основным счётом копилка не становится.
+	if l.account(t, l.main.ID).IsDefault != true {
+		t.Error("the main account lost its default flag")
+	}
+
+	// Пополнение: перевод со счёта бюджета в конверт копилки. Деньги уходят из конверта и сразу видны в копилке.
+	if _, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindTransfer, AccountID: l.main.ID, ToAccountID: &piggy.ID, AmountMinor: 30000, CategoryID: piggy.CategoryID}); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.balanceOf(t, piggy.ID, "GEL"); got != 30000 {
+		t.Errorf("piggy = %d, want 30000", got)
+	}
+	if got := l.balanceOf(t, l.main.ID, "GEL"); got != 70000 {
+		t.Errorf("source = %d, want 70000", got)
+	}
+	if r := budgetRows(l.budget(t, "2026-10").Rows).of(*piggy.CategoryID); r.SpentMinor != 30000 {
+		t.Errorf("envelope spent %d, want 30000", r.SpentMinor)
+	}
+
+	// Копилка в другой валюте и с тем же названием использует уже созданный конверт.
+	usdt, err := l.s.CreatePiggy(ctx, l.u, "отпуск", "USDT", nil, nil)
+	if err != nil || usdt.CategoryID == nil || *usdt.CategoryID != *piggy.CategoryID || usdt.TargetMinor != nil {
+		t.Errorf("second piggy = %+v, %v", usdt, err)
+	}
+
+	bad := map[string]func() (models.Account, error){
+		"empty name":  func() (models.Account, error) { return l.s.CreatePiggy(ctx, l.u, "  ", "GEL", nil, nil) },
+		"zero target": func() (models.Account, error) { z := int64(0); return l.s.CreatePiggy(ctx, l.u, "Х", "GEL", &z, nil) },
+		"target too big": func() (models.Account, error) {
+			z := int64(maxAmountMinor + 1)
+			return l.s.CreatePiggy(ctx, l.u, "Х", "GEL", &z, nil)
+		},
+		"unknown currency": func() (models.Account, error) { return l.s.CreatePiggy(ctx, l.u, "Х", "XXX", nil, nil) },
+	}
+	for name, f := range bad {
+		if _, err := f(); err == nil {
+			t.Errorf("%s must fail", name)
+		}
+	}
+	// Копилку нельзя завести обычным путём: без конверта она не пополняется.
+	if _, err := l.s.CreateAccount(ctx, l.u, "Х", "piggy", "GEL", false, 0); !errors.Is(err, models.ErrInvalidAccount) {
+		t.Errorf("piggy via CreateAccount: err = %v, want ErrInvalidAccount", err)
+	}
+}

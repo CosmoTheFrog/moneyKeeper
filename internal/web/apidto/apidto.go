@@ -63,13 +63,18 @@ type BalanceDTO struct {
 
 // AccountDTO.Currency это основная валюта счёта, в Balances она первая.
 type AccountDTO struct {
-	ID            int64        `json:"id"`
-	Name          string       `json:"name"`
-	Kind          string       `json:"kind"`
-	Currency      string       `json:"currency"`
-	MultiCurrency bool         `json:"multi_currency"`
-	IsDefault     bool         `json:"is_default"`
-	Balances      []BalanceDTO `json:"balances"`
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	Kind          string `json:"kind"`
+	Currency      string `json:"currency"`
+	MultiCurrency bool   `json:"multi_currency"`
+	IsDefault     bool   `json:"is_default"`
+	// OffBudget: кошелёк или копилка, их остатки не входят в бюджет. У копилки есть цель и конверт category_id.
+	OffBudget   bool         `json:"off_budget"`
+	TargetMinor *int64       `json:"target_minor"`
+	TargetDate  *string      `json:"target_date"`
+	CategoryID  *int64       `json:"category_id"`
+	Balances    []BalanceDTO `json:"balances"`
 }
 
 type AccountsResponse struct {
@@ -82,6 +87,9 @@ type CreateAccountRequest struct {
 	Currency            string `json:"currency"`
 	MultiCurrency       bool   `json:"multi_currency"`
 	OpeningBalanceMinor int64  `json:"opening_balance_minor"`
+	// Цель копилки (kind piggy): сумма и дата, оба поля необязательны.
+	TargetMinor *int64  `json:"target_minor"`
+	TargetDate  *string `json:"target_date"`
 }
 
 type CategoryDTO struct {

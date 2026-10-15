@@ -122,7 +122,7 @@ func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, 
 	}
 	k := models.AccountKind(kind)
 	switch k {
-	case models.AccountCash, models.AccountDebit, models.AccountCredit, models.AccountWallet, models.AccountPiggy:
+	case models.AccountCash, models.AccountDebit, models.AccountCredit, models.AccountWallet:
 	default:
 		return models.Account{}, fmt.Errorf("kind %q: %w", kind, models.ErrInvalidAccount)
 	}
