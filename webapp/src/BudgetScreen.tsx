@@ -31,6 +31,7 @@ type Props = {
   onChanged: () => void
   onOpenCategory: (id: number) => void
   onAddTo: (id: number) => void
+  onOpenSchedules: () => void
 }
 
 const EMPTY_ROW: BudgetRow = { category_id: 0, budgeted_minor: 0, spent_minor: 0, balance_minor: 0 }
@@ -45,7 +46,7 @@ function Chevron({ left }: { left: boolean }) {
 
 // Бюджет месяца: сколько осталось распределить и по каждой категории заложено, потрачено, остаток.
 // Здесь же создаются и правятся категории и группы.
-export function BudgetScreen({ groups, categories, baseCurrency, today, ledger, onChanged, onOpenCategory, onAddTo }: Props) {
+export function BudgetScreen({ groups, categories, baseCurrency, today, ledger, onChanged, onOpenCategory, onAddTo, onOpenSchedules }: Props) {
   const [month, setMonth] = useState(today.slice(0, 7))
   const [budget, setBudget] = useState<BudgetMonth | null>(null)
   const [failed, setFailed] = useState(false)
@@ -117,6 +118,9 @@ export function BudgetScreen({ groups, categories, baseCurrency, today, ledger, 
         </button>
         <button type="button" className="chip" onClick={() => setCreatingGroup(true)}>
           {t.categories.newGroup}
+        </button>
+        <button type="button" className="chip" onClick={onOpenSchedules}>
+          {t.schedules.open}
         </button>
       </div>
 

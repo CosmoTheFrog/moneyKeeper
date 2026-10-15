@@ -252,4 +252,49 @@ export type Portfolio = { currency: string; missing_rates: number; items: Portfo
 
 export const fetchPortfolio = (inCurrency: string) => request<Portfolio>('GET', `/api/portfolio?in=${inCurrency}`)
 
+// Расписание платежей. amount_kind: exact, approx (допуск 7,5%) или range (до amount_max_minor). days: числа месяца,
+// 0 это последний день. weekend_shift: none, back (на предыдущий будний день), forward (на следующий).
+export type AmountKind = 'exact' | 'approx' | 'range'
+export type WeekendShift = 'none' | 'back' | 'forward'
+
+export type Schedule = {
+  id: number
+  name: string
+  category_id: number
+  account_id: number | null
+  currency: string
+  amount_kind: AmountKind
+  amount_minor: number
+  amount_max_minor: number | null
+  every_months: number
+  days: number[]
+  start_month: string
+  weekend_shift: WeekendShift
+  remind_before: number
+}
+
+export type ScheduleInput = Omit<Schedule, 'id' | 'start_month'>
+
+// status: upcoming впереди, overdue дата прошла без траты, paid нашлась подходящая трата, skipped пропущен.
+export type Occurrence = {
+  schedule: Schedule
+  due_on: string
+  status: 'upcoming' | 'overdue' | 'paid' | 'skipped'
+  transaction_id: number | null
+}
+
+export const fetchOccurrences = async () => (await request<{ occurrences: Occurrence[] }>('GET', '/api/schedules/occurrences')).occurrences
+
+export const createSchedule = (s: ScheduleInput) => request<Schedule>('POST', '/api/schedules', s)
+
+export const updateSchedule = (id: number, s: ScheduleInput) => request<Schedule>('PUT', `/api/schedules/${id}`, s)
+
+export const deleteSchedule = async (id: number): Promise<void> => {
+  await send('DELETE', `/api/schedules/${id}`)
+}
+
+export const skipOccurrence = async (id: number, dueOn: string): Promise<void> => {
+  await send('POST', `/api/schedules/${id}/skip`, { due_on: dueOn })
+}
+
 export const parseQuick = (text: string, currency: string) => request<ParsedInput>('POST', '/api/transactions/parse', { text, currency })

@@ -24,6 +24,7 @@ import { registerCurrencies } from './money'
 import { OperationsScreen } from './OperationsScreen'
 import { PortfolioScreen } from './PortfolioScreen'
 import { ReportsScreen } from './ReportsScreen'
+import { SchedulesScreen } from './SchedulesScreen'
 import { SavingsScreen } from './SavingsScreen'
 import { TabBar, type Tab } from './TabBar'
 import { applyTheme, readMode, resolveTheme, saveMode, type ThemeMode } from './theme'
@@ -46,6 +47,7 @@ type Screen =
   | { kind: 'category'; categoryId: number }
   | { kind: 'account'; accountId: number }
   | { kind: 'savings' }
+  | { kind: 'schedules' }
   | { kind: 'portfolio' }
 
 const HIDDEN_KEY = 'mk.hidden'
@@ -274,6 +276,24 @@ export function App() {
           )
           break
         }
+        case 'schedules':
+          body = (
+            <SchedulesScreen
+              groups={groups}
+              categories={categories}
+              accounts={accounts}
+              baseCurrency={base}
+              currencies={me.currencies}
+              today={today}
+              ledger={state.data.transactions}
+              onBack={() => {
+                setTab('budget')
+                go(home)
+              }}
+              onAddExpense={(categoryId) => go({ kind: 'add', categoryId, returnTo: { kind: 'schedules' } })}
+            />
+          )
+          break
         case 'savings':
           body = (
             <SavingsScreen
@@ -312,6 +332,7 @@ export function App() {
                   baseCurrency={base}
                   today={today}
                   ledger={state.data.transactions}
+                  onOpenSchedules={() => go({ kind: 'schedules' })}
                   onChanged={reload}
                   onOpenCategory={(id) => go({ kind: 'category', categoryId: id })}
                   onAddTo={(id) => go({ kind: 'add', categoryId: id, returnTo: home })}
