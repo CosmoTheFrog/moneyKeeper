@@ -69,6 +69,11 @@ const (
 	KindExpense  TransactionKind = "expense"
 	KindIncome   TransactionKind = "income"
 	KindTransfer TransactionKind = "transfer"
+	// KindExchange это две записи в разных валютах (обмен валюты, покупка или продажа монеты).
+	KindExchange TransactionKind = "exchange"
+	// KindFee это комиссия по обмену или переводу между счетами вне бюджета: уменьшает портфель, бюджет не трогает.
+	// Комиссия со счёта внутри бюджета это обычный расход с категорией.
+	KindFee TransactionKind = "fee"
 	// KindOpening это начальный остаток счёта: доход в «К распределению» на дату создания счёта.
 	KindOpening TransactionKind = "opening"
 )
@@ -104,6 +109,27 @@ type NewTransaction struct {
 	Currency    string
 	OccurredOn  *apptime.Day
 	Note        string
+	// FeeMinor: комиссия сети при переводе между кошельками вне бюджета одной валюты. Отправляется AmountMinor,
+	// приходит на AmountMinor − FeeMinor.
+	FeeMinor int64
+}
+
+// NewExchange описывает обмен: отдаётся OutMinor в OutCurrency со счёта From, приходит InMinor в InCurrency на счёт To.
+// Обе суммы вводит пользователь так, как их провёл банк или биржа, курс сделки считается по ним.
+// CategoryID нужна, если деньги уходят из бюджета на счёт вне бюджета. FeeMinor это комиссия в валюте отдаваемой суммы
+// со счёта From, для счёта внутри бюджета с FeeCategoryID.
+type NewExchange struct {
+	FromAccountID int64
+	ToAccountID   int64
+	OutMinor      int64
+	OutCurrency   string
+	InMinor       int64
+	InCurrency    string
+	CategoryID    *int64
+	FeeMinor      int64
+	FeeCategoryID *int64
+	OccurredOn    *apptime.Day
+	Note          string
 }
 
 // TransactionPatch меняет только заданные поля. AmountMinor положительная.

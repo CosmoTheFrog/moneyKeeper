@@ -66,7 +66,7 @@ func (s *Service) CreateTransaction(ctx context.Context, u models.User, in model
 			return err
 
 		case models.KindTransfer:
-			if in.CategoryID != nil || in.ToAccountID == nil || *in.ToAccountID == in.AccountID {
+			if in.ToAccountID == nil || *in.ToAccountID == in.AccountID {
 				return fmt.Errorf("transfer target: %w", models.ErrInvalidTransaction)
 			}
 			to, err := s.accounts.Get(ctx, u.ActiveBudgetID, *in.ToAccountID)
@@ -76,14 +76,23 @@ func (s *Service) CreateTransaction(ctx context.Context, u models.User, in model
 			if !to.Allows(cur) {
 				return fmt.Errorf("%s to account %d: %w", cur, to.ID, models.ErrCurrencyMismatch)
 			}
+			// Деньги уходят из бюджета на счёт вне бюджета: это расход конверта, нужна категория.
+			category, err := s.boundaryCategory(ctx, u, acc, to, in.CategoryID)
+			if err != nil {
+				return err
+			}
+			// Комиссия сети бывает только у перевода между кошельками вне бюджета: приходит меньше, чем ушло.
+			if in.FeeMinor < 0 || in.FeeMinor >= in.AmountMinor || (in.FeeMinor > 0 && !(acc.OffBudget && to.OffBudget)) {
+				return fmt.Errorf("network fee: %w", models.ErrInvalidTransaction)
+			}
 			transferID, err := s.transactions.NextTransferID(ctx)
 			if err != nil {
 				return err
 			}
 			base.Kind, base.TransferID = models.KindTransfer, &transferID
 			outLeg, inLeg := base, base
-			outLeg.AmountMinor = -in.AmountMinor
-			inLeg.AccountID, inLeg.AmountMinor = to.ID, in.AmountMinor
+			outLeg.AmountMinor, outLeg.CategoryID = -in.AmountMinor, category
+			inLeg.AccountID, inLeg.AmountMinor = to.ID, in.AmountMinor-in.FeeMinor
 			for _, leg := range []models.Transaction{outLeg, inLeg} {
 				t, err := s.transactions.Insert(ctx, leg)
 				if err != nil {
@@ -129,9 +138,13 @@ func (s *Service) UpdateTransaction(ctx context.Context, u models.User, id int64
 			return err
 		}
 		legs := []models.Transaction{t}
-		if t.Kind == models.KindTransfer {
+		if t.Kind == models.KindTransfer || t.Kind == models.KindExchange {
 			if legs, err = s.transactions.Legs(ctx, u.ActiveBudgetID, *t.TransferID); err != nil {
 				return err
+			}
+			// Перевод с комиссией сети: ноги разной величины, одной суммой их не пересчитать.
+			if p.AmountMinor != nil && len(legs) == 2 && legs[0].AmountMinor+legs[1].AmountMinor != 0 {
+				return fmt.Errorf("amount of a transfer with a fee: %w", models.ErrInvalidTransaction)
 			}
 		}
 
@@ -198,7 +211,7 @@ func (s *Service) DeleteTransaction(ctx context.Context, u models.User, id int64
 			return err
 		}
 		legs := []models.Transaction{t}
-		if t.Kind == models.KindTransfer {
+		if t.Kind == models.KindTransfer || t.Kind == models.KindExchange {
 			if legs, err = s.transactions.Legs(ctx, u.ActiveBudgetID, *t.TransferID); err != nil {
 				return err
 			}
@@ -250,6 +263,10 @@ func (s *Service) usableCategory(ctx context.Context, u models.User, id *int64) 
 
 // checkPatchAllowed: категорию можно менять только у расхода, счёт только у расхода и дохода.
 func checkPatchAllowed(kind models.TransactionKind, p models.TransactionPatch) error {
+	// У обмена меняются только дата и заметка, суммы и валюты задают сделку.
+	if kind == models.KindExchange && (p.AmountMinor != nil || p.AccountID != nil || p.CategoryID != nil || p.Currency != nil) {
+		return fmt.Errorf("amount, account or category of an exchange: %w", models.ErrInvalidTransaction)
+	}
 	if p.CategoryID != nil && kind != models.KindExpense {
 		return fmt.Errorf("category of %s: %w", kind, models.ErrInvalidTransaction)
 	}

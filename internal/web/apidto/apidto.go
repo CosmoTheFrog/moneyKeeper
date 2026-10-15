@@ -152,6 +152,25 @@ type CreateTransactionRequest struct {
 	Currency    string  `json:"currency"`
 	Date        *string `json:"date"`
 	Note        string  `json:"note"`
+	// FeeMinor: комиссия сети при переводе между кошельками вне бюджета, приходит на amount_minor минус комиссия.
+	FeeMinor int64 `json:"fee_minor"`
+}
+
+// CreateExchangeRequest: отдаётся out_minor в out_currency со счёта from, приходит in_minor в in_currency на счёт to.
+// category_id нужна, если деньги уходят из бюджета на счёт вне бюджета. fee_minor в валюте отдаваемой суммы,
+// fee_category_id для комиссии со счёта внутри бюджета.
+type CreateExchangeRequest struct {
+	FromAccountID int64   `json:"from_account_id"`
+	ToAccountID   int64   `json:"to_account_id"`
+	OutMinor      int64   `json:"out_minor"`
+	OutCurrency   string  `json:"out_currency"`
+	InMinor       int64   `json:"in_minor"`
+	InCurrency    string  `json:"in_currency"`
+	CategoryID    *int64  `json:"category_id"`
+	FeeMinor      int64   `json:"fee_minor"`
+	FeeCategoryID *int64  `json:"fee_category_id"`
+	Date          *string `json:"date"`
+	Note          string  `json:"note"`
 }
 
 type UpdateTransactionRequest struct {
@@ -229,4 +248,23 @@ type BudgetMonthResponse struct {
 
 type SetBudgetedRequest struct {
 	BudgetedMinor int64 `json:"budgeted_minor"`
+}
+
+// PortfolioItemDTO: позиция по монете в валюте портфеля. ProfitBP прибыль в сотых долях процента, null без цены покупки.
+// AvgPrice средняя цена покупки за целую монету десятичной строкой.
+type PortfolioItemDTO struct {
+	Currency      string `json:"currency"`
+	QuantityMinor int64  `json:"quantity_minor"`
+	ValueMinor    int64  `json:"value_minor"`
+	CostMinor     int64  `json:"cost_minor"`
+	ProfitMinor   int64  `json:"profit_minor"`
+	ProfitBP      *int64 `json:"profit_bp"`
+	RealizedMinor int64  `json:"realized_minor"`
+	AvgPrice      string `json:"avg_price"`
+}
+
+type PortfolioResponse struct {
+	Currency     string             `json:"currency"`
+	MissingRates int                `json:"missing_rates"`
+	Items        []PortfolioItemDTO `json:"items"`
 }

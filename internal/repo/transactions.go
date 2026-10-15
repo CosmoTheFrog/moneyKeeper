@@ -71,6 +71,19 @@ func (r *Transactions) Legs(ctx context.Context, budgetID, transferID int64) ([]
 		budgetID, transferID)
 }
 
+// CoinActivity возвращает все записи в монетах и все записи групп (обмены, переводы), в которых есть монета, в
+// порядке даты. По ним считается портфель: покупки и продажи, потери на комиссиях сети.
+func (r *Transactions) CoinActivity(ctx context.Context, budgetID int64, coins []string) ([]models.Transaction, error) {
+	return r.query(ctx,
+		`SELECT `+txColumns+` FROM transactions
+		 WHERE budget_id = $1 AND deleted_at IS NULL AND (
+		       currency = ANY($2)
+		    OR transfer_id IN (SELECT transfer_id FROM transactions
+		                       WHERE budget_id = $1 AND deleted_at IS NULL AND transfer_id IS NOT NULL AND currency = ANY($2)))
+		 ORDER BY occurred_on, id`,
+		budgetID, coins)
+}
+
 func (r *Transactions) List(ctx context.Context, budgetID int64, limit, offset int) ([]models.Transaction, error) {
 	return r.query(ctx,
 		`SELECT `+txColumns+` FROM transactions WHERE budget_id = $1 AND deleted_at IS NULL

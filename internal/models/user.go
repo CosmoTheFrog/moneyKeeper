@@ -30,6 +30,9 @@ const (
 	AccountCash   AccountKind = "cash"
 	AccountDebit  AccountKind = "debit"
 	AccountCredit AccountKind = "credit"
+	// AccountWallet (кошелёк, биржа) и AccountPiggy (копилка) лежат вне бюджета: их остатки не входят в «К распределению».
+	AccountWallet AccountKind = "wallet"
+	AccountPiggy  AccountKind = "piggy"
 )
 
 // CurrencyBalance это остаток и расходы счёта в одной валюте. Считаются из транзакций, нигде не хранятся.
@@ -64,7 +67,9 @@ type Account struct {
 	Currency      money.Currency
 	MultiCurrency bool
 	IsDefault     bool
-	Balances      []CurrencyBalance
+	// OffBudget: счёт вне бюджета (кошелёк, копилка). Считается из вида счёта.
+	OffBudget bool
+	Balances  []CurrencyBalance
 }
 
 // Allows говорит, можно ли вести на счёте записи в валюте c.

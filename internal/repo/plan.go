@@ -58,19 +58,26 @@ func (r *Plan) Budgeted(ctx context.Context, budgetID int64, upTo apptime.Month)
 	return out, rows.Err()
 }
 
-// Flows возвращает расходы по категориям и доходы бюджета (с начальными остатками) до конца месяца upTo,
-// сгруппированно по дню и валюте. Переводы не входят.
+// Flows возвращает расходы по категориям и доходы бюджета до конца месяца upTo, сгруппированно по дню и валюте.
+// В бюджет входят: расходы любых счетов; доходы и начальные остатки счетов внутри бюджета; ноги переводов и обменов
+// между счётом внутри бюджета и счётом вне бюджета (с категорией это расход конверта, без неё приход в бюджет).
+// Переводы внутри бюджета и между счетами вне бюджета в него не входят.
 func (r *Plan) Flows(ctx context.Context, budgetID int64, upTo apptime.Month) ([]models.Flow, error) {
 	rows, err := r.db.Q(ctx).Query(ctx,
-		`SELECT category_id, currency, occurred_on, SUM(amount_minor)
-		 FROM transactions
-		 WHERE budget_id = $1 AND deleted_at IS NULL AND kind IN ('expense', 'income', 'opening') AND occurred_on <= $2
-		 GROUP BY category_id, currency, occurred_on`, budgetID, upTo.Last().Date())
+		`SELECT t.category_id, t.currency, t.occurred_on, SUM(t.amount_minor)
+		 FROM transactions t JOIN accounts a ON a.id = t.account_id
+		 WHERE t.budget_id = $1 AND t.deleted_at IS NULL AND t.occurred_on <= $2 AND (
+		       t.kind = 'expense'
+		    OR (t.kind IN ('income', 'opening') AND NOT a.off_budget)
+		    OR (t.kind IN ('transfer', 'exchange') AND NOT a.off_budget AND EXISTS (
+		          SELECT 1 FROM transactions o JOIN accounts oa ON oa.id = o.account_id
+		          WHERE o.transfer_id = t.transfer_id AND o.id <> t.id AND o.deleted_at IS NULL AND oa.off_budget))
+		 )
+		 GROUP BY t.category_id, t.currency, t.occurred_on`, budgetID, upTo.Last().Date())
 	if err != nil {
 		return nil, fmt.Errorf("flows: %w", err)
 	}
 	defer rows.Close()
-
 	var out []models.Flow
 	for rows.Next() {
 		var (

@@ -185,6 +185,32 @@ func TestLedgerFlow(t *testing.T) {
 		}
 	})
 
+	t.Run("exchange and portfolio", func(t *testing.T) {
+		dana := client{t, srv.URL, "tma " + signedInitData(testToken, 9, "Dana", fresh)} // отдельный пользователь, чтобы не менять записи других проверок
+		dana.do("PUT", "/api/budget/currency", `{"currency":"GEL"}`)
+		var w apidto.AccountDTO
+		dana.ok("POST", "/api/accounts", `{"name":"Binance","kind":"wallet","currency":"USDT","multi_currency":true,"opening_balance_minor":100000}`, 201, &w)
+
+		body := fmt.Sprintf(`{"from_account_id":%d,"to_account_id":%d,"out_minor":8000,"out_currency":"USDT","in_minor":100000,"in_currency":"BTC","fee_minor":50,"note":"покупка"}`, w.ID, w.ID)
+		var rows apidto.TransactionsResponse
+		dana.ok("POST", "/api/exchanges", body, 201, &rows)
+		if len(rows.Transactions) != 3 || rows.Transactions[0].Kind != "exchange" || rows.Transactions[0].AmountMinor != -8000 ||
+			rows.Transactions[1].Currency != "BTC" || rows.Transactions[2].Kind != "fee" || rows.Transactions[0].TransferID == nil {
+			t.Fatalf("exchange = %+v", rows.Transactions)
+		}
+
+		dana.fails("POST", "/api/exchanges", fmt.Sprintf(`{"from_account_id":%d,"to_account_id":%d,"out_minor":100,"out_currency":"USDT","in_minor":100,"in_currency":"USDT"}`, w.ID, w.ID), 400, apidto.CodeInvalidTransaction)
+		dana.fails("POST", "/api/exchanges", `{"from_account_id":1,"to_account_id":1,"x":1}`, 400, apidto.CodeInvalidRequest)
+		anna.fails("POST", "/api/exchanges", body, 404, apidto.CodeNotFound)
+
+		var p apidto.PortfolioResponse
+		dana.ok("GET", "/api/portfolio", "", 200, &p)
+		if p.Currency != "GEL" || len(p.Items) != 1 || p.Items[0].Currency != "BTC" || p.Items[0].QuantityMinor != 100000 || p.Items[0].ValueMinor != 25000 || p.Items[0].ProfitBP == nil {
+			t.Errorf("portfolio = %+v", p)
+		}
+		dana.fails("GET", "/api/portfolio?in=XXX", "", 400, apidto.CodeInvalidCurrency)
+	})
+
 	t.Run("quick input", func(t *testing.T) {
 		var p apidto.ParseResponse
 		igor.ok("POST", "/api/transactions/parse", `{"text":"кофе 5 EUR"}`, 200, &p)

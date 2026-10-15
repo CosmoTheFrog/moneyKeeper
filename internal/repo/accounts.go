@@ -24,9 +24,9 @@ func (r *Accounts) Create(ctx context.Context, budgetID int64, in models.NewAcco
 	err := r.db.Q(ctx).QueryRow(ctx,
 		`INSERT INTO accounts (budget_id, name, kind, currency, multi_currency, is_default)
 		 VALUES ($1, $2, $3, $4, $5, NOT EXISTS (SELECT 1 FROM accounts WHERE budget_id = $1))
-		 RETURNING id, is_default`,
+		 RETURNING id, is_default, off_budget`,
 		budgetID, in.Name, string(in.Kind), string(in.Currency), in.MultiCurrency,
-	).Scan(&a.ID, &a.IsDefault)
+	).Scan(&a.ID, &a.IsDefault, &a.OffBudget)
 	if err != nil {
 		return models.Account{}, fmt.Errorf("create account: %w", err)
 	}
@@ -34,7 +34,7 @@ func (r *Accounts) Create(ctx context.Context, budgetID int64, in models.NewAcco
 	return a, nil
 }
 
-const accountColumns = `id, budget_id, name, kind, currency, multi_currency, is_default`
+const accountColumns = `id, budget_id, name, kind, currency, multi_currency, is_default, off_budget`
 
 func (r *Accounts) Get(ctx context.Context, budgetID, id int64) (models.Account, error) {
 	a, err := scanAccount(r.db.Q(ctx).QueryRow(ctx,
@@ -158,7 +158,7 @@ func scanAccount(row pgx.Row) (models.Account, error) {
 		a        models.Account
 		kind, cu string
 	)
-	if err := row.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.MultiCurrency, &a.IsDefault); err != nil {
+	if err := row.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.MultiCurrency, &a.IsDefault, &a.OffBudget); err != nil {
 		return models.Account{}, err
 	}
 	a.Kind, a.Currency = models.AccountKind(kind), money.Currency(cu)

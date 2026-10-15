@@ -111,6 +111,7 @@ func (h *handler) createTransaction(w http.ResponseWriter, r *http.Request, u mo
 	txs, err := h.svc.CreateTransaction(r.Context(), u, models.NewTransaction{
 		Kind: models.TransactionKind(req.Kind), AccountID: req.AccountID, ToAccountID: req.ToAccountID,
 		CategoryID: req.CategoryID, AmountMinor: req.AmountMinor, Currency: req.Currency, OccurredOn: day, Note: req.Note,
+		FeeMinor: req.FeeMinor,
 	})
 	if err != nil {
 		h.fail(w, err)
@@ -274,6 +275,45 @@ func (h *handler) rates(w http.ResponseWriter, r *http.Request, u models.User) {
 	out := apidto.RatesResponse{Day: table.Day.String(), In: string(table.In), Rates: make([]apidto.RateDTO, 0, len(table.Quotes))}
 	for _, q := range table.Quotes {
 		out.Rates = append(out.Rates, apidto.RateDTO{Currency: string(q.Currency), Rate: q.Rate})
+	}
+	h.writeJSON(w, http.StatusOK, out)
+}
+
+// createExchange записывает обмен валюты, покупку или продажу монеты.
+func (h *handler) createExchange(w http.ResponseWriter, r *http.Request, u models.User) {
+	var req apidto.CreateExchangeRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	day, ok := h.optionalDay(w, req.Date)
+	if !ok {
+		return
+	}
+	txs, err := h.svc.CreateExchange(r.Context(), u, models.NewExchange{
+		FromAccountID: req.FromAccountID, ToAccountID: req.ToAccountID,
+		OutMinor: req.OutMinor, OutCurrency: req.OutCurrency, InMinor: req.InMinor, InCurrency: req.InCurrency,
+		CategoryID: req.CategoryID, FeeMinor: req.FeeMinor, FeeCategoryID: req.FeeCategoryID, OccurredOn: day, Note: req.Note,
+	})
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusCreated, transactionsResponse(txs))
+}
+
+// portfolio отдаёт позиции по монетам с ценой покупки и прибылью в валюте из параметра in.
+func (h *handler) portfolio(w http.ResponseWriter, r *http.Request, u models.User) {
+	p, err := h.svc.Portfolio(r.Context(), u, r.URL.Query().Get("in"))
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	out := apidto.PortfolioResponse{Currency: string(p.Currency), MissingRates: p.MissingRates, Items: make([]apidto.PortfolioItemDTO, 0, len(p.Items))}
+	for _, it := range p.Items {
+		out.Items = append(out.Items, apidto.PortfolioItemDTO{
+			Currency: string(it.Currency), QuantityMinor: it.QuantityMinor, ValueMinor: it.ValueMinor, CostMinor: it.CostMinor,
+			ProfitMinor: it.ProfitMinor, ProfitBP: it.ProfitBP, RealizedMinor: it.RealizedMinor, AvgPrice: it.AvgPrice,
+		})
 	}
 	h.writeJSON(w, http.StatusOK, out)
 }

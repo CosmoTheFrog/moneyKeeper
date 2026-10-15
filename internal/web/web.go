@@ -39,9 +39,11 @@ type Service interface {
 
 	ListTransactions(ctx context.Context, u models.User, limit, offset int, in string) ([]models.Transaction, error)
 	Rates(ctx context.Context, u models.User, in string) (models.RateTable, error)
+	Portfolio(ctx context.Context, u models.User, in string) (models.Portfolio, error)
 	BudgetMonth(ctx context.Context, u models.User, month apptime.Month) (models.BudgetMonth, error)
 	SetBudgeted(ctx context.Context, u models.User, categoryID int64, month apptime.Month, minor int64) error
 	CreateTransaction(ctx context.Context, u models.User, in models.NewTransaction) ([]models.Transaction, error)
+	CreateExchange(ctx context.Context, u models.User, in models.NewExchange) ([]models.Transaction, error)
 	UpdateTransaction(ctx context.Context, u models.User, id int64, p models.TransactionPatch) ([]models.Transaction, error)
 	DeleteTransaction(ctx context.Context, u models.User, id int64) error
 	TransactionEvents(ctx context.Context, u models.User, id int64) ([]models.TransactionEvent, error)
@@ -65,6 +67,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("GET /api/me", h.auth(h.me))
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
 	mux.HandleFunc("GET /api/rates", h.auth(h.rates))
+	mux.HandleFunc("GET /api/portfolio", h.auth(h.portfolio))
 	mux.HandleFunc("GET /api/budget/months/{month}", h.auth(h.budgetMonth))
 	mux.HandleFunc("PUT /api/budget/months/{month}/categories/{id}", h.auth(h.setBudgeted))
 	mux.HandleFunc("GET /api/accounts", h.auth(h.listAccounts))
@@ -76,6 +79,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("PATCH /api/categories/{id}", h.auth(h.updateCategory))
 	mux.HandleFunc("GET /api/transactions", h.auth(h.listTransactions))
 	mux.HandleFunc("POST /api/transactions", h.auth(h.createTransaction))
+	mux.HandleFunc("POST /api/exchanges", h.auth(h.createExchange))
 	mux.HandleFunc("POST /api/transactions/parse", h.auth(h.parseQuick))
 	mux.HandleFunc("PATCH /api/transactions/{id}", h.auth(h.updateTransaction))
 	mux.HandleFunc("DELETE /api/transactions/{id}", h.auth(h.deleteTransaction))
