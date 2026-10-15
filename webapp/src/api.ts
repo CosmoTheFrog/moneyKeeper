@@ -40,6 +40,8 @@ export type Account = {
   multi_currency: boolean
   is_default: boolean
   off_budget: boolean
+  // Закрытый счёт: в списках его нет, записи по нему остаются в истории.
+  archived: boolean
   // Копилка: цель и конверт, из которого она пополняется.
   target_minor: number | null
   target_date: string | null
@@ -226,6 +228,11 @@ export const createTransaction = (tx: NewTransaction) => request<{ transactions:
 
 export const updateTransaction = (id: number, patch: TransactionPatch) =>
   request<{ transactions: Transaction[] }>('PATCH', `/api/transactions/${id}`, patch)
+
+// Закрыть можно пустой неосновной счёт; записи по нему остаются в истории.
+export const archiveAccount = async (id: number): Promise<void> => {
+  await send('POST', `/api/accounts/${id}/archive`)
+}
 
 export const deleteTransaction = async (id: number): Promise<void> => {
   await send('DELETE', `/api/transactions/${id}`)

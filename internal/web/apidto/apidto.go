@@ -30,11 +30,13 @@ type BudgetDTO struct {
 	BaseCurrency *string `json:"base_currency"`
 }
 
-// CurrencyInfoDTO.Units это число знаков после запятой, Coin: курс берётся отдельно по требованию.
+// CurrencyInfoDTO.Units это число знаков после запятой, Coin: курс берётся отдельно по требованию (монеты и акции),
+// Stock: это акция.
 type CurrencyInfoDTO struct {
 	Code  string `json:"code"`
 	Units int    `json:"units"`
 	Coin  bool   `json:"coin"`
+	Stock bool   `json:"stock"`
 }
 
 type MeResponse struct {

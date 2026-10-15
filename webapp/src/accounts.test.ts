@@ -1,9 +1,32 @@
 import { describe, expect, it } from 'vitest'
 import type { Account } from './api'
-import { allows, balanceIn, pickAccount, usableCurrencies } from './accounts'
+import { allows, balanceIn, holdings, pickAccount, usableCurrencies } from './accounts'
+
+describe('holdings', () => {
+  const bal = (currency: string, minor: number, base: number | null) => ({ currency, balance_minor: minor, spent_minor: 0, base_balance_minor: base, base_spent_minor: null })
+
+  it('sums in the display currency, keeps the biggest by value and counts the rest', () => {
+    const wallet: Account = {
+      id: 1, name: 'Bybit', kind: 'wallet', currency: 'USDT', multi_currency: true, is_default: false, off_budget: true, archived: false, target_minor: null, target_date: null, category_id: null,
+      balances: [bal('BTC', 100, 5000), bal('ETH', -20, -700), bal('SOL', 300, 900), bal('XRP', 10, 40), bal('DOGE', 0, 0)],
+    }
+    const got = holdings(wallet, 2)
+    expect(got.total).toBe(5000 - 700 + 900 + 40)
+    expect(got.top.map((b) => b.currency)).toEqual(['BTC', 'SOL'])
+    expect(got.more).toBe(2)
+  })
+
+  it('has no total while a rate is missing', () => {
+    const wallet: Account = {
+      id: 1, name: 'w', kind: 'wallet', currency: 'USDT', multi_currency: true, is_default: false, off_budget: true, archived: false, target_minor: null, target_date: null, category_id: null,
+      balances: [bal('BTC', 100, null), bal('ETH', 5, 10)],
+    }
+    expect(holdings(wallet, 3).total).toBeNull()
+  })
+})
 
 function acc(id: number, currency: string, over: Partial<Account> = {}): Account {
-  return { id, name: `a${id}`, kind: 'debit', currency, multi_currency: false, is_default: false, off_budget: false, target_minor: null, target_date: null, category_id: null, balances: [{ currency, balance_minor: 0, spent_minor: 0, base_balance_minor: null, base_spent_minor: null }], ...over }
+  return { id, name: `a${id}`, kind: 'debit', currency, multi_currency: false, is_default: false, off_budget: false, archived: false, target_minor: null, target_date: null, category_id: null, balances: [{ currency, balance_minor: 0, spent_minor: 0, base_balance_minor: null, base_spent_minor: null }], ...over }
 }
 
 const all = ['GEL', 'EUR', 'USD', 'RUB', 'USDT']

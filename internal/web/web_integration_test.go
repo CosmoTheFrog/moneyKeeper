@@ -76,6 +76,9 @@ func TestFlow(t *testing.T) {
 		coin := map[string]bool{}
 		for _, c := range me.CurrencyInfo {
 			units[c.Code], coin[c.Code] = c.Units, c.Coin
+			if c.Stock != (c.Code == "TSLA" || c.Code == "AAPL" || c.Code == "MSFT" || c.Code == "GOOGL" || c.Code == "AMZN" || c.Code == "NVDA" || c.Code == "META" || c.Code == "NFLX" || c.Code == "AMD" || c.Code == "DIS") {
+				t.Errorf("%s: stock = %v", c.Code, c.Stock)
+			}
 		}
 		if units["GEL"] != 2 || units["BTC"] != 8 || units["SHIB"] != 0 || coin["GEL"] || coin["USDT"] || !coin["BTC"] || len(me.CurrencyInfo) != len(me.Currencies) {
 			t.Errorf("currency info = %+v", me.CurrencyInfo)

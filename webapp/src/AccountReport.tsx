@@ -133,7 +133,19 @@ export function AccountReport({ account, entries, accounts, groups, categories, 
           <SpendBars buckets={buckets} currency={currency} today={today} selected={bucket} onSelect={setBucket} />
 
           <h2 className="day">{t.accountReport.where}</h2>
-          <SpendBreakdown key={`${chosen}-${picked?.key ?? ''}`} slices={spendByCategory(own, categories, shown, measure)} groups={groups} currency={currency} />
+          <SpendBreakdown
+            key={`${chosen}-${picked?.key ?? ''}`}
+            slices={spendByCategory(own, categories, shown, measure)}
+            groups={groups}
+            categories={categories}
+            accounts={accounts}
+            entries={own}
+            range={shown}
+            measure={measure}
+            currency={currency}
+            today={today}
+            onOpen={onOpen}
+          />
 
           <h2 className="day">
             {t.accountReport.list} · {listed.length}

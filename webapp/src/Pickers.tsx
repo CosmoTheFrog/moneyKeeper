@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { currencyName, t } from './i18n'
 import { Modal } from './Modal'
-import { isCoin } from './money'
+import { isCoin, isStock } from './money'
 
 export type Option<T> = {
   value: T
@@ -70,10 +70,13 @@ type CurrencyProps = {
 
 // CurrencyPicker: обычные валюты плашками, монет много, поэтому они прячутся за одну плашку «Монеты» и выбираются списком.
 export function CurrencyPicker({ label, value, options, onChange, disabled = false }: CurrencyProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState<'coins' | 'stocks' | null>(null)
   const plain = options.filter((c) => !isCoin(c))
-  const coins = options.filter(isCoin)
-  const coinChosen = isCoin(value)
+  const coins = options.filter((c) => isCoin(c) && !isStock(c))
+  const stocks = options.filter(isStock)
+  const coinChosen = coins.includes(value)
+  const stockChosen = stocks.includes(value)
+  const listed = open === 'stocks' ? stocks : coins
 
   return (
     <div className="field">
@@ -85,21 +88,26 @@ export function CurrencyPicker({ label, value, options, onChange, disabled = fal
           </button>
         ))}
         {coins.length > 0 && (
-          <button type="button" role="radio" aria-checked={coinChosen} disabled={disabled} className={coinChosen ? 'pill pill-on' : 'pill'} onClick={() => setOpen(true)}>
+          <button type="button" role="radio" aria-checked={coinChosen} disabled={disabled} className={coinChosen ? 'pill pill-on' : 'pill'} onClick={() => setOpen('coins')}>
             {coinChosen ? value : t.currencyPicker.coins}
           </button>
         )}
+        {stocks.length > 0 && (
+          <button type="button" role="radio" aria-checked={stockChosen} disabled={disabled} className={stockChosen ? 'pill pill-on' : 'pill'} onClick={() => setOpen('stocks')}>
+            {stockChosen ? value : t.currencyPicker.stocks}
+          </button>
+        )}
       </div>
-      {open && (
-        <Modal title={t.currencyPicker.title} sheet onClose={() => setOpen(false)}>
-          {coins.map((c) => (
+      {open !== null && (
+        <Modal title={open === 'stocks' ? t.currencyPicker.stocksTitle : t.currencyPicker.title} sheet onClose={() => setOpen(null)}>
+          {listed.map((c) => (
             <button
               key={c}
               type="button"
               className={c === value ? 'sheet-row sheet-row-on' : 'sheet-row'}
               onClick={() => {
                 onChange(c)
-                setOpen(false)
+                setOpen(null)
               }}
             >
               <span>

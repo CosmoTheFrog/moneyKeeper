@@ -15,16 +15,19 @@ import {
 import { allows, pickAccount, usableCurrencies } from './accounts'
 import { errorText, t } from './i18n'
 import type { Entry } from './ledger'
+import { DateField } from './DateField'
 import { ExchangeFields } from './ExchangeForm'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
-import { formatInput, formatMinor, parseAmount } from './money'
+import { currencySign, formatInput, formatMinor, parseAmount } from './money'
 import { ChipPicker, CurrencyPicker, SheetPicker } from './Pickers'
 
 type FormKind = 'expense' | 'income' | 'transfer' | 'opening' | 'exchange'
 
 type Props = {
+  // Счета для выбора (без закрытых) и все счета для названий в старых записях.
   accounts: Account[]
+  allAccounts: Account[]
   groups: CategoryGroup[]
   categories: Category[]
   // Без entry форма создаёт запись, с entry правит её.
@@ -39,11 +42,23 @@ type Props = {
 
 const kindOptions = (['expense', 'income', 'transfer', 'exchange'] as const).map((k) => ({ value: k, label: t.kinds[k] }))
 
+// routeOf: откуда куда для заголовка записи при правке: «Счёт → Счёт», «Счёт · Категория».
+function routeOf(entry: Entry, kind: FormKind, nameOf: (id: number | null) => string, categoryName: Map<number, string>): string {
+  const from = nameOf(entry.accountId)
+  if (kind === 'transfer' || kind === 'exchange') {
+    const category = entry.categoryId === null ? '' : (categoryName.get(entry.categoryId) ?? '')
+    const way = `${from} → ${entry.toAccountId === null ? '…' : nameOf(entry.toAccountId)}`
+    return category === '' ? way : `${way} · ${category}`
+  }
+  const category = entry.categoryId === null ? '' : (categoryName.get(entry.categoryId) ?? '')
+  return category === '' ? from : `${from} · ${category}`
+}
+
 function kindLabel(kind: FormKind): string {
   return kind === 'opening' ? t.ledger.opening : t.kinds[kind]
 }
 
-export function EntryForm({ accounts, groups, categories, entry, allCurrencies, presetCategoryId, onDone, onCancel }: Props) {
+export function EntryForm({ accounts, allAccounts, groups, categories, entry, allCurrencies, presetCategoryId, onDone, onCancel }: Props) {
   const editing = entry !== undefined
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
@@ -65,7 +80,10 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
 
   const currencies = usableCurrencies(accounts, allCurrencies)
   const accountsInCurrency = accounts.filter((a) => allows(a, currency))
-  const accountName = new Map(accounts.map((a) => [a.id, a.name]))
+  const accountName = new Map(allAccounts.map((a) => [a.id, a.name]))
+  const nameOf = (id: number | null) => (id === null ? '' : (accountName.get(id) ?? ''))
+  // Валюту можно менять у новой записи и у расхода или дохода; у перевода и начального остатка она задана счётом.
+  const currencyEditable = !editing || kind === 'expense' || kind === 'income'
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
 
   const canPickAccount = editing ? kind === 'expense' || kind === 'income' : true
@@ -193,6 +211,24 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
     }
   }
 
+  // При правке над полями стоит «билет»: вид записи, сумма и откуда куда.
+  const route = entry === undefined ? '' : routeOf(entry, kind, nameOf, categoryName)
+  const ticket = entry !== undefined && (
+    <div className="ticket">
+      <span className="ticket-kind">{kindLabel(kind)}</span>
+      <span className="ticket-amount">
+        <Money minor={kind === 'exchange' ? -entry.amountMinor : entry.amountMinor} currency={entry.currency} signed={kind !== 'transfer' && kind !== 'exchange'} />
+        {entry.inMinor !== null && entry.inCurrency !== null && (
+          <>
+            <span className="ticket-arrow">→</span>
+            <Money minor={entry.inMinor} currency={entry.inCurrency} signed />
+          </>
+        )}
+      </span>
+      {route !== '' && <span className="ticket-route">{route}</span>}
+    </div>
+  )
+
   return (
     <Modal title={editing ? t.edit.title : t.add.title} onClose={onCancel}>
       {!editing && (
@@ -200,138 +236,119 @@ export function EntryForm({ accounts, groups, categories, entry, allCurrencies, 
           <ChipPicker value={kind === 'opening' ? 'expense' : kind} options={kindOptions} onChange={setKind} />
         </div>
       )}
-      {editing && <p className="hint">{kindLabel(kind)}</p>}
+      {ticket}
 
       {showExchange && <ExchangeFields accounts={accounts} groups={groups} categories={categories} allCurrencies={allCurrencies} onDone={onDone} />}
       {!showExchange && (
-      <form className="stack" onSubmit={submit}>
-        {!editing && (
-          <div className="card">
-            <label className="field">
-              <span className="label">{t.add.quick}</span>
-              <input
-                value={quick}
-                placeholder={t.add.quickPlaceholder}
-                onChange={(e) => setQuick(e.target.value)}
-                onBlur={() => void understand()}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    void understand()
-                  }
-                }}
-              />
-            </label>
-            {understood !== null && (
-              <p className="hint tight">
-                {t.add.understood}: {understood}
-              </p>
-            )}
-          </div>
-        )}
-
-        {lockedAmounts && (
-          <div className="card">
-            <b>
-              <Money minor={-(entry?.amountMinor ?? 0)} currency={currency} />
-              {entry?.inMinor != null && entry.inCurrency !== null && (
-                <>
-                  {' → '}
-                  <Money minor={entry.inMinor} currency={entry.inCurrency} signed />
-                </>
-              )}
-            </b>
-            <p className="hint tight">{t.exchange.locked}</p>
-          </div>
-        )}
-        {!lockedAmounts && (
-        <div className="card">
-          <label className="field">
-            <span className="label">{t.add.amount}</span>
-            <span className="amount-row">
-              <input inputMode="decimal" value={amount} placeholder="0,00" onChange={(e) => setAmount(e.target.value)} />
-            </span>
-          </label>
-          {currencies.length > 0 && (
-            <CurrencyPicker label={t.add.currency} value={currency} options={currencies} onChange={chooseCurrency} disabled={editing && !canPickAccount} />
+        <form className="stack" onSubmit={submit}>
+          {kind === 'expense' && (
+            <div className="card">
+              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
+            </div>
           )}
-          {editing && !canPickAccount && <p className="hint tight">{t.edit.currencyLocked}</p>}
-        </div>
-        )}
 
-        {canPickAccount && (
-          <div className="card">
-            <span className="label">{canPickTarget ? t.add.fromAccount : t.add.account}</span>
-            <div className="choices">
-              {accountsInCurrency.map((a) => (
-                <button key={a.id} type="button" className={a.id === accountId ? 'choice choice-on' : 'choice'} onClick={() => selectAccount(a.id)}>
-                  <span>{a.name}</span>
-                  <span className="choice-meta">{a.currency}</span>
-                </button>
-              ))}
-              {accountsInCurrency.length === 0 && <p className="hint tight">{t.add.noAccountInCurrency}</p>}
+          {!editing && (
+            <div className="card">
+              <label className="field">
+                <span className="label">{t.add.quick}</span>
+                <input
+                  value={quick}
+                  placeholder={t.add.quickPlaceholder}
+                  onChange={(e) => setQuick(e.target.value)}
+                  onBlur={() => void understand()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      void understand()
+                    }
+                  }}
+                />
+              </label>
+              {understood !== null && (
+                <p className="hint tight">
+                  {t.add.understood}: {understood}
+                </p>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {canPickTarget && (
-          <div className="card">
-            <span className="label">{t.add.toAccount}</span>
-            <div className="choices">
-              {targets.map((a) => (
-                <button key={a.id} type="button" className={a.id === toAccountId ? 'choice choice-on' : 'choice'} onClick={() => chooseTarget(a)}>
-                  <span>{a.name}</span>
-                  <span className="choice-meta">{a.currency}</span>
-                </button>
-              ))}
-              {targets.length === 0 && <p className="hint tight">{t.add.noTarget}</p>}
+          {lockedAmounts ? (
+            <p className="hint tight">{t.exchange.locked}</p>
+          ) : (
+            <div className="card">
+              <label className="field">
+                <span className="label">{t.add.amount}</span>
+                <span className="amount-row">
+                  <input inputMode="decimal" value={amount} placeholder="0,00" onChange={(e) => setAmount(e.target.value)} />
+                  {!currencyEditable && <span className="amount-suffix">{currencySign(currency)}</span>}
+                </span>
+              </label>
+              {currencyEditable && currencies.length > 0 && <CurrencyPicker label={t.add.currency} value={currency} options={currencies} onChange={chooseCurrency} />}
             </div>
-            <p className="hint tight">{t.add.transferHint}</p>
-          </div>
-        )}
+          )}
 
-        {crossing && (
-          <div className="card">
-            <p className="hint tight">{t.networkFee.leavesBudget}</p>
-            <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
-          </div>
-        )}
+          {canPickAccount && (
+            <div className="card">
+              <span className="label">{canPickTarget ? t.add.fromAccount : t.add.account}</span>
+              <div className="choices">
+                {accountsInCurrency.map((a) => (
+                  <button key={a.id} type="button" className={a.id === accountId ? 'choice choice-on' : 'choice'} onClick={() => selectAccount(a.id)}>
+                    <span>{a.name}</span>
+                    <span className="choice-meta">{a.currency}</span>
+                  </button>
+                ))}
+                {accountsInCurrency.length === 0 && <p className="hint tight">{t.add.noAccountInCurrency}</p>}
+              </div>
+            </div>
+          )}
 
-        {walletToWallet && (
+          {canPickTarget && (
+            <div className="card">
+              <span className="label">{t.add.toAccount}</span>
+              <div className="choices">
+                {targets.map((a) => (
+                  <button key={a.id} type="button" className={a.id === toAccountId ? 'choice choice-on' : 'choice'} onClick={() => chooseTarget(a)}>
+                    <span>{a.name}</span>
+                    <span className="choice-meta">{a.currency}</span>
+                  </button>
+                ))}
+                {targets.length === 0 && <p className="hint tight">{t.add.noTarget}</p>}
+              </div>
+              <p className="hint tight">{t.add.transferHint}</p>
+            </div>
+          )}
+
+          {crossing && (
+            <div className="card">
+              <p className="hint tight">{t.networkFee.leavesBudget}</p>
+              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
+            </div>
+          )}
+
+          {walletToWallet && (
+            <div className="card">
+              <label className="field">
+                <span className="label">{t.networkFee.label}</span>
+                <input inputMode="decimal" value={feeAmount} placeholder="0,00" onChange={(e) => setFeeAmount(e.target.value)} />
+              </label>
+              <p className="hint tight">{t.networkFee.hint}</p>
+            </div>
+          )}
+
           <div className="card">
+            <DateField label={t.add.date} value={date} onChange={setDate} placeholder={t.add.dateToday} clearable={!editing} />
             <label className="field">
-              <span className="label">{t.networkFee.label}</span>
-              <input inputMode="decimal" value={feeAmount} placeholder="0,00" onChange={(e) => setFeeAmount(e.target.value)} />
+              <span className="label">{t.add.note}</span>
+              <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
             </label>
-            <p className="hint tight">{t.networkFee.hint}</p>
           </div>
-        )}
 
-        {kind === 'expense' && (
-          <div className="card">
-            <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
-          </div>
-        )}
-
-        <div className="card">
-          <label className="field">
-            <span className="label">{t.add.date}</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-          {!editing && <p className="hint tight">{t.add.dateHint}</p>}
-          <label className="field">
-            <span className="label">{t.add.note}</span>
-            <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
-          </label>
-        </div>
-
-        {error !== null && <p className="error">{error}</p>}
-        <button type="submit" className="primary" disabled={busy}>
-          {t.save}
-        </button>
-      </form>
+          {error !== null && <p className="error">{error}</p>}
+          <button type="submit" className="primary" disabled={busy}>
+            {t.save}
+          </button>
+        </form>
       )}
-
       {editing && (
         <div className="stack tail">
           <button type="button" className={confirmDelete ? 'danger danger-on' : 'danger'} disabled={busy} onClick={() => void remove()}>

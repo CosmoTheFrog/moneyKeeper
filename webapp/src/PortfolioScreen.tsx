@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { fetchPortfolio, type Portfolio } from './api'
+import { fetchPortfolio, type Account, type Portfolio } from './api'
+import { AddHoldingForm } from './AddHoldingForm'
 import { DisplayCurrency } from './DisplayCurrency'
+import { Modal } from './Modal'
 import { t } from './i18n'
 import { Money } from './MoneyText'
 import { currencySign, formatRate } from './money'
@@ -11,6 +13,10 @@ import { RADIUS, arcs } from './report'
 type Props = {
   display: string
   currencies: string[]
+  wallets: Account[]
+  today: string
+  // Кошельки и записи изменились: данные приложения нужно перечитать.
+  onChanged: () => void
   onDisplay: (code: string) => void
   onBack: () => void
 }
@@ -26,9 +32,12 @@ const viewOptions = [
 ]
 
 // Портфель: монеты во всех кошельках. Кольцо показывает доли по стоимости, пузырьки прибыль в процентах от цены покупки.
-export function PortfolioScreen({ display, currencies, onDisplay, onBack }: Props) {
+export function PortfolioScreen({ display, currencies, wallets, today, onChanged, onDisplay, onBack }: Props) {
   const [loaded, setLoaded] = useState<Loaded>({ kind: 'loading' })
   const [view, setView] = useState<View>('ring')
+  const [adding, setAdding] = useState(false)
+  // Растёт после добавления: портфель запрашивается заново.
+  const [version, setVersion] = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -38,7 +47,7 @@ export function PortfolioScreen({ display, currencies, onDisplay, onBack }: Prop
     return () => {
       alive = false
     }
-  }, [display])
+  }, [display, version])
 
   const items = loaded.kind === 'ready' ? loaded.portfolio.items.filter((i) => i.quantity_minor > 0) : []
   const total = items.reduce((s, i) => s + i.value_minor, 0)
@@ -52,7 +61,12 @@ export function PortfolioScreen({ display, currencies, onDisplay, onBack }: Prop
         <button type="button" className="chip" onClick={onBack}>
           {t.back}
         </button>
-        <DisplayCurrency display={display} currencies={currencies} onChange={onDisplay} />
+        <span className="row-tight">
+          <DisplayCurrency display={display} currencies={currencies} onChange={onDisplay} />
+          <button type="button" className="chip" onClick={() => setAdding(true)}>
+            + {t.portfolioAdd.open}
+          </button>
+        </span>
       </header>
       <h1>{t.portfolio.title}</h1>
 
@@ -87,7 +101,7 @@ export function PortfolioScreen({ display, currencies, onDisplay, onBack }: Prop
                     const size = bubbleSize(i.profit_bp)
                     const up = (i.profit_bp ?? 0) >= 0
                     return (
-                      <div key={i.currency} className={up ? 'bubble bubble-up' : 'bubble bubble-down'} style={{ width: size, height: size }}>
+                      <div key={i.currency} className={up ? 'bubble bubble-up' : 'bubble bubble-down'} style={{ width: size, height: size, animationDelay: `${(i.currency.length * 0.37).toFixed(2)}s` }}>
                         <b>{i.currency}</b>
                         <span>{i.profit_bp === null ? '–' : formatBP(i.profit_bp)}</span>
                       </div>
@@ -141,6 +155,21 @@ export function PortfolioScreen({ display, currencies, onDisplay, onBack }: Prop
             </p>
           )}
         </>
+      )}
+
+      {adding && (
+        <Modal title={t.portfolioAdd.title} onClose={() => setAdding(false)}>
+          <AddHoldingForm
+            wallets={wallets}
+            allCurrencies={currencies}
+            today={today}
+            onDone={() => {
+              setAdding(false)
+              setVersion((v) => v + 1)
+              onChanged()
+            }}
+          />
+        </Modal>
       )}
     </main>
   )

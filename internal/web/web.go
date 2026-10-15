@@ -158,7 +158,7 @@ func currencyInfo() []apidto.CurrencyInfoDTO {
 	infos := money.Infos()
 	out := make([]apidto.CurrencyInfoDTO, 0, len(infos))
 	for _, i := range infos {
-		out = append(out, apidto.CurrencyInfoDTO{Code: string(i.Code), Units: i.Units, Coin: i.Coin})
+		out = append(out, apidto.CurrencyInfoDTO{Code: string(i.Code), Units: i.Units, Coin: i.Coin, Stock: i.Stock})
 	}
 	return out
 }

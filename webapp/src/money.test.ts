@@ -1,12 +1,13 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { dealPrice, formatInput, formatMinor, formatRate, isCoin, parseAmount, registerCurrencies, unitsOf } from './money'
+import { dealPrice, formatInput, formatMinor, formatRate, isCoin, isStock, parseAmount, registerCurrencies, unitsOf } from './money'
 
 beforeAll(() => {
   registerCurrencies([
-    { code: 'GEL', units: 2, coin: false },
-    { code: 'BTC', units: 8, coin: true },
-    { code: 'DOGE', units: 4, coin: true },
-    { code: 'SHIB', units: 0, coin: true },
+    { code: 'GEL', units: 2, coin: false, stock: false },
+    { code: 'BTC', units: 8, coin: true, stock: false },
+    { code: 'DOGE', units: 4, coin: true, stock: false },
+    { code: 'SHIB', units: 0, coin: true, stock: false },
+    { code: 'TSLA', units: 4, coin: true, stock: true },
   ])
 })
 
@@ -91,6 +92,8 @@ describe('currency registry', () => {
     expect(unitsOf('XXX')).toBe(2)
     expect(isCoin('BTC')).toBe(true)
     expect(isCoin('GEL')).toBe(false)
+    expect(isStock('TSLA')).toBe(true)
+    expect(isStock('BTC')).toBe(false)
   })
 })
 

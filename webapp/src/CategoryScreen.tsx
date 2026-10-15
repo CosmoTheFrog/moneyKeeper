@@ -36,7 +36,7 @@ export function CategoryScreen({ category, groupName, entries, accounts, categor
       </p>
 
       {entries.length === 0 && <p className="hint">{t.categories.noSpend}</p>}
-      <EntryList entries={entries} accounts={accounts} categories={categories} today={today} onOpen={onOpen} />
+      <EntryList entries={entries} accounts={accounts} categories={categories} today={today} onOpen={onOpen} noteFirst="plain" />
     </main>
   )
 }

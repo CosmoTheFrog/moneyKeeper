@@ -53,3 +53,9 @@ export function formatRange(range: Range, today: string): string {
 export function daysInRange(range: Range): number {
   return diffDays(range.from, range.to) + 1
 }
+
+// formatDayLong: «12 окт 2026», всегда с годом: для полей даты, где важно видеть всё.
+export function formatDayLong(day: string): string {
+  const [y, m, d] = day.split('-').map(Number)
+  return `${d} ${t.calendar.monthsShort[(m ?? 1) - 1] ?? ''} ${y}`
+}

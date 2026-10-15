@@ -7,12 +7,14 @@ import {
   setBudgeted,
   updateCategory,
   type BudgetMonth,
+  type Account,
   type BudgetRow,
   type Category,
   type CategoryGroup,
   type Transaction,
 } from './api'
 import { fillPercent, parseBudgeted, toBudgetTone } from './budget'
+import { BudgetFocus } from './BudgetFocus'
 import { monthTitle, shiftMonth } from './calendar'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
@@ -23,6 +25,7 @@ import { ChipPicker } from './Pickers'
 type Props = {
   groups: CategoryGroup[]
   categories: Category[]
+  accounts: Account[]
   // Валюта бюджета: все суммы здесь в ней.
   baseCurrency: string
   today: string
@@ -46,7 +49,7 @@ function Chevron({ left }: { left: boolean }) {
 
 // Бюджет месяца: сколько осталось распределить и по каждой категории заложено, потрачено, остаток.
 // Здесь же создаются и правятся категории и группы.
-export function BudgetScreen({ groups, categories, baseCurrency, today, ledger, onChanged, onOpenCategory, onAddTo, onOpenSchedules }: Props) {
+export function BudgetScreen({ groups, categories, accounts, baseCurrency, today, ledger, onChanged, onOpenCategory, onAddTo, onOpenSchedules }: Props) {
   const [month, setMonth] = useState(today.slice(0, 7))
   const [budget, setBudget] = useState<BudgetMonth | null>(null)
   const [failed, setFailed] = useState(false)
@@ -55,6 +58,11 @@ export function BudgetScreen({ groups, categories, baseCurrency, today, ledger, 
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [editing, setEditing] = useState<Category | null>(null)
   const [planning, setPlanning] = useState<Category | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [focus, setFocus] = useState(false)
+  // Свёрнутые группы и группы, где показаны категории без сумм.
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
+  const [withEmpty, setWithEmpty] = useState<Set<number>>(new Set())
 
   // Месяц, записи и категории могли измениться: бюджет запрашивается заново, а старый остаётся на экране до ответа.
   useEffect(() => {
@@ -73,9 +81,23 @@ export function BudgetScreen({ groups, categories, baseCurrency, today, ledger, 
   const rows = new Map((budget?.categories ?? []).map((r) => [r.category_id, r]))
   const tone = budget === null ? 'done' : toBudgetTone(budget.to_budget_minor)
 
+  function flip(set: Set<number>, id: number): Set<number> {
+    const next = new Set(set)
+    if (!next.delete(id)) next.add(id)
+    return next
+  }
+
   return (
     <main className="screen">
-      <h1>{t.budget.title}</h1>
+      <header className="row">
+        <h1>{t.budget.title}</h1>
+        <button type="button" className="plus" aria-label={t.schedules.open} title={t.schedules.open} onClick={onOpenSchedules}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="4" y="5" width="16" height="15" rx="3" />
+            <path d="M8 3v4M16 3v4M4 10h16" />
+          </svg>
+        </button>
+      </header>
 
       <div className="month-nav">
         <button type="button" className="plus" aria-label={t.calendar.prev} onClick={() => setMonth(shiftMonth(month, -1))}>
@@ -89,7 +111,7 @@ export function BudgetScreen({ groups, categories, baseCurrency, today, ledger, 
 
       {failed && <p className="error">{t.errors.internal}</p>}
       {budget !== null && (
-        <div className={`card budget-head budget-${tone}`}>
+        <div className={`card budget-head budget-tap budget-${tone}`} role="button" tabIndex={0} onClick={() => setFocus(true)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setFocus(true)}>
           <span className="label">{t.budget.toBudget}</span>
           <Money minor={budget.to_budget_minor} currency={baseCurrency} />
           <p className="budget-tone">{t.budget.tone[tone]}</p>
@@ -113,28 +135,31 @@ export function BudgetScreen({ groups, categories, baseCurrency, today, ledger, 
         <button type="button" className={editMode ? 'chip chip-on' : 'chip'} onClick={() => setEditMode(!editMode)}>
           {editMode ? t.categories.editDone : t.categories.edit}
         </button>
-        <button type="button" className="chip" onClick={() => setCreating(true)}>
-          {t.categories.new}
-        </button>
-        <button type="button" className="chip" onClick={() => setCreatingGroup(true)}>
-          {t.categories.newGroup}
-        </button>
-        <button type="button" className="chip" onClick={onOpenSchedules}>
-          {t.schedules.open}
+        <button type="button" className="chip" onClick={() => setAdding(true)}>
+          + {t.budget.add}
         </button>
       </div>
 
       {groups.map((g) => {
-        const inGroup = categories.filter((c) => {
+        const isActive = (c: Category) => {
           const r = rows.get(c.id) ?? EMPTY_ROW
-          const active = r.budgeted_minor !== 0 || r.spent_minor !== 0 || r.balance_minor !== 0
-          return c.group_id === g.id && (editMode || !c.hidden || active)
-        })
+          return r.budgeted_minor !== 0 || r.spent_minor !== 0 || r.balance_minor !== 0
+        }
+        const visible = categories.filter((c) => c.group_id === g.id && (editMode || !c.hidden || isActive(c)))
+        // Категории без сумм прячутся за строкой «Без сумм», пока бюджет не загружен, показываются все.
+        const emptyCount = budget === null || editMode ? 0 : visible.filter((c) => !isActive(c)).length
+        const showEmpty = emptyCount === 0 || withEmpty.has(g.id)
+        const inGroup = collapsed.has(g.id) ? [] : visible.filter((c) => showEmpty || isActive(c))
         return (
           <section key={g.id}>
-            <h2 className="day">{g.name}</h2>
-            <div className="card list-card">
-              {inGroup.length === 0 && <p className="hint tight pad">{t.categories.empty}</p>}
+            <button type="button" className="group-toggle" aria-expanded={!collapsed.has(g.id)} onClick={() => setCollapsed(flip(collapsed, g.id))}>
+              <svg className={collapsed.has(g.id) ? 'group-chevron' : 'group-chevron group-chevron-open'} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+              <span className="day">{g.name}</span>
+            </button>
+            <div className={collapsed.has(g.id) ? 'card list-card list-folded' : 'card list-card'}>
+              {!collapsed.has(g.id) && visible.length === 0 && <p className="hint tight pad">{t.categories.empty}</p>}
               {inGroup.map((c) => {
                 const r = rows.get(c.id) ?? EMPTY_ROW
                 return (
@@ -181,10 +206,44 @@ export function BudgetScreen({ groups, categories, baseCurrency, today, ledger, 
                   </div>
                 )
               })}
+              {!collapsed.has(g.id) && emptyCount > 0 && (
+                <button type="button" className="empty-rows" onClick={() => setWithEmpty(flip(withEmpty, g.id))}>
+                  {showEmpty ? t.budget.collapse : `${t.budget.emptyRows}: ${emptyCount}`}
+                </button>
+              )}
             </div>
           </section>
         )
       })}
+
+      {focus && budget !== null && <BudgetFocus budget={budget} tone={tone} accounts={accounts} categories={categories} baseCurrency={baseCurrency} onClose={() => setFocus(false)} />}
+
+      {adding && (
+        <Modal title={t.budget.add} onClose={() => setAdding(false)}>
+          <div className="stack">
+            <button
+              type="button"
+              className="option"
+              onClick={() => {
+                setAdding(false)
+                setCreating(true)
+              }}
+            >
+              {t.categories.new}
+            </button>
+            <button
+              type="button"
+              className="option"
+              onClick={() => {
+                setAdding(false)
+                setCreatingGroup(true)
+              }}
+            >
+              {t.categories.newGroup}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {planning !== null && (
         <Modal title={planning.name} onClose={() => setPlanning(null)}>

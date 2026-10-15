@@ -9,12 +9,15 @@ const DEFAULT_UNITS = 2
 // до этого у всех валют два знака.
 let units: Record<string, number> = {}
 let coins = new Set<string>()
+let stocks = new Set<string>()
 
-export type CurrencyInfo = { code: string; units: number; coin: boolean }
+// coin: курс запрашивается отдельно (монеты и акции), stock: это акция.
+export type CurrencyInfo = { code: string; units: number; coin: boolean; stock: boolean }
 
 export function registerCurrencies(infos: CurrencyInfo[]): void {
   units = Object.fromEntries(infos.map((i) => [i.code, i.units]))
   coins = new Set(infos.filter((i) => i.coin).map((i) => i.code))
+  stocks = new Set(infos.filter((i) => i.stock).map((i) => i.code))
 }
 
 export function unitsOf(currency: string): number {
@@ -23,6 +26,10 @@ export function unitsOf(currency: string): number {
 
 export function isCoin(currency: string): boolean {
   return coins.has(currency)
+}
+
+export function isStock(currency: string): boolean {
+  return stocks.has(currency)
 }
 
 export function currencySign(currency: string): string {

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, createExchange, type Account, type Category, type CategoryGroup } from './api'
+import { DateField } from './DateField'
 import { errorText, t } from './i18n'
 import { currencySign, dealPrice, formatRate, isCoin, parseAmount } from './money'
 import { CurrencyPicker, SheetPicker } from './Pickers'
@@ -179,10 +180,7 @@ export function ExchangeFields({ accounts, groups, categories, allCurrencies, on
       </div>
 
       <div className="card">
-        <label className="field">
-          <span className="label">{t.add.date}</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
+        <DateField label={t.add.date} value={date} onChange={setDate} placeholder={t.add.dateToday} clearable={false} />
         <p className="hint tight">{t.add.dateHint}</p>
         <label className="field">
           <span className="label">{t.add.note}</span>

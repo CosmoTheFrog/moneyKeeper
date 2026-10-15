@@ -19,7 +19,7 @@ import { CurrencyScreen } from './CurrencyScreen'
 import { EntryForm } from './EntryForm'
 import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
-import { PrivacyContext } from './MoneyText'
+import { NoPrivacy, PrivacyContext } from './MoneyText'
 import { registerCurrencies } from './money'
 import { OperationsScreen } from './OperationsScreen'
 import { PortfolioScreen } from './PortfolioScreen'
@@ -166,7 +166,9 @@ export function App() {
         </main>
       )
     case 'ready': {
-      const { me, accounts, groups, categories } = state.data
+      const { me, accounts: everyAccount, groups, categories } = state.data
+      // Закрытые счета не показываются в списках и выборе, но остаются в названиях старых записей.
+      const accounts = everyAccount.filter((a) => !a.archived)
       const base = me.budget.base_currency
       const display = me.currencies.includes(displayChoice) ? displayChoice : (base ?? '')
       const changeDisplay = (code: string) => {
@@ -203,6 +205,7 @@ export function App() {
         overlay = (
           <EntryForm
             accounts={accounts}
+            allAccounts={everyAccount}
             groups={groups}
             categories={categories}
             allCurrencies={me.currencies}
@@ -215,6 +218,7 @@ export function App() {
         overlay = (
           <EntryForm
             accounts={accounts}
+            allAccounts={everyAccount}
             groups={groups}
             categories={categories}
             allCurrencies={me.currencies}
@@ -239,7 +243,7 @@ export function App() {
               category={category}
               groupName={groups.find((g) => g.id === category.group_id)?.name ?? ''}
               entries={entries.filter((e) => e.categoryId === category.id)}
-              accounts={accounts}
+              accounts={everyAccount}
               categories={categories}
               today={today}
               onBack={() => go(home)}
@@ -250,7 +254,7 @@ export function App() {
           break
         }
         case 'account': {
-          const account = accounts.find((a) => a.id === layer.accountId)
+          const account = everyAccount.find((a) => a.id === layer.accountId)
           if (account === undefined) {
             body = null
             break
@@ -260,7 +264,7 @@ export function App() {
             <AccountReport
               account={account}
               entries={entries}
-              accounts={accounts}
+              accounts={everyAccount}
               groups={groups}
               categories={categories}
               baseCurrency={display}
@@ -313,6 +317,9 @@ export function App() {
             <PortfolioScreen
               display={display}
               currencies={me.currencies}
+              wallets={accounts.filter((a) => a.kind === 'wallet')}
+              today={today}
+              onChanged={reload}
               onDisplay={changeDisplay}
               onBack={() => {
                 setTab('accounts')
@@ -324,11 +331,12 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={accounts} categories={categories} today={today} onOpen={(entry) => openEntry(entry, home)} />}
+              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} onOpen={(entry) => openEntry(entry, home)} />}
               {tab === 'budget' && (
                 <BudgetScreen
                   groups={groups}
                   categories={categories}
+                  accounts={accounts}
                   baseCurrency={base}
                   today={today}
                   ledger={state.data.transactions}
@@ -338,7 +346,19 @@ export function App() {
                   onAddTo={(id) => go({ kind: 'add', categoryId: id, returnTo: home })}
                 />
               )}
-              {tab === 'reports' && <ReportsScreen entries={entries} groups={groups} categories={categories} baseCurrency={display} currencies={me.currencies} onDisplay={changeDisplay} today={today} />}
+              {tab === 'reports' && (
+                <ReportsScreen
+                  entries={entries}
+                  accounts={everyAccount}
+                  groups={groups}
+                  categories={categories}
+                  baseCurrency={display}
+                  currencies={me.currencies}
+                  onDisplay={changeDisplay}
+                  today={today}
+                  onOpen={(entry) => openEntry(entry, home)}
+                />
+              )}
               {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>
@@ -348,10 +368,12 @@ export function App() {
           body = null
       }
 
+      // Режим скрытия сумм работает только на вкладках «Операции» и «Счета».
+      const hidesSums = layer.kind === 'tabs' && (tab === 'operations' || tab === 'accounts')
       return (
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>
-            {body}
+            {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
             {overlay}
           </PrivacyContext.Provider>
         </ThemeContext.Provider>

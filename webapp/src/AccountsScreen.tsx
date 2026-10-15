@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, createAccount, type Account, type AccountKind } from './api'
 import { AccountFocus } from './AccountFocus'
+import { holdings } from './accounts'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
@@ -22,7 +23,9 @@ type Props = {
 
 const kindOptions = (['debit', 'credit', 'cash', 'wallet'] as const).map((k) => ({ value: k, label: t.accountKinds[k] }))
 
-export function AccountsScreen({ accounts, currencies, baseCurrency, displayCurrency, onChanged, onOpenReport, onOpenSavings, onOpenPortfolio }: Props) {
+export function AccountsScreen({ accounts: every, currencies, baseCurrency, displayCurrency, onChanged, onOpenReport, onOpenSavings, onOpenPortfolio }: Props) {
+  // Копилки живут на экране «Накопления», здесь только обычные счета и кошельки.
+  const accounts = every.filter((a) => a.kind !== 'piggy')
   const [adding, setAdding] = useState(accounts.length === 0)
   const [settings, setSettings] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
@@ -74,16 +77,7 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, displayCurr
               <span className="account-name">{a.name}</span>
               {a.is_default && <span className="badge">{t.accounts.defaultBadge}</span>}
             </div>
-            <div className="account-balance">
-              <Money minor={a.balances[0]?.balance_minor ?? 0} currency={a.currency} />
-            </div>
-            {a.balances.length > 1 && (
-              <div className="account-others">
-                {a.balances.slice(1).map((b) => (
-                  <Money key={b.currency} minor={b.balance_minor} currency={b.currency} />
-                ))}
-              </div>
-            )}
+            {a.kind === 'wallet' && a.balances.length > 1 ? <WalletBody account={a} displayCurrency={displayCurrency} /> : <PlainBody account={a} />}
             <div className="row account-meta">
               <span>{t.accountKinds[a.kind]}</span>
               <span>{a.multi_currency ? t.accounts.many : a.currency}</span>
@@ -118,6 +112,47 @@ export function AccountsScreen({ accounts, currencies, baseCurrency, displayCurr
         </Modal>
       )}
     </main>
+  )
+}
+
+function PlainBody({ account }: { account: Account }) {
+  return (
+    <>
+      <div className="account-balance">
+        <Money minor={account.balances[0]?.balance_minor ?? 0} currency={account.currency} />
+      </div>
+      {account.balances.length > 1 && (
+        <div className="account-others">
+          {account.balances.slice(1).map((b) => (
+            <Money key={b.currency} minor={b.balance_minor} currency={b.currency} />
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+const WALLET_TOP = 3
+
+// Кошелёк с несколькими монетами: общая стоимость в валюте показа и три крупнейших остатка, остальное числом.
+function WalletBody({ account, displayCurrency }: { account: Account; displayCurrency: string }) {
+  const h = holdings(account, WALLET_TOP)
+  return (
+    <>
+      <div className="account-balance">
+        {h.total === null ? <Money minor={account.balances[0]?.balance_minor ?? 0} currency={account.currency} /> : <Money minor={h.total} currency={displayCurrency} />}
+      </div>
+      <div className="account-others wallet-top">
+        {h.top.map((b) => (
+          <Money key={b.currency} minor={b.balance_minor} currency={b.currency} />
+        ))}
+        {h.more > 0 && (
+          <span className="wallet-more">
+            {t.accounts.more} {h.more}
+          </span>
+        )}
+      </div>
+    </>
   )
 }
 

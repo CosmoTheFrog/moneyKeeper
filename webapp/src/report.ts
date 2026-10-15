@@ -126,6 +126,18 @@ export function spendByGroup(slices: Slice[], groups: CategoryGroup[]): Slice[] 
     .sort((a, b) => b.totalMinor - a.totalMinor)
 }
 
+// spendEntries возвращает траты, из которых сложен кусок кольца: целой группы или одной категории.
+// Берутся те же записи, что вошли в сумму (период, мера), новые сверху.
+export function spendEntries(entries: Entry[], categories: Category[], range: Range, measure: Measure, slice: Slice, whole: 'group' | 'category'): Entry[] {
+  const groupOf = new Map(categories.map((c) => [c.id, c.group_id]))
+  return entries
+    .filter((e) => {
+      if (e.categoryId === null || !inRange(e, range) || spendOf(e, measure) === null) return false
+      return whole === 'group' ? groupOf.get(e.categoryId) === slice.groupId : String(e.categoryId) === slice.key
+    })
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id))
+}
+
 // inGroup оставляет категории одной группы, порядок (от большей суммы к меньшей) сохраняется.
 export function inGroup(slices: Slice[], groupId: number): Slice[] {
   return slices.filter((s) => s.groupId === groupId)

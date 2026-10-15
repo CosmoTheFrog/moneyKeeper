@@ -10,6 +10,9 @@ type Props = {
   categories: Category[]
   today: string
   onOpen: (entry: Entry) => void
+  // Для трат заголовок это заметка («аренда за октябрь»), а название категории запасное.
+  // withCategory дописывает категорию в подпись: нужно там, где в списке разные категории.
+  noteFirst?: 'plain' | 'withCategory'
 }
 
 function dayLabel(date: string, today: string): string {
@@ -19,7 +22,7 @@ function dayLabel(date: string, today: string): string {
 }
 
 // Список записей по дням. Нажатие на строку открывает запись, нажатие на сумму скрывает или показывает все суммы.
-export function EntryList({ entries, accounts, categories, today, onOpen }: Props) {
+export function EntryList({ entries, accounts, categories, today, onOpen, noteFirst }: Props) {
   const accountName = new Map(accounts.map((a) => [a.id, a.name]))
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
 
@@ -35,12 +38,18 @@ export function EntryList({ entries, accounts, categories, today, onOpen }: Prop
         return t.ledger.opening
       case 'income':
         return t.ledger.income
-      case 'expense':
+      case 'expense': {
+        if (noteFirst !== undefined && e.note !== '') return e.note
         return (e.categoryId !== null ? categoryName.get(e.categoryId) : undefined) ?? t.ledger.uncategorized
+      }
     }
   }
 
   function subtitle(e: Entry): string {
+    if (noteFirst !== undefined && e.kind === 'expense') {
+      const category = noteFirst === 'withCategory' && e.note !== '' && e.categoryId !== null ? (categoryName.get(e.categoryId) ?? '') : ''
+      return [accountName.get(e.accountId) ?? '', category].filter((s) => s !== '').join(' · ')
+    }
     if (e.kind === 'exchange') {
       const route = `${accountName.get(e.accountId) ?? ''} → ${e.toAccountId === null ? '…' : (accountName.get(e.toAccountId) ?? '')}`
       return [route, e.note].filter((s) => s !== '').join(' · ')

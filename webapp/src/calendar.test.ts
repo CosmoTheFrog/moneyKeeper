@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daysInRange, formatRange, monthGrid, monthTitle, pickDay, shiftMonth } from './calendar'
+import { daysInRange, formatDayLong, formatRange, monthGrid, monthTitle, pickDay, shiftMonth } from './calendar'
 import { plural, t } from './i18n'
 
 describe('pickDay', () => {
@@ -85,5 +85,15 @@ describe('helpers', () => {
     [112, 'дней'],
   ])('plural %i → %s', (n, want) => {
     expect(plural(n, t.calendar.days)).toBe(want)
+  })
+})
+
+describe('formatDayLong', () => {
+  it.each([
+    ['2026-10-12', '12 окт 2026'],
+    ['2027-05-01', '1 мая 2027'],
+    ['2026-01-31', '31 янв 2026'],
+  ])('%s → %s', (day, want) => {
+    expect(formatDayLong(day)).toBe(want)
   })
 })

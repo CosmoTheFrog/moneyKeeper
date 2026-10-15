@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError, createPiggy, createTransaction, type Account } from './api'
+import { ApiError, archiveAccount, createPiggy, createTransaction, type Account } from './api'
 import { errorText, t } from './i18n'
+import { DateField } from './DateField'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { parseAmount } from './money'
@@ -48,6 +49,7 @@ export function SavingsScreen({ accounts, allCurrencies, today, onBack, onChange
   const [selectedId, setSelectedId] = useState(0)
   const [adding, setAdding] = useState(false)
   const [topping, setTopping] = useState(false)
+  const [closing, setClosing] = useState(false)
   const [dropKey, setDropKey] = useState(0)
 
   const selected = piggies.find((p) => p.id === selectedId) ?? piggies[0]
@@ -110,6 +112,9 @@ export function SavingsScreen({ accounts, allCurrencies, today, onBack, onChange
           <button type="button" className="primary" onClick={() => setTopping(true)}>
             {t.savings.topUp}
           </button>
+          <button type="button" className="link-danger" onClick={() => setClosing(true)}>
+            {t.savings.close}
+          </button>
         </div>
       )}
 
@@ -132,6 +137,21 @@ export function SavingsScreen({ accounts, allCurrencies, today, onBack, onChange
             onDone={() => {
               setTopping(false)
               setDropKey((k) => k + 1)
+              onChanged()
+            }}
+          />
+        </Modal>
+      )}
+
+      {closing && selected !== undefined && (
+        <Modal title={t.savings.closeTitle} onClose={() => setClosing(false)}>
+          <CloseForm
+            piggy={selected}
+            saved={saved}
+            targets={accounts.filter((a) => !a.off_budget && (a.multi_currency || a.currency === selected.currency))}
+            onDone={() => {
+              setClosing(false)
+              setSelectedId(0)
               onChanged()
             }}
           />
@@ -213,6 +233,64 @@ function TopUpForm({ piggy, sources, onDone }: TopUpProps) {
   )
 }
 
+type CloseProps = { piggy: Account; saved: number; targets: Account[]; onDone: () => void }
+
+// Закрытие копилки: если в ней есть деньги, они сначала возвращаются на выбранный счёт, потом копилка закрывается.
+function CloseForm({ piggy, saved, targets, onDone }: CloseProps) {
+  const [targetId, setTargetId] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (saved > 0 && targetId === 0) return setError(t.savings.noSource)
+    if (saved > 0 && piggy.category_id === null) return setError(errorText('internal'))
+    setBusy(true)
+    try {
+      if (saved > 0) {
+        await createTransaction({
+          kind: 'transfer',
+          account_id: piggy.id,
+          to_account_id: targetId,
+          category_id: piggy.category_id ?? undefined,
+          amount_minor: saved,
+          currency: piggy.currency,
+          note: '',
+        })
+      }
+      await archiveAccount(piggy.id)
+      onDone()
+    } catch (err) {
+      setError(errorText(err instanceof ApiError ? err.code : 'internal'))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="form" onSubmit={submit}>
+      <p className="hint tight">{saved > 0 ? t.savings.closeBack : t.savings.closeEmpty}</p>
+      {saved > 0 && (
+        <>
+          <span className="label">{t.savings.returnTo}</span>
+          <div className="choices">
+            {targets.map((a) => (
+              <button key={a.id} type="button" className={a.id === targetId ? 'choice choice-on' : 'choice'} onClick={() => setTargetId(a.id)}>
+                <span>{a.name}</span>
+                <Money minor={a.balances.find((b) => b.currency === piggy.currency)?.balance_minor ?? 0} currency={piggy.currency} />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {error !== null && <p className="error">{error}</p>}
+      <button type="submit" className="primary" disabled={busy}>
+        {t.savings.close}
+      </button>
+    </form>
+  )
+}
+
 function PiggyForm({ currencies, onDone }: { currencies: string[]; onDone: () => void }) {
   const [name, setName] = useState('')
   const [currency, setCurrency] = useState(currencies[0] ?? '')
@@ -247,10 +325,7 @@ function PiggyForm({ currencies, onDone }: { currencies: string[]; onDone: () =>
         <span className="label">{t.savings.goal}</span>
         <input inputMode="decimal" value={goal} placeholder="0,00" onChange={(e) => setGoal(e.target.value)} />
       </label>
-      <label className="field">
-        <span className="label">{t.savings.goalDate}</span>
-        <input type="date" value={until} onChange={(e) => setUntil(e.target.value)} />
-      </label>
+      <DateField label={t.savings.goalDate} value={until} onChange={setUntil} placeholder={t.savings.noDate} />
       {error !== null && <p className="error">{error}</p>}
       <button type="submit" className="primary" disabled={busy || name.trim() === ''}>
         {t.save}

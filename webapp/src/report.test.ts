@@ -15,6 +15,7 @@ import {
   spendBuckets,
   spendByCategory,
   spendByGroup,
+  spendEntries,
   spendOf,
   spendTotals,
   type Measure,
@@ -125,6 +126,21 @@ describe('spendByGroup', () => {
     const own = [...categories, cat(7, 'Авиабилеты', 6)]
     const slices = spendByCategory([exp(1, 7, -4000, '2026-10-02')], own, { from: '2026-10-01', to: '2026-10-31' }, GEL)
     expect(spendByGroup(slices, groups).map((g) => [g.label, g.totalMinor])).toEqual([['Своя', 4000]])
+  })
+})
+
+describe('spendEntries', () => {
+  const range = { from: '2026-10-01', to: '2026-10-31' }
+  const all = [exp(1, 2, -1000, '2026-10-02'), exp(2, 3, -500, '2026-10-05'), exp(3, 2, -700, '2026-10-09'), exp(4, 2, -900, '2026-09-30'), exp(5, 2, -300, '2026-10-06', 'EUR')]
+
+  it('takes the entries of one category, newest first, within the period and measure', () => {
+    const slice = { key: '2', label: 'Продукты', totalMinor: 1700, groupId: DAILY }
+    expect(spendEntries(all, categories, range, GEL, slice, 'category').map((e) => e.id)).toEqual([3, 1])
+  })
+
+  it('takes every category of the group', () => {
+    const slice = { key: String(DAILY), label: 'Ежедневные', totalMinor: 2200, groupId: DAILY }
+    expect(spendEntries(all, categories, range, GEL, slice, 'group').map((e) => e.id)).toEqual([3, 2, 1])
   })
 })
 
