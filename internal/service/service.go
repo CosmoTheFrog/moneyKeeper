@@ -162,6 +162,24 @@ func (s *Service) CreateAccount(ctx context.Context, u models.User, name, kind, 
 	return accs[0], nil
 }
 
+// ArchiveAccount закрывает счёт: он пропадает из списков, записи по нему остаются в истории. Закрыть можно только пустой
+// счёт (остатки по всем валютам нулевые) и не основной.
+func (s *Service) ArchiveAccount(ctx context.Context, u models.User, id int64) error {
+	acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, id)
+	if err != nil {
+		return err
+	}
+	if acc.IsDefault {
+		return fmt.Errorf("default account: %w", models.ErrInvalidAccount)
+	}
+	for _, b := range acc.Balances {
+		if b.BalanceMinor != 0 {
+			return fmt.Errorf("account %d is not empty: %w", id, models.ErrInvalidAccount)
+		}
+	}
+	return s.accounts.Archive(ctx, u.ActiveBudgetID, id)
+}
+
 // today считает сегодняшний день в поясе пользователя.
 func (s *Service) today(u models.User) apptime.Day {
 	loc, err := time.LoadLocation(u.Timezone)

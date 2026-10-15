@@ -7,7 +7,7 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	if len(All) != 25 || All[0] != GEL || All[5] != "BTC" {
+	if len(All) != 35 || All[0] != GEL || All[5] != "BTC" {
 		t.Fatalf("All = %v", All)
 	}
 	if !slices.Equal(Core, []Currency{EUR, USD, RUB, USDT}) {
@@ -38,7 +38,7 @@ func TestMinorUnitsAndCoins(t *testing.T) {
 		units int
 		coin  bool
 	}{
-		{GEL, 2, false}, {USDT, 2, false}, {"BTC", 8, true}, {"SHIB", 0, true}, {"DOGE", 4, true}, {"XXX", 2, false},
+		{GEL, 2, false}, {USDT, 2, false}, {"BTC", 8, true}, {"AAPL", 4, true}, {"SHIB", 0, true}, {"DOGE", 4, true}, {"XXX", 2, false},
 	}
 	for _, tt := range tests {
 		if got := MinorUnits(tt.c); got != tt.units {
@@ -59,5 +59,14 @@ func TestParse(t *testing.T) {
 	}
 	if _, err := ParseBase("BTC"); !errors.Is(err, ErrUnknownCurrency) {
 		t.Errorf("a coin must not be a base currency, err = %v", err)
+	}
+}
+
+func TestStocks(t *testing.T) {
+	if !IsStock("TSLA") || IsStock("BTC") || IsStock("USD") {
+		t.Error("IsStock is wrong")
+	}
+	if !IsCoin("TSLA") {
+		t.Error("a stock is priced on demand like a coin")
 	}
 }

@@ -3,12 +3,14 @@ package fx
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"moneykeeper/pkg/apptime"
 	"moneykeeper/pkg/money"
@@ -160,5 +162,75 @@ func TestGelPerUnitCoins(t *testing.T) {
 	slices.Sort(symbols) // монеты запрашиваются параллельно, порядок не задан
 	if want := []string{"BTCUSDT", "EURUSDT", "NOPEUSDT"}; !slices.Equal(symbols, want) {
 		t.Errorf("binance symbols = %v, want %v", symbols, want)
+	}
+}
+
+// yahooBody строит ответ чарта: закрытия по датам, null это день без цены.
+func yahooBody(closes map[string]string) string {
+	days := []string{"2026-10-08", "2026-10-09", "2026-10-12"}
+	var ts, cl []string
+	for _, d := range days {
+		t, _ := time.Parse("2006-01-02", d)
+		ts = append(ts, fmt.Sprint(t.Add(14*time.Hour+30*time.Minute).Unix()))
+		v, ok := closes[d]
+		if !ok {
+			v = "null"
+		}
+		cl = append(cl, v)
+	}
+	return fmt.Sprintf(`{"chart":{"result":[{"timestamp":[%s],"indicators":{"quote":[{"close":[%s]}]}}]}}`, strings.Join(ts, ","), strings.Join(cl, ","))
+}
+
+func TestGelPerUnitStocks(t *testing.T) {
+	var path string
+	yahoo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		if strings.HasSuffix(r.URL.Path, "/DIS") {
+			fmt.Fprint(w, `{"chart":{"result":null}}`)
+			return
+		}
+		fmt.Fprint(w, yahooBody(map[string]string{"2026-10-08": "340.5", "2026-10-12": "342.25"}))
+	}))
+	t.Cleanup(yahoo.Close)
+	p := newProvider(t, ok(nbgBody), ok(klineBody))
+	p.yahoo = yahoo.URL
+
+	tests := []struct {
+		day     string
+		coins   []money.Currency
+		wantUSD string // цена в долларах, ожидаемая лари: цена × 2,7084
+		wantErr string
+	}{
+		{"2026-10-12", []money.Currency{"AAPL"}, "342.25", ""},
+		// Воскресенье: 9 октября без цены, берётся 8 октября.
+		{"2026-10-11", []money.Currency{"AAPL"}, "340.5", ""},
+		{"2026-10-07", []money.Currency{"AAPL"}, "", "no trading day"},
+		{"2026-10-12", []money.Currency{"DIS"}, "", "no data"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.day+" "+string(tt.coins[0]), func(t *testing.T) {
+			day, _ := apptime.ParseDay(tt.day)
+			got, err := p.GelPerUnit(context.Background(), day, tt.coins)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want it to contain %q", err, tt.wantErr)
+				}
+				if got[money.USD] == nil {
+					t.Error("fiat rates must stay when a stock fails")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			price, _ := new(big.Rat).SetString(tt.wantUSD)
+			usd, _ := new(big.Rat).SetString("2.7084")
+			if want := new(big.Rat).Mul(price, usd); got[tt.coins[0]].Cmp(want) != 0 {
+				t.Errorf("%s = %v, want %v", tt.coins[0], got[tt.coins[0]], want)
+			}
+		})
+	}
+	if !strings.Contains(path, "/v8/finance/chart/") {
+		t.Errorf("unexpected yahoo path %q", path)
 	}
 }

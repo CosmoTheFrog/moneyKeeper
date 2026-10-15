@@ -401,3 +401,61 @@ func TestPiggyBank(t *testing.T) {
 		t.Errorf("piggy via CreateAccount: err = %v, want ErrInvalidAccount", err)
 	}
 }
+
+func TestArchiveAccount(t *testing.T) {
+	ctx := context.Background()
+	l := newLedger(t)
+	l.setBase(t, "GEL")
+	piggy, err := l.s.CreatePiggy(ctx, l.u, "Отпуск", "GEL", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindTransfer, AccountID: l.main.ID, ToAccountID: &piggy.ID, AmountMinor: 1000, CategoryID: piggy.CategoryID}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := l.s.ArchiveAccount(ctx, l.u, piggy.ID); !errors.Is(err, models.ErrInvalidAccount) {
+		t.Errorf("piggy with money: err = %v, want ErrInvalidAccount", err)
+	}
+	if err := l.s.ArchiveAccount(ctx, l.u, l.main.ID); !errors.Is(err, models.ErrInvalidAccount) {
+		t.Errorf("default account: err = %v, want ErrInvalidAccount", err)
+	}
+	if err := l.s.ArchiveAccount(ctx, l.u, 999999); !errors.Is(err, models.ErrNotFound) {
+		t.Errorf("unknown account: err = %v, want ErrNotFound", err)
+	}
+
+	// Деньги вернули на счёт: копилка пуста и закрывается, история остаётся.
+	if _, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindTransfer, AccountID: piggy.ID, ToAccountID: &l.main.ID, AmountMinor: 1000}); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.s.ArchiveAccount(ctx, l.u, piggy.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.s.ArchiveAccount(ctx, l.u, piggy.ID); err != nil {
+		t.Errorf("archiving twice: %v", err)
+	}
+	if !l.account(t, piggy.ID).Archived {
+		t.Error("the piggy must be marked archived")
+	}
+	if l.account(t, l.main.ID).Archived {
+		t.Error("the main account must stay active")
+	}
+	txs, _ := l.s.ListTransactions(ctx, l.u, 0, 0, "")
+	moved := 0
+	for _, tx := range txs {
+		if tx.AccountID == piggy.ID {
+			moved++
+		}
+	}
+	if moved != 2 {
+		t.Errorf("%d records of the archived piggy are left in the history, want 2", moved)
+	}
+
+	other, err := l.s.Resolve(ctx, models.TelegramUser{ID: 7, FirstName: "Anna"}, "Asia/Tbilisi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := l.s.ArchiveAccount(ctx, other, l.cash.ID); !errors.Is(err, models.ErrNotFound) {
+		t.Errorf("foreign account: err = %v, want ErrNotFound", err)
+	}
+}

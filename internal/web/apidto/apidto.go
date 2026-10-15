@@ -72,6 +72,7 @@ type AccountDTO struct {
 	IsDefault     bool   `json:"is_default"`
 	// OffBudget: кошелёк или копилка, их остатки не входят в бюджет. У копилки есть цель и конверт category_id.
 	OffBudget   bool         `json:"off_budget"`
+	Archived    bool         `json:"archived"`
 	TargetMinor *int64       `json:"target_minor"`
 	TargetDate  *string      `json:"target_date"`
 	CategoryID  *int64       `json:"category_id"`

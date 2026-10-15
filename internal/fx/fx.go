@@ -22,6 +22,7 @@ import (
 const (
 	nbgURL      = "https://nbg.gov.ge"
 	binanceURL  = "https://api.binance.com"
+	yahooURL    = "https://query1.finance.yahoo.com"
 	timeout     = 10 * time.Second
 	maxParallel = 5
 )
@@ -32,11 +33,12 @@ var fiat = []money.Currency{money.USD, money.EUR, money.RUB}
 type Provider struct {
 	nbg     string
 	binance string
+	yahoo   string
 	client  *http.Client
 }
 
 func NewProvider() *Provider {
-	return &Provider{nbg: nbgURL, binance: binanceURL, client: &http.Client{Timeout: timeout}}
+	return &Provider{nbg: nbgURL, binance: binanceURL, yahoo: yahooURL, client: &http.Client{Timeout: timeout}}
 }
 
 // GelPerUnit возвращает курсы на день: фиат, USDT и монеты из coins. Если часть источников недоступна, в карте то,
@@ -65,14 +67,26 @@ func (p *Provider) GelPerUnit(ctx context.Context, day apptime.Day, coins []mone
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			price, err := p.dailyClose(ctx, string(c)+"USDT", day)
+			var (
+				price *big.Rat
+				inGEL *big.Rat // лари за единицу валюты, в которой выражена цена
+				err   error
+			)
+			if money.IsStock(c) {
+				// Акции котируются в долларах: цена в долларах на лари за доллар.
+				price, err = p.stockClose(ctx, string(c), day)
+				inGEL = out[money.USD]
+			} else {
+				price, err = p.dailyClose(ctx, string(c)+"USDT", day)
+				inGEL = usdt
+			}
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
-				errs = append(errs, fmt.Errorf("binance %s: %w", c, err))
+				errs = append(errs, fmt.Errorf("%s: %w", c, err))
 				return
 			}
-			out[c] = new(big.Rat).Mul(price, usdt) // цена монеты в USDT на лари за USDT
+			out[c] = new(big.Rat).Mul(price, inGEL)
 		}()
 	}
 	wg.Wait()
@@ -156,11 +170,57 @@ func (p *Provider) dailyClose(ctx context.Context, symbol string, day apptime.Da
 	return price, nil
 }
 
+type yahooChart struct {
+	Chart struct {
+		Result []struct {
+			Timestamp  []int64 `json:"timestamp"`
+			Indicators struct {
+				Quote []struct {
+					Close []json.RawMessage `json:"close"`
+				} `json:"quote"`
+			} `json:"indicators"`
+		} `json:"result"`
+	} `json:"chart"`
+}
+
+// stockClose возвращает цену закрытия акции в долларах за последний торговый день не позже day. Для выходных и
+// праздников это закрытие предыдущей торговой сессии. Источник Yahoo Finance неофициальный, без ключа.
+func (p *Provider) stockClose(ctx context.Context, ticker string, day apptime.Day) (*big.Rat, error) {
+	q := url.Values{
+		"period1":  {strconv.FormatInt(day.Date().AddDate(0, 0, -7).Unix(), 10)},
+		"period2":  {strconv.FormatInt(day.Date().AddDate(0, 0, 1).Unix(), 10)},
+		"interval": {"1d"},
+	}
+	var chart yahooChart
+	if err := p.getJSON(ctx, p.yahoo+"/v8/finance/chart/"+url.PathEscape(ticker)+"?"+q.Encode(), &chart); err != nil {
+		return nil, fmt.Errorf("yahoo: %w", err)
+	}
+	if len(chart.Chart.Result) == 0 || len(chart.Chart.Result[0].Indicators.Quote) == 0 {
+		return nil, fmt.Errorf("yahoo %s on %s: no data", ticker, day)
+	}
+	res := chart.Chart.Result[0]
+	closes := res.Indicators.Quote[0].Close
+	for i := min(len(res.Timestamp), len(closes)) - 1; i >= 0; i-- {
+		traded := apptime.FromDate(time.Unix(res.Timestamp[i], 0).UTC())
+		if day.Before(traded) || string(closes[i]) == "null" {
+			continue
+		}
+		price, ok := new(big.Rat).SetString(string(closes[i]))
+		if !ok || price.Sign() <= 0 {
+			return nil, fmt.Errorf("yahoo %s: bad price %q", ticker, closes[i])
+		}
+		return price, nil
+	}
+	return nil, fmt.Errorf("yahoo %s on %s: no trading day", ticker, day)
+}
+
 func (p *Provider) getJSON(ctx context.Context, rawURL string, dst any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
 	}
+	// Некоторые источники отвечают отказом на запросы без User-Agent.
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; moneyKeeper)")
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return err

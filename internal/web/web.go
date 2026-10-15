@@ -30,6 +30,7 @@ type Service interface {
 	SetBaseCurrency(ctx context.Context, u models.User, code string) (models.Budget, error)
 	ListAccounts(ctx context.Context, u models.User, in string) ([]models.Account, error)
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
+	ArchiveAccount(ctx context.Context, u models.User, id int64) error
 	CreatePiggy(ctx context.Context, u models.User, name, currency string, targetMinor *int64, targetDate *apptime.Day) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
@@ -87,6 +88,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("PUT /api/budget/months/{month}/categories/{id}", h.auth(h.setBudgeted))
 	mux.HandleFunc("GET /api/accounts", h.auth(h.listAccounts))
 	mux.HandleFunc("POST /api/accounts", h.auth(h.createAccount))
+	mux.HandleFunc("POST /api/accounts/{id}/archive", h.auth(h.archiveAccount))
 	mux.HandleFunc("GET /api/category-groups", h.auth(h.listCategoryGroups))
 	mux.HandleFunc("POST /api/category-groups", h.auth(h.createCategoryGroup))
 	mux.HandleFunc("GET /api/categories", h.auth(h.listCategories))
@@ -220,6 +222,19 @@ func (h *handler) createAccount(w http.ResponseWriter, r *http.Request, u models
 	h.writeJSON(w, http.StatusCreated, accountDTO(a))
 }
 
+// archiveAccount закрывает пустой неосновной счёт: он пропадает из списков, записи остаются в истории.
+func (h *handler) archiveAccount(w http.ResponseWriter, r *http.Request, u models.User) {
+	id, ok := h.pathID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.svc.ArchiveAccount(r.Context(), u, id); err != nil {
+		h.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func budgetDTO(b models.Budget) apidto.BudgetDTO {
 	dto := apidto.BudgetDTO{ID: b.ID, Name: b.Name}
 	if b.BaseCurrency != nil {
@@ -239,7 +254,7 @@ func accountDTO(a models.Account) apidto.AccountDTO {
 	}
 	dto := apidto.AccountDTO{
 		ID: a.ID, Name: a.Name, Kind: string(a.Kind), Currency: string(a.Currency),
-		MultiCurrency: a.MultiCurrency, IsDefault: a.IsDefault, OffBudget: a.OffBudget,
+		MultiCurrency: a.MultiCurrency, IsDefault: a.IsDefault, OffBudget: a.OffBudget, Archived: a.Archived,
 		TargetMinor: a.TargetMinor, CategoryID: a.CategoryID, Balances: balances,
 	}
 	if a.TargetDate != nil {

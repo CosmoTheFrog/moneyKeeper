@@ -25,8 +25,10 @@ var ErrUnknownCurrency = errors.New("unknown currency")
 type Info struct {
 	Code  Currency
 	Units int
-	// Coin: курс монеты запрашивается у Binance только когда она есть в записях или остатках.
+	// Coin: курс запрашивается отдельно, только когда валюта есть в записях или остатках. Это монеты (Binance) и акции.
 	Coin bool
+	// Stock: ценная бумага; цена в долларах США с биржи, на одну акцию, точность 4 знака для дробных долей.
+	Stock bool
 }
 
 // registry в порядке показа: фиат, USDT, затем монеты примерно по размеру рынка.
@@ -56,6 +58,16 @@ var registry = []Info{
 	{Code: "UNI", Units: 6, Coin: true},
 	{Code: "NEAR", Units: 6, Coin: true},
 	{Code: "ATOM", Units: 6, Coin: true},
+	{Code: "AAPL", Units: 4, Coin: true, Stock: true},
+	{Code: "MSFT", Units: 4, Coin: true, Stock: true},
+	{Code: "GOOGL", Units: 4, Coin: true, Stock: true},
+	{Code: "AMZN", Units: 4, Coin: true, Stock: true},
+	{Code: "NVDA", Units: 4, Coin: true, Stock: true},
+	{Code: "TSLA", Units: 4, Coin: true, Stock: true},
+	{Code: "META", Units: 4, Coin: true, Stock: true},
+	{Code: "NFLX", Units: 4, Coin: true, Stock: true},
+	{Code: "AMD", Units: 4, Coin: true, Stock: true},
+	{Code: "DIS", Units: 4, Coin: true, Stock: true},
 }
 
 // Base — валюты, которые можно выбрать базовой при старте.
@@ -86,10 +98,16 @@ func MinorUnits(c Currency) int {
 	return 2
 }
 
-// IsCoin: курс валюты запрашивается отдельно по требованию (монеты).
+// IsCoin: курс валюты запрашивается отдельно по требованию (монеты и акции).
 func IsCoin(c Currency) bool {
 	i, ok := lookup(c)
 	return ok && i.Coin
+}
+
+// IsStock: ценная бумага, её цена берётся с биржи в долларах.
+func IsStock(c Currency) bool {
+	i, ok := lookup(c)
+	return ok && i.Stock
 }
 
 func Parse(code string) (Currency, error) {

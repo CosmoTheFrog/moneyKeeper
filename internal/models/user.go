@@ -69,6 +69,8 @@ type Account struct {
 	IsDefault     bool
 	// OffBudget: счёт вне бюджета (кошелёк, копилка). Считается из вида счёта.
 	OffBudget bool
+	// Archived: счёт закрыт, в списках его нет, записи по нему остаются в истории.
+	Archived bool
 	// Копилка: цель (сумма и дата) и конверт в группе «Цели накопления», из которого она пополняется.
 	TargetMinor *int64
 	TargetDate  *apptime.Day

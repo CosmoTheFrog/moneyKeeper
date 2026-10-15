@@ -44,7 +44,20 @@ func (r *Accounts) Create(ctx context.Context, budgetID int64, in models.NewAcco
 	return a, nil
 }
 
-const accountColumns = `id, budget_id, name, kind, currency, multi_currency, is_default, off_budget, target_minor, target_date, category_id`
+const accountColumns = `id, budget_id, name, kind, currency, multi_currency, is_default, off_budget, target_minor, target_date, category_id, archived_at IS NOT NULL`
+
+// Archive закрывает счёт. Чужой или несуществующий это ErrNotFound.
+func (r *Accounts) Archive(ctx context.Context, budgetID, id int64) error {
+	tag, err := r.db.Q(ctx).Exec(ctx,
+		`UPDATE accounts SET archived_at = COALESCE(archived_at, now()) WHERE budget_id = $1 AND id = $2`, budgetID, id)
+	if err != nil {
+		return fmt.Errorf("archive account: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("account %d: %w", id, models.ErrNotFound)
+	}
+	return nil
+}
 
 func (r *Accounts) Get(ctx context.Context, budgetID, id int64) (models.Account, error) {
 	a, err := scanAccount(r.db.Q(ctx).QueryRow(ctx,
@@ -169,7 +182,7 @@ func scanAccount(row pgx.Row) (models.Account, error) {
 		kind, cu string
 		target   *time.Time
 	)
-	if err := row.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.MultiCurrency, &a.IsDefault, &a.OffBudget, &a.TargetMinor, &target, &a.CategoryID); err != nil {
+	if err := row.Scan(&a.ID, &a.BudgetID, &a.Name, &kind, &cu, &a.MultiCurrency, &a.IsDefault, &a.OffBudget, &a.TargetMinor, &target, &a.CategoryID, &a.Archived); err != nil {
 		return models.Account{}, err
 	}
 	a.Kind, a.Currency = models.AccountKind(kind), money.Currency(cu)
