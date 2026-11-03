@@ -92,6 +92,14 @@ func (r *Transactions) Expenses(ctx context.Context, budgetID int64, from, to ap
 		 ORDER BY occurred_on, id`, budgetID, from.Date(), to.Date())
 }
 
+// OnAccount возвращает записи счёта за период, по ним выписка находит уже внесённые траты.
+func (r *Transactions) OnAccount(ctx context.Context, budgetID, accountID int64, from, to apptime.Day) ([]models.Transaction, error) {
+	return r.query(ctx,
+		`SELECT `+txColumns+` FROM transactions
+		 WHERE budget_id = $1 AND account_id = $2 AND deleted_at IS NULL AND occurred_on BETWEEN $3 AND $4
+		 ORDER BY occurred_on, id`, budgetID, accountID, from.Date(), to.Date())
+}
+
 func (r *Transactions) List(ctx context.Context, budgetID int64, limit, offset int) ([]models.Transaction, error) {
 	return r.query(ctx,
 		`SELECT `+txColumns+` FROM transactions WHERE budget_id = $1 AND deleted_at IS NULL

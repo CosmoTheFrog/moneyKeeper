@@ -157,9 +157,11 @@ async function send(method: string, path: string, body?: unknown): Promise<Respo
     Authorization: `tma ${window.Telegram?.WebApp.initData ?? ''}`,
     'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
   }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // Файл уходит как есть: границу multipart браузер ставит сам.
+  const isForm = body instanceof FormData
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
 
-  const resp = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+  const resp = await fetch(path, { method, headers, body: body === undefined || isForm ? (body as FormData | undefined) : JSON.stringify(body) })
   if (!resp.ok) {
     const err: { code?: string } = await resp.json().catch(() => ({}))
     throw new ApiError(err.code ?? 'internal', resp.status)
@@ -308,3 +310,29 @@ export const skipOccurrence = async (id: number, dueOn: string): Promise<void> =
 }
 
 export const parseQuick = (text: string, currency: string) => request<ParsedInput>('POST', '/api/transactions/parse', { text, currency })
+
+// Строка импорта: amount_minor со знаком, расход отрицательный. source_category заполнено, если категорию
+// из файла не удалось найти по названию и её выбирает пользователь.
+export type ImportRow = {
+  date: string
+  amount_minor: number
+  currency: string
+  description: string
+  category_id: number | null
+  source_category: string
+  suggested: boolean
+  duplicate: boolean
+}
+
+export type ImportPreview = { rows: ImportRow[]; skipped: number }
+
+// Отчёт прежнего бота в xlsx: разбирается на сервере, ничего не сохраняет до commitImport.
+export const previewImportFile = (accountId: number, file: File) => {
+  const form = new FormData()
+  form.append('account_id', String(accountId))
+  form.append('file', file)
+  return request<ImportPreview>('POST', '/api/import/file', form)
+}
+
+export const commitImport = (accountId: number, rows: ImportRow[]) =>
+  request<{ saved: number }>('POST', '/api/import/commit', { account_id: accountId, rows })

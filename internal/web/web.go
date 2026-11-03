@@ -22,6 +22,9 @@ const (
 	defaultTZ      = "UTC"
 	initDataTTL    = 24 * time.Hour
 	maxBodyBytes   = 4096
+	// maxImportBodyBytes: выписка до 60 тысяч символов (в UTF-8 до четырёх байт на символ с запасом на JSON).
+	maxImportBodyBytes = 512 << 10
+	maxImportFileBytes = 5 << 20
 )
 
 type Service interface {
@@ -58,6 +61,10 @@ type Service interface {
 	UpdateTransaction(ctx context.Context, u models.User, id int64, p models.TransactionPatch) ([]models.Transaction, error)
 	DeleteTransaction(ctx context.Context, u models.User, id int64) error
 	TransactionEvents(ctx context.Context, u models.User, id int64) ([]models.TransactionEvent, error)
+
+	PreviewImport(ctx context.Context, u models.User, accountID int64, text string, consent bool) (models.ImportPreview, error)
+	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte) (models.ImportPreview, error)
+	CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) (int, error)
 }
 
 type handler struct {
@@ -100,6 +107,9 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("POST /api/transactions", h.auth(h.createTransaction))
 	mux.HandleFunc("POST /api/exchanges", h.auth(h.createExchange))
 	mux.HandleFunc("POST /api/transactions/parse", h.auth(h.parseQuick))
+	mux.HandleFunc("POST /api/import/preview", h.auth(h.previewImport))
+	mux.HandleFunc("POST /api/import/file", h.auth(h.previewImportFile))
+	mux.HandleFunc("POST /api/import/commit", h.auth(h.commitImport))
 	mux.HandleFunc("PATCH /api/transactions/{id}", h.auth(h.updateTransaction))
 	mux.HandleFunc("DELETE /api/transactions/{id}", h.auth(h.deleteTransaction))
 	mux.HandleFunc("GET /api/transactions/{id}/events", h.auth(h.transactionEvents))
@@ -281,7 +291,11 @@ func accountDTO(a models.Account) apidto.AccountDTO {
 }
 
 func (h *handler) decode(w http.ResponseWriter, r *http.Request, dst any) bool {
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBodyBytes))
+	return h.decodeLimit(w, r, dst, maxBodyBytes)
+}
+
+func (h *handler) decodeLimit(w http.ResponseWriter, r *http.Request, dst any, limit int64) bool {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidRequest)
@@ -313,6 +327,13 @@ func (h *handler) fail(w http.ResponseWriter, err error) {
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidTransaction)
 	case errors.Is(err, models.ErrCurrencyMismatch):
 		h.writeError(w, http.StatusBadRequest, apidto.CodeCurrencyMismatch)
+	case errors.Is(err, models.ErrInvalidImport):
+		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidImport)
+	case errors.Is(err, models.ErrImportConsent):
+		h.writeError(w, http.StatusBadRequest, apidto.CodeImportConsent)
+	case errors.Is(err, models.ErrImportUnavailable):
+		h.log.Warn("statement import unavailable", "err", err)
+		h.writeError(w, http.StatusServiceUnavailable, apidto.CodeImportUnavailable)
 	case errors.Is(err, models.ErrBaseCurrencySet):
 		h.writeError(w, http.StatusConflict, apidto.CodeBaseCurrencySet)
 	case errors.Is(err, models.ErrNotFound):

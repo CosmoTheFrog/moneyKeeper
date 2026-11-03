@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { ApiError, createAccount, type Account, type AccountKind } from './api'
 import { AccountFocus } from './AccountFocus'
 import { holdings } from './accounts'
+import { ImportScreen } from './ImportScreen'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
@@ -28,6 +29,7 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
   const accounts = every.filter((a) => a.kind !== 'piggy')
   const [adding, setAdding] = useState(accounts.length === 0)
   const [settings, setSettings] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
   const focusedAccount = accounts.find((a) => a.id === focused)
 
@@ -53,6 +55,9 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
         </button>
         <button type="button" className="chip" onClick={onOpenPortfolio}>
           {t.accounts.portfolio}
+        </button>
+        <button type="button" className="chip" onClick={() => setImporting(true)}>
+          {t.accounts.import}
         </button>
       </div>
 
@@ -98,6 +103,16 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
         />
       )}
       {settings && <ThemeSettings onClose={() => setSettings(false)} />}
+      {importing && (
+        <ImportScreen
+          accounts={accounts}
+          onClose={() => setImporting(false)}
+          onDone={() => {
+            setImporting(false)
+            onChanged()
+          }}
+        />
+      )}
 
       {adding && (
         <Modal title={t.accounts.add} onClose={() => setAdding(false)}>

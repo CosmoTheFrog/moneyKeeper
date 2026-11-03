@@ -35,6 +35,7 @@ type Service struct {
 	rateStore    *repo.Rates
 	assets       *repo.Assets
 	fx           RateSource
+	statementLLM StatementLLM
 	log          *slog.Logger
 	now          func() time.Time
 }

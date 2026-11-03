@@ -18,6 +18,9 @@ const (
 	CodeInvalidAmount      = "invalid_amount"
 	CodeNotFound           = "not_found"
 	CodeAssetNotFound      = "asset_not_found"
+	CodeInvalidImport      = "invalid_import"
+	CodeImportConsent      = "import_consent_required"
+	CodeImportUnavailable  = "import_unavailable"
 	CodeInternal           = "internal"
 )
 
@@ -340,4 +343,38 @@ type OccurrencesResponse struct {
 
 type SkipRequest struct {
 	DueOn string `json:"due_on"`
+}
+
+// PreviewImportRequest: text это содержимое выписки CSV, consent это явное согласие отправить его во внешний сервис.
+type PreviewImportRequest struct {
+	AccountID int64  `json:"account_id"`
+	Text      string `json:"text"`
+	Consent   bool   `json:"consent"`
+}
+
+// ImportRowDTO: amount_minor со знаком, расход отрицательный. suggested значит, что категорию предложила модель.
+type ImportRowDTO struct {
+	Date        string `json:"date"`
+	AmountMinor int64  `json:"amount_minor"`
+	Currency    string `json:"currency"`
+	Description string `json:"description"`
+	CategoryID  *int64 `json:"category_id"`
+	// source_category: название из файла, если категория не нашлась по имени и её выбирает пользователь.
+	SourceCategory string `json:"source_category"`
+	Suggested      bool   `json:"suggested"`
+	Duplicate      bool   `json:"duplicate"`
+}
+
+type PreviewImportResponse struct {
+	Rows    []ImportRowDTO `json:"rows"`
+	Skipped int            `json:"skipped"`
+}
+
+type CommitImportRequest struct {
+	AccountID int64          `json:"account_id"`
+	Rows      []ImportRowDTO `json:"rows"`
+}
+
+type CommitImportResponse struct {
+	Saved int `json:"saved"`
 }
