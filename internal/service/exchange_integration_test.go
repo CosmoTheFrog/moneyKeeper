@@ -338,7 +338,7 @@ func TestPiggyBank(t *testing.T) {
 
 	target := int64(250000)
 	until := day(t, "2027-05-01")
-	piggy, err := l.s.CreatePiggy(ctx, l.u, "Отпуск", "GEL", &target, until)
+	piggy, err := l.s.CreatePiggy(ctx, l.u, "Новая машина", "GEL", &target, until)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +354,7 @@ func TestPiggyBank(t *testing.T) {
 			envelope = c
 		}
 	}
-	if envelope.Name != "Отпуск" || envelope.GroupID != l.group(t, models.GroupGoal) || !envelope.Rollover {
+	if envelope.Name != "Новая машина" || envelope.GroupID != l.group(t, models.GroupGoal) || !envelope.Rollover {
 		t.Errorf("envelope = %+v", envelope)
 	}
 	// Основным счётом копилка не становится.
@@ -406,7 +406,7 @@ func TestArchiveAccount(t *testing.T) {
 	ctx := context.Background()
 	l := newLedger(t)
 	l.setBase(t, "GEL")
-	piggy, err := l.s.CreatePiggy(ctx, l.u, "Отпуск", "GEL", nil, nil)
+	piggy, err := l.s.CreatePiggy(ctx, l.u, "Новая машина", "GEL", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
