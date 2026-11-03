@@ -6,7 +6,7 @@ import type { Entry } from './ledger'
 import { currencySign } from './money'
 import { ChipPicker } from './Pickers'
 import { PeriodPicker } from './PeriodPicker'
-import { addDays, missingRates, resolveRange, spendByCategory, spendTotals, type Measure, type Period, type Range } from './report'
+import { missingRates, rangeFor, spendByCategory, spendTotals, type Measure, type Period } from './report'
 import { SpendBreakdown } from './SpendBreakdown'
 
 type Props = {
@@ -22,17 +22,15 @@ type Props = {
   onOpen: (entry: Entry) => void
 }
 
-const presets = ['week', 'twoWeeks', 'threeWeeks', 'month'] as const
-
 const BASE = 'base'
 
 export function ReportsScreen({ entries, accounts, onOpen, groups, categories, baseCurrency, currencies, onDisplay, today }: Props) {
   const [period, setPeriod] = useState<Period>('month')
-  const [custom, setCustom] = useState<Range>({ from: addDays(today, -29), to: today })
+  const [offset, setOffset] = useState(0)
   // 'base': всё в базовой валюте по курсу дня каждой траты; код валюты: только траты в ней, как есть.
   const [view, setView] = useState(BASE)
 
-  const range = resolveRange(period, custom, today, entries)
+  const range = rangeFor(period, today, offset)
   const totals = spendTotals(entries, range, baseCurrency)
   // Пересчёт нужен, только если кроме базовой валюты что-то тратили; иначе переключать нечего.
   const mixed = totals.some((x) => x.currency !== baseCurrency)
@@ -51,16 +49,15 @@ export function ReportsScreen({ entries, accounts, onOpen, groups, categories, b
       </header>
 
       <PeriodPicker
-        presets={presets}
         period={period}
+        offset={offset}
         range={range}
-        custom={custom}
         today={today}
-        onPeriod={setPeriod}
-        onCustom={(r) => {
-          setCustom(r)
-          setPeriod('custom')
+        onPeriod={(p) => {
+          setPeriod(p)
+          setOffset(0)
         }}
+        onOffset={setOffset}
       />
 
       {mixed && (

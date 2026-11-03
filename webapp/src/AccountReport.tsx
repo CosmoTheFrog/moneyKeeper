@@ -9,7 +9,7 @@ import { Money } from './MoneyText'
 import { currencySign } from './money'
 import { ChipPicker } from './Pickers'
 import { PeriodPicker } from './PeriodPicker'
-import { addDays, missingRates, resolveRange, spendBuckets, spendByCategory, spendOf, spendTotals, type Measure, type Period, type Range } from './report'
+import { missingRates, rangeFor, spendBuckets, spendByCategory, spendOf, spendTotals, type Measure, type Period, type Range } from './report'
 import { SpendBars } from './SpendBars'
 import { SpendBreakdown } from './SpendBreakdown'
 
@@ -28,20 +28,18 @@ type Props = {
   onOpen: (entry: Entry) => void
 }
 
-const presets = ['all', 'month', 'week'] as const
-
 const BASE = 'base'
 
 // Куда и когда ушли деньги со счёта: траты по группам и категориям, по дням или месяцам и списком.
 // Нажатие на столбик «когда» сужает и кольцо, и список до этого дня или месяца.
 export function AccountReport({ account, entries, accounts, groups, categories, baseCurrency, currencies, onDisplay, today, onBack, onOpen }: Props) {
-  const [period, setPeriod] = useState<Period>('all')
-  const [custom, setCustom] = useState<Range>({ from: addDays(today, -29), to: today })
+  const [period, setPeriod] = useState<Period>('month')
+  const [offset, setOffset] = useState(0)
   const [view, setView] = useState(BASE)
   const [bucket, setBucket] = useState<string | null>(null)
 
   const own = entries.filter((e) => e.kind === 'expense' && e.accountId === account.id)
-  const range = resolveRange(period, custom, today, own)
+  const range = rangeFor(period, today, offset)
 
   const totals = spendTotals(own, range, baseCurrency)
   const mixed = totals.some((x) => x.currency !== baseCurrency)
@@ -59,8 +57,9 @@ export function AccountReport({ account, entries, accounts, groups, categories, 
   const days = daysInRange(shown)
   const missing = chosen === BASE ? missingRates(own, shown) : 0
 
-  function changePeriod(next: Period) {
+  function changePeriod(next: Period, nextOffset = 0) {
     setPeriod(next)
+    setOffset(nextOffset)
     setBucket(null)
   }
 
@@ -78,18 +77,7 @@ export function AccountReport({ account, entries, accounts, groups, categories, 
         {t.accountReport.title}. {t.accountReport.noteTransfers}
       </p>
 
-      <PeriodPicker
-        presets={presets}
-        period={period}
-        range={range}
-        custom={custom}
-        today={today}
-        onPeriod={changePeriod}
-        onCustom={(r) => {
-          setCustom(r)
-          changePeriod('custom')
-        }}
-      />
+      <PeriodPicker period={period} offset={offset} range={range} today={today} onPeriod={(p) => changePeriod(p)} onOffset={(o) => changePeriod(period, o)} />
 
       {mixed && (
         <>

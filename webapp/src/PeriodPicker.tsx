@@ -1,75 +1,56 @@
-import { useState } from 'react'
-import { daysInRange, formatRange } from './calendar'
+import { daysInRange, formatRange, monthTitle } from './calendar'
 import { plural, t } from './i18n'
-import { RangeCalendar } from './RangeCalendar'
-import type { Period, PresetPeriod, Range } from './report'
+import type { Period, Range } from './report'
 
 type Props = {
-  // Готовые периоды в порядке показа; свой период (календарь) есть всегда.
-  presets: readonly (PresetPeriod | 'all')[]
   period: Period
-  // Период, который сейчас показан: по нему подпись под плашками.
+  // Сдвиг в неделях или месяцах от текущего: 0 текущий, -1 прошлый.
+  offset: number
+  // Период, который сейчас показан.
   range: Range
-  custom: Range
   today: string
   onPeriod: (period: Period) => void
-  onCustom: (range: Range) => void
+  onOffset: (offset: number) => void
 }
 
-function CalendarIcon() {
+const periods = ['week', 'month'] as const
+
+function Chevron({ left }: { left: boolean }) {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3.5" y="5" width="17" height="15" rx="3" />
-      <path d="M3.5 10h17M8 3v4M16 3v4" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={left ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
     </svg>
   )
 }
 
-// Период одной строкой плашек и подписью, что именно показано. «Свой период» открывает календарь.
-export function PeriodPicker({ presets, period, range, custom, today, onPeriod, onCustom }: Props) {
-  const [calendar, setCalendar] = useState(false)
+// Неделя или месяц плашками, под ними стрелки на прошлый и следующий период. Дальше текущего листать нельзя.
+export function PeriodPicker({ period, offset, range, today, onPeriod, onOffset }: Props) {
   const days = daysInRange(range)
+  const title = period === 'month' ? monthTitle(range.from.slice(0, 7)) : formatRange(range, today)
 
   return (
     <div className="period">
-      <div className="period-row" role="radiogroup" aria-label={t.calendar.title}>
-        <div className="period-chips">
-          {presets.map((p) => (
-            <button key={p} type="button" role="radio" aria-checked={p === period} className={p === period ? 'pill pill-on' : 'pill'} onClick={() => onPeriod(p)}>
-              {t.reports.periods[p]}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={period === 'custom'}
-          aria-label={t.reports.periods.custom}
-          className={period === 'custom' ? 'pill pill-on pill-icon' : 'pill pill-icon'}
-          onClick={() => setCalendar(true)}
-        >
-          <CalendarIcon />
-          {period === 'custom' && formatRange(custom, today)}
+      <div className="period-row" role="radiogroup" aria-label={t.reports.title}>
+        {periods.map((p) => (
+          <button key={p} type="button" role="radio" aria-checked={p === period} className={p === period ? 'pill pill-on' : 'pill'} onClick={() => onPeriod(p)}>
+            {t.reports.periods[p]}
+          </button>
+        ))}
+      </div>
+      <div className="month-nav">
+        <button type="button" className="plus" aria-label={t.calendar.prev} onClick={() => onOffset(offset - 1)}>
+          <Chevron left />
+        </button>
+        <span className="month-title">
+          {title}
+          <span className="period-days">
+            {days} {plural(days, t.calendar.days)}
+          </span>
+        </span>
+        <button type="button" className="plus" aria-label={t.calendar.next} disabled={offset >= 0} onClick={() => onOffset(offset + 1)}>
+          <Chevron left={false} />
         </button>
       </div>
-      <button type="button" className="period-caption" onClick={() => setCalendar(true)}>
-        {formatRange(range, today)} · {days} {plural(days, t.calendar.days)}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      </button>
-
-      {calendar && (
-        <RangeCalendar
-          initial={period === 'custom' ? custom : range}
-          today={today}
-          onClose={() => setCalendar(false)}
-          onApply={(r) => {
-            onCustom(r)
-            setCalendar(false)
-          }}
-        />
-      )}
     </div>
   )
 }

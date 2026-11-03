@@ -1070,55 +1070,31 @@ h1 {
   color: #fff;
 }
 
-/* Период: плашки в одну строку, подпись под ними. */
+/* Период: плашки недели и месяца, под ними стрелки по периодам. */
 .period {
   margin-bottom: 12px;
 }
 
 .period-row {
   display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-.period-chips {
+.period .month-title {
   display: flex;
-  flex: 1;
-  gap: 8px;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.period-chips::-webkit-scrollbar {
-  display: none;
-}
-
-.period-chips .pill {
-  flex: none;
-  padding: 9px 12px;
-  white-space: nowrap;
-}
-
-.pill-icon {
-  display: inline-flex;
-  flex: none;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
 }
 
-.period-caption {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin: 8px 0 0;
-  padding: 2px 0;
-  border: 0;
-  background: transparent;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--accent);
-  cursor: pointer;
+.period-days {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.period .plus:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* Календарь выбора периода. */
