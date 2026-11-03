@@ -201,6 +201,15 @@ func (s *Service) Portfolio(ctx context.Context, u models.User, in string) (mode
 		return book.convert(amount, cur, money.GEL, s.rateDay(u, day))
 	})
 
+	// Цена покупки уже посчитана по курсам дней, дальше сегодняшние цены монет заменяются на последние рыночные.
+	var held []money.Currency
+	for _, c := range coinList {
+		if h := holdings[c]; h != nil && h.qty > 0 {
+			held = append(held, c)
+		}
+	}
+	s.applyLivePrices(ctx, book, today, onlyCoins(append(held, target)))
+
 	out := models.Portfolio{Currency: target, MissingRates: missing}
 	for _, c := range coinList {
 		h := holdings[c]

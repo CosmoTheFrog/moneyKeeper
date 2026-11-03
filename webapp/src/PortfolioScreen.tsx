@@ -200,6 +200,7 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
               {t.reports.missingRates}: {loaded.portfolio.missing_rates}
             </p>
           )}
+          <p className="hint tight">{t.portfolio.rateNote}</p>
         </>
       )}
 
