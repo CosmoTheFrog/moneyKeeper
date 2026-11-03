@@ -91,10 +91,11 @@ func (s *Service) BudgetMonth(ctx context.Context, u models.User, month apptime.
 		return models.BudgetMonth{}, err
 	}
 
+	today := s.today(u)
 	days := make([]apptime.Day, 0, len(flows))
 	currencies := make([]money.Currency, 0, len(flows)+1)
 	for _, f := range flows {
-		days = append(days, s.rateDay(u, f.Day))
+		days = append(days, rateDay(today, f.Day))
 		currencies = append(currencies, f.Currency)
 	}
 	book := s.rates(ctx, days, onlyCoins(append(currencies, base)))
@@ -108,7 +109,7 @@ func (s *Service) BudgetMonth(ctx context.Context, u models.User, month apptime.
 	}
 	missing := 0
 	for _, f := range flows {
-		v, ok := book.convert(f.AmountMinor, f.Currency, base, s.rateDay(u, f.Day))
+		v, ok := book.convert(f.AmountMinor, f.Currency, base, rateDay(today, f.Day))
 		if !ok {
 			missing++
 			continue

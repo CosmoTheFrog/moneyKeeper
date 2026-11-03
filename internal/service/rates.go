@@ -48,8 +48,9 @@ func (b rateBook) gel(c money.Currency, day apptime.Day) (*big.Rat, bool) {
 }
 
 // rateDay: записи будущим числом пересчитываются по курсу сегодняшнего дня, будущих курсов не бывает.
-func (s *Service) rateDay(u models.User, d apptime.Day) apptime.Day {
-	if today := s.today(u); today.Before(d) {
+// today считается один раз на запрос: s.today разбирает часовой пояс при каждом вызове.
+func rateDay(today, d apptime.Day) apptime.Day {
+	if today.Before(d) {
 		return today
 	}
 	return d
@@ -135,9 +136,10 @@ func (s *Service) priceTransactions(ctx context.Context, u models.User, ts []mod
 	if err != nil || !ok || len(ts) == 0 {
 		return err
 	}
+	today := s.today(u)
 	days := make([]apptime.Day, 0, len(ts))
 	for _, t := range ts {
-		days = append(days, s.rateDay(u, t.OccurredOn))
+		days = append(days, rateDay(today, t.OccurredOn))
 	}
 	coins := make([]money.Currency, 0, len(ts))
 	for _, t := range ts {
@@ -145,7 +147,7 @@ func (s *Service) priceTransactions(ctx context.Context, u models.User, ts []mod
 	}
 	book := s.rates(ctx, days, onlyCoins(append(coins, base)))
 	for i, t := range ts {
-		if v, ok := book.convert(t.AmountMinor, t.Currency, base, s.rateDay(u, t.OccurredOn)); ok {
+		if v, ok := book.convert(t.AmountMinor, t.Currency, base, rateDay(today, t.OccurredOn)); ok {
 			ts[i].BaseMinor = &v
 		}
 	}
@@ -170,7 +172,7 @@ func (s *Service) priceAccounts(ctx context.Context, u models.User, accs []model
 	}
 	spendsOf := map[key][]models.DailySpend{}
 	for _, sp := range spends {
-		days = append(days, s.rateDay(u, sp.Day))
+		days = append(days, rateDay(today, sp.Day))
 		k := key{sp.AccountID, sp.Currency}
 		spendsOf[k] = append(spendsOf[k], sp)
 	}
@@ -191,7 +193,7 @@ func (s *Service) priceAccounts(ctx context.Context, u models.User, accs []model
 			var total int64
 			complete := true
 			for _, sp := range spendsOf[key{accs[ai].ID, b.Currency}] {
-				v, ok := book.convert(sp.SpentMinor, b.Currency, base, s.rateDay(u, sp.Day))
+				v, ok := book.convert(sp.SpentMinor, b.Currency, base, rateDay(today, sp.Day))
 				if !ok {
 					complete = false
 					break

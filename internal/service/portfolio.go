@@ -188,7 +188,7 @@ func (s *Service) Portfolio(ctx context.Context, u models.User, in string) (mode
 	days := []apptime.Day{today}
 	used := map[money.Currency]bool{target: true}
 	for _, t := range txs {
-		days = append(days, s.rateDay(u, t.OccurredOn))
+		days = append(days, rateDay(today, t.OccurredOn))
 		used[t.Currency] = true
 	}
 	var wanted []money.Currency
@@ -198,7 +198,7 @@ func (s *Service) Portfolio(ctx context.Context, u models.User, in string) (mode
 	book := s.rates(ctx, days, onlyCoins(wanted))
 
 	holdings, missing := buildHoldings(txs, func(amount int64, cur money.Currency, day apptime.Day) (int64, bool) {
-		return book.convert(amount, cur, money.GEL, s.rateDay(u, day))
+		return book.convert(amount, cur, money.GEL, rateDay(today, day))
 	})
 
 	// Цена покупки уже посчитана по курсам дней, дальше сегодняшние цены монет заменяются на последние рыночные.

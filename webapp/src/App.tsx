@@ -118,6 +118,9 @@ export function App() {
 
   const load = useCallback(async () => {
     try {
+      // Группы и категории от профиля не зависят, их запрос идёт параллельно с ним.
+      const structure = Promise.all([fetchCategoryGroups(), fetchCategories()])
+      structure.catch(() => {}) // ошибку разберёт await ниже; без этого при раннем выходе она осталась бы необработанной
       const me = await fetchMe()
       registerCurrencies(me.currency_info)
       if (me.budget.base_currency === null) {
@@ -126,7 +129,7 @@ export function App() {
       }
       // Сохранённая валюта могла пропасть из списка: тогда считаем в базовой.
       const target = me.currencies.includes(displayChoice) ? displayChoice : ''
-      const [accounts, groups, categories, transactions] = await Promise.all([fetchAccounts(target), fetchCategoryGroups(), fetchCategories(), fetchTransactions(target)])
+      const [[groups, categories], accounts, transactions] = await Promise.all([structure, fetchAccounts(target), fetchTransactions(target)])
       setState({ kind: 'ready', data: { me, accounts, groups, categories, transactions } })
     } catch {
       setState({ kind: 'error' })
