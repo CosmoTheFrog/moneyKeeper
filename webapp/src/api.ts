@@ -226,8 +226,17 @@ export const setBudgeted = (month: string, categoryId: number, budgetedMinor: nu
 export const updateCategory = (id: number, patch: { name?: string; description?: string; hidden?: boolean; rollover?: boolean }) =>
   request<Category>('PATCH', `/api/categories/${id}`, patch)
 
-export const fetchTransactions = async (inCurrency: string, limit = 200) =>
-  (await request<{ transactions: Transaction[] }>('GET', `/api/transactions?limit=${limit}&in=${inCurrency}`)).transactions
+// Сервер отдаёт не больше 200 записей за раз; отчёты считаются по всем, поэтому страницы дочитываются до неполной.
+const PAGE = 200
+
+export async function fetchTransactions(inCurrency: string): Promise<Transaction[]> {
+  const all: Transaction[] = []
+  for (;;) {
+    const { transactions } = await request<{ transactions: Transaction[] }>('GET', `/api/transactions?limit=${PAGE}&offset=${all.length}&in=${inCurrency}`)
+    all.push(...transactions)
+    if (transactions.length < PAGE) return all
+  }
+}
 
 export const createTransaction = (tx: NewTransaction) => request<{ transactions: Transaction[] }>('POST', '/api/transactions', tx)
 

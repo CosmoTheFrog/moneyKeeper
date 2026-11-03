@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Account, Category, CategoryGroup } from './api'
 import { daysInRange } from './calendar'
 import { DisplayCurrency } from './DisplayCurrency'
@@ -38,16 +38,16 @@ export function AccountReport({ account, entries, accounts, groups, categories, 
   const [view, setView] = useState(BASE)
   const [bucket, setBucket] = useState<string | null>(null)
 
-  const own = entries.filter((e) => e.kind === 'expense' && e.accountId === account.id)
-  const range = rangeFor(period, today, offset)
+  const own = useMemo(() => entries.filter((e) => e.kind === 'expense' && e.accountId === account.id), [entries, account.id])
+  const range = useMemo(() => rangeFor(period, today, offset), [period, today, offset])
 
-  const totals = spendTotals(own, range, baseCurrency)
+  const totals = useMemo(() => spendTotals(own, range, baseCurrency), [own, range, baseCurrency])
   const mixed = totals.some((x) => x.currency !== baseCurrency)
   const chosen = mixed && totals.some((x) => x.currency === view) ? view : BASE
-  const measure: Measure = chosen === BASE ? { kind: 'base' } : { kind: 'currency', code: chosen }
+  const measure = useMemo<Measure>(() => (chosen === BASE ? { kind: 'base' } : { kind: 'currency', code: chosen }), [chosen])
   const currency = chosen === BASE ? baseCurrency : chosen
 
-  const buckets = spendBuckets(own, range, measure)
+  const buckets = useMemo(() => spendBuckets(own, range, measure), [own, range, measure])
   const picked = buckets.items.find((b) => b.key === bucket)
   const shown: Range = picked === undefined ? range : { from: picked.from, to: picked.to }
 

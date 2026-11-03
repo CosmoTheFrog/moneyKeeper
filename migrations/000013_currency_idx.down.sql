@@ -1,0 +1,1 @@
+DROP INDEX transactions_budget_currency_idx;

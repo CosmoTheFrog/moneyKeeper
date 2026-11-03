@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Account, Category, CategoryGroup } from './api'
 import { DisplayCurrency } from './DisplayCurrency'
 import { t } from './i18n'
@@ -30,15 +30,15 @@ export function ReportsScreen({ entries, accounts, onOpen, groups, categories, b
   // 'base': всё в базовой валюте по курсу дня каждой траты; код валюты: только траты в ней, как есть.
   const [view, setView] = useState(BASE)
 
-  const range = rangeFor(period, today, offset)
-  const totals = spendTotals(entries, range, baseCurrency)
+  const range = useMemo(() => rangeFor(period, today, offset), [period, today, offset])
+  const totals = useMemo(() => spendTotals(entries, range, baseCurrency), [entries, range, baseCurrency])
   // Пересчёт нужен, только если кроме базовой валюты что-то тратили; иначе переключать нечего.
   const mixed = totals.some((x) => x.currency !== baseCurrency)
   const chosen = mixed && totals.some((x) => x.currency === view) ? view : BASE
-  const measure: Measure = chosen === BASE ? { kind: 'base' } : { kind: 'currency', code: chosen }
+  const measure = useMemo<Measure>(() => (chosen === BASE ? { kind: 'base' } : { kind: 'currency', code: chosen }), [chosen])
   const currency = chosen === BASE ? baseCurrency : chosen
 
-  const slices = spendByCategory(entries, categories, range, measure)
+  const slices = useMemo(() => spendByCategory(entries, categories, range, measure), [entries, categories, range, measure])
   const missing = chosen === BASE ? missingRates(entries, range) : 0
 
   return (

@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AccountReport } from './AccountReport'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AccountsScreen } from './AccountsScreen'
 import {
   fetchAccounts,
@@ -22,13 +21,16 @@ import { dayIn, toEntries, type Entry } from './ledger'
 import { NoPrivacy, PrivacyContext } from './MoneyText'
 import { registerCurrencies } from './money'
 import { OperationsScreen } from './OperationsScreen'
-import { PortfolioScreen } from './PortfolioScreen'
 import { ReportsScreen } from './ReportsScreen'
-import { SchedulesScreen } from './SchedulesScreen'
-import { SavingsScreen } from './SavingsScreen'
 import { TabBar, type Tab } from './TabBar'
 import { applyTheme, readMode, resolveTheme, saveMode, type ThemeMode } from './theme'
 import { ThemeContext } from './ThemeSettings'
+
+// Экраны, которые открывают редко, грузятся отдельными кусками при первом открытии.
+const AccountReport = lazy(() => import('./AccountReport').then((m) => ({ default: m.AccountReport })))
+const PortfolioScreen = lazy(() => import('./PortfolioScreen').then((m) => ({ default: m.PortfolioScreen })))
+const SchedulesScreen = lazy(() => import('./SchedulesScreen').then((m) => ({ default: m.SchedulesScreen })))
+const SavingsScreen = lazy(() => import('./SavingsScreen').then((m) => ({ default: m.SavingsScreen })))
 
 type Data = {
   me: Me
@@ -189,9 +191,19 @@ export function App() {
       const home: Screen = { kind: 'tabs' }
 
       const openEntry = (entry: Entry, returnTo: Screen) => go({ kind: 'edit', entry, returnTo })
+      // Запись меняет только счета (остатки) и список записей; профиль, группы и категории при этом не трогаются.
+      const refreshLedger = async () => {
+        try {
+          const target = me.currencies.includes(displayChoice) ? displayChoice : ''
+          const [nextAccounts, transactions] = await Promise.all([fetchAccounts(target), fetchTransactions(target)])
+          setState((prev) => (prev.kind === 'ready' ? { kind: 'ready', data: { ...prev.data, accounts: nextAccounts, transactions } } : prev))
+        } catch {
+          reload()
+        }
+      }
       const finish = (returnTo: Screen) => {
         go(returnTo)
-        reload()
+        void refreshLedger()
       }
 
       // Пока счетов нет, записывать некуда: «+» ведёт на вкладку счетов, где форма уже открыта.
@@ -373,7 +385,9 @@ export function App() {
       return (
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>
-            {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
+            <Suspense fallback={<p className="screen hint">{t.loading}</p>}>
+              {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
+            </Suspense>
             {overlay}
           </PrivacyContext.Provider>
         </ThemeContext.Provider>
