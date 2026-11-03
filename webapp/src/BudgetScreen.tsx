@@ -17,6 +17,7 @@ import { fillPercent, parseBudgeted, toBudgetTone } from './budget'
 import { BudgetFocus } from './BudgetFocus'
 import { monthTitle, shiftMonth } from './calendar'
 import { errorText, t } from './i18n'
+import { MonthNav } from './MonthNav'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { formatInput } from './money'
@@ -38,14 +39,6 @@ type Props = {
 }
 
 const EMPTY_ROW: BudgetRow = { category_id: 0, budgeted_minor: 0, spent_minor: 0, balance_minor: 0 }
-
-function Chevron({ left }: { left: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={left ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
-    </svg>
-  )
-}
 
 // Бюджет месяца: сколько осталось распределить и по каждой категории заложено, потрачено, остаток.
 // Здесь же создаются и правятся категории и группы.
@@ -99,15 +92,7 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
         </button>
       </header>
 
-      <div className="month-nav">
-        <button type="button" className="plus" aria-label={t.calendar.prev} onClick={() => setMonth(shiftMonth(month, -1))}>
-          <Chevron left />
-        </button>
-        <span className="month-title">{monthTitle(month)}</span>
-        <button type="button" className="plus" aria-label={t.calendar.next} onClick={() => setMonth(shiftMonth(month, 1))}>
-          <Chevron left={false} />
-        </button>
-      </div>
+      <MonthNav title={monthTitle(month)} onPrev={() => setMonth(shiftMonth(month, -1))} onNext={() => setMonth(shiftMonth(month, 1))} />
 
       {failed && <p className="error">{t.errors.internal}</p>}
       {budget !== null && (

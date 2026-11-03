@@ -1,5 +1,6 @@
 import { daysInRange, formatRange, monthTitle } from './calendar'
 import { plural, t } from './i18n'
+import { MonthNav } from './MonthNav'
 import type { Period, Range } from './report'
 
 type Props = {
@@ -15,14 +16,6 @@ type Props = {
 
 const periods = ['week', 'month'] as const
 
-function Chevron({ left }: { left: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={left ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
-    </svg>
-  )
-}
-
 // Неделя или месяц плашками, под ними стрелки на прошлый и следующий период. Дальше текущего листать нельзя.
 export function PeriodPicker({ period, offset, range, today, onPeriod, onOffset }: Props) {
   const days = daysInRange(range)
@@ -37,20 +30,19 @@ export function PeriodPicker({ period, offset, range, today, onPeriod, onOffset 
           </button>
         ))}
       </div>
-      <div className="month-nav">
-        <button type="button" className="plus" aria-label={t.calendar.prev} onClick={() => onOffset(offset - 1)}>
-          <Chevron left />
-        </button>
-        <span className="month-title">
-          {title}
-          <span className="period-days">
-            {days} {plural(days, t.calendar.days)}
-          </span>
-        </span>
-        <button type="button" className="plus" aria-label={t.calendar.next} disabled={offset >= 0} onClick={() => onOffset(offset + 1)}>
-          <Chevron left={false} />
-        </button>
-      </div>
+      <MonthNav
+        title={
+          <>
+            {title}
+            <span className="period-days">
+              {days} {plural(days, t.calendar.days)}
+            </span>
+          </>
+        }
+        onPrev={() => onOffset(offset - 1)}
+        onNext={() => onOffset(offset + 1)}
+        nextDisabled={offset >= 0}
+      />
     </div>
   )
 }
