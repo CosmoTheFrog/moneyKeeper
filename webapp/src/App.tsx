@@ -358,7 +358,6 @@ export function App() {
                   onOpenSchedules={() => go({ kind: 'schedules' })}
                   onChanged={reload}
                   onOpenCategory={(id) => go({ kind: 'category', categoryId: id })}
-                  onAddTo={(id) => go({ kind: 'add', categoryId: id, returnTo: home })}
                 />
               )}
               {tab === 'reports' && (

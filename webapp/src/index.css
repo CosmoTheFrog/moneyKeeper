@@ -1918,3 +1918,350 @@ span.money {
   flex-direction: column;
   gap: 10px;
 }
+
+/* Бюджет: шапка с разбивкой по группам, кольца категорий, лента внимания. */
+.budget-hero {
+  padding: 18px 18px 16px;
+  border-color: color-mix(in srgb, var(--line) 60%, transparent);
+  border-radius: 26px;
+  background: linear-gradient(155deg, var(--hero), var(--card) 72%);
+}
+
+.budget-hero.budget-over {
+  border-color: var(--danger);
+}
+
+.budget-hero .money {
+  font-size: 38px;
+  letter-spacing: -0.6px;
+}
+
+.seg {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+  margin-bottom: 10px;
+}
+
+.seg-part {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+}
+
+.seg-free {
+  flex: 1;
+  border: 1.5px dashed var(--line);
+  border-radius: 5px;
+}
+
+.seg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.seg-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+}
+
+.seg-legend .money {
+  display: inline;
+  font-size: inherit;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.attn {
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px 4px;
+  padding: 2px 16px 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.attn::-webkit-scrollbar {
+  display: none;
+}
+
+.attn-chip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.attn-chip em {
+  font-style: normal;
+  color: var(--muted);
+}
+
+.attn-chip .money {
+  font-size: inherit;
+  color: inherit;
+}
+
+.attn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.attn-over {
+  background: var(--danger);
+}
+
+.attn-noplan,
+.attn-warn {
+  background: var(--warn);
+}
+
+.b2-gh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 4px 8px;
+  cursor: pointer;
+}
+
+.b2-gh i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gc);
+}
+
+.b2-gh .gn {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.b2-gh .gs {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.b2-gh .gs .money {
+  font-size: inherit;
+  color: inherit;
+}
+
+.b2-gh .gs .money:first-child {
+  color: var(--ink);
+}
+
+.chev {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--line);
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+
+.chev-open {
+  transform: rotate(90deg);
+}
+
+.b2-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.b2-row:last-child {
+  border-bottom: 0;
+}
+
+.b2-mid {
+  flex: 1;
+  min-width: 0;
+}
+
+.b2-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.b2-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.b2-sub .money {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+.b2-sub b .money {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.b2-plan {
+  color: var(--accent);
+  font-weight: 700;
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.b2-plan .money {
+  color: inherit;
+}
+
+.b2-plan[aria-disabled='true'] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.b2-roll {
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.b2-end {
+  text-align: right;
+}
+
+.b2-end .money {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.b2-end small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.s-warn .b2-end .money {
+  color: var(--warn);
+}
+
+.s-noplan .b2-end .money {
+  color: var(--warn);
+}
+
+.s-over .b2-end .money {
+  color: var(--danger);
+}
+
+.s-done .b2-end .money {
+  color: var(--muted);
+}
+
+/* Значок категории в кольце расхода. */
+.ring {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  --rc: var(--gc, var(--accent));
+}
+
+.ring > svg {
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+
+.ring-warn,
+.ring-noplan {
+  --rc: var(--warn);
+}
+
+.ring-over {
+  --rc: var(--danger);
+}
+
+.ring-done {
+  --rc: var(--muted);
+}
+
+.ring-track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 3.5;
+}
+
+.ring-arc {
+  fill: none;
+  stroke: var(--rc);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 22px 22px;
+  animation: ring-draw 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.ring-tick {
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  opacity: 0.5;
+}
+
+.ring-icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--rc);
+}
+
+.ring-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ring-icon b {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+@keyframes ring-draw {
+  from {
+    stroke-dashoffset: var(--c);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-arc {
+    animation: none;
+  }
+}

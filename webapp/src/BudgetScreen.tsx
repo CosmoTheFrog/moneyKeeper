@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import {
   ApiError,
   createCategory,
@@ -13,7 +13,8 @@ import {
   type CategoryGroup,
   type Transaction,
 } from './api'
-import { fillPercent, parseBudgeted, toBudgetTone } from './budget'
+import { fillPercent, monthPace, parseBudgeted, rowStatus, toBudgetTone, type RowStatus } from './budget'
+import { CategoryRing } from './CategoryRing'
 import { BudgetFocus } from './BudgetFocus'
 import { monthTitle, shiftMonth } from './calendar'
 import { errorText, t } from './i18n'
@@ -34,7 +35,6 @@ type Props = {
   ledger: Transaction[]
   onChanged: () => void
   onOpenCategory: (id: number) => void
-  onAddTo: (id: number) => void
   onOpenSchedules: () => void
 }
 
@@ -42,7 +42,7 @@ const EMPTY_ROW: BudgetRow = { category_id: 0, budgeted_minor: 0, spent_minor: 0
 
 // Бюджет месяца: сколько осталось распределить и по каждой категории заложено, потрачено, остаток.
 // Здесь же создаются и правятся категории и группы.
-export function BudgetScreen({ groups, categories, accounts, baseCurrency, today, ledger, onChanged, onOpenCategory, onAddTo, onOpenSchedules }: Props) {
+export function BudgetScreen({ groups, categories, accounts, baseCurrency, today, ledger, onChanged, onOpenCategory, onOpenSchedules }: Props) {
   const [month, setMonth] = useState(today.slice(0, 7))
   const [budget, setBudget] = useState<BudgetMonth | null>(null)
   const [failed, setFailed] = useState(false)
@@ -73,6 +73,22 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
   const firstGroup = groups[0]?.id ?? 0
   const rows = new Map((budget?.categories ?? []).map((r) => [r.category_id, r]))
   const tone = budget === null ? 'done' : toBudgetTone(budget.to_budget_minor)
+  const pace = monthPace(month, today)
+  const colorOf = new Map(groups.map((g, i) => [g.id, `var(--g${(i % 6) + 1})`]))
+  const groupSum = (groupId: number, key: 'budgeted_minor' | 'spent_minor') =>
+    categories.filter((c) => c.group_id === groupId).reduce((sum, c) => sum + (rows.get(c.id)?.[key] ?? 0), 0)
+  // Категории, на которые стоит посмотреть: перерасход, траты без плана, опережение темпа.
+  const rank: Partial<Record<RowStatus, number>> = { over: 0, noplan: 1, warn: 2 }
+  const attention =
+    budget === null || editMode
+      ? []
+      : categories
+          .filter((c) => !c.hidden)
+          .map((c) => ({ c, r: rows.get(c.id) ?? EMPTY_ROW }))
+          .map((x) => ({ ...x, st: rowStatus(x.r, pace) }))
+          .filter((x) => rank[x.st] !== undefined)
+          .sort((a, b) => (rank[a.st] ?? 0) - (rank[b.st] ?? 0))
+  const plannedBase = budget === null ? 0 : Math.max(budget.income_minor, budget.budgeted_minor)
 
   function flip(set: Set<number>, id: number): Set<number> {
     const next = new Set(set)
@@ -96,10 +112,32 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
 
       {failed && <p className="error">{t.errors.internal}</p>}
       {budget !== null && (
-        <div className={`card budget-head budget-tap budget-${tone}`} role="button" tabIndex={0} onClick={() => setFocus(true)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setFocus(true)}>
+        <div className={`card budget-head budget-hero budget-tap budget-${tone}`} role="button" tabIndex={0} onClick={() => setFocus(true)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setFocus(true)}>
           <span className="label">{t.budget.toBudget}</span>
           <Money minor={budget.to_budget_minor} currency={baseCurrency} />
           <p className="budget-tone">{t.budget.tone[tone]}</p>
+          {plannedBase > 0 && (
+            <>
+              <div className="seg" aria-hidden="true">
+                {groups.map((g) => {
+                  const planned = groupSum(g.id, 'budgeted_minor')
+                  return planned > 0 ? <span key={g.id} className="seg-part" style={{ width: `${(planned / plannedBase) * 100}%`, background: colorOf.get(g.id) }} /> : null
+                })}
+                <span className="seg-free" />
+              </div>
+              <div className="seg-legend">
+                {groups.map((g) => {
+                  const planned = groupSum(g.id, 'budgeted_minor')
+                  return planned > 0 ? (
+                    <span key={g.id}>
+                      <i style={{ background: colorOf.get(g.id) }} />
+                      {g.name} <Money minor={planned} currency={baseCurrency} />
+                    </span>
+                  ) : null
+                })}
+              </div>
+            </>
+          )}
           <div className="budget-sub">
             <span>
               {t.budget.income} <Money minor={budget.income_minor} currency={baseCurrency} />
@@ -114,6 +152,23 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
             </p>
           )}
         </div>
+      )}
+
+      {attention.length > 0 && (
+        <>
+          <h2 className="day">
+            {t.budget.attention} · {attention.length}
+          </h2>
+          <div className="attn">
+            {attention.map(({ c, r, st }) => (
+              <div key={c.id} className="attn-chip" role="button" tabIndex={0} onClick={() => onOpenCategory(c.id)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpenCategory(c.id)}>
+                <i className={`attn-dot attn-${st}`} />
+                {c.name}
+                <em>{st === 'noplan' ? t.budget.caption.noplan : <Money minor={r.balance_minor} currency={baseCurrency} />}</em>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       <div className="toolbar">
@@ -135,59 +190,84 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
         const emptyCount = budget === null || editMode ? 0 : visible.filter((c) => !isActive(c)).length
         const showEmpty = emptyCount === 0 || withEmpty.has(g.id)
         const inGroup = collapsed.has(g.id) ? [] : visible.filter((c) => showEmpty || isActive(c))
+        const gc = colorOf.get(g.id)
+        const toggle = () => setCollapsed(flip(collapsed, g.id))
         return (
-          <section key={g.id}>
-            <button type="button" className="group-toggle" aria-expanded={!collapsed.has(g.id)} onClick={() => setCollapsed(flip(collapsed, g.id))}>
-              <span className="day">{g.name}</span>
-              <svg className={collapsed.has(g.id) ? 'group-chevron' : 'group-chevron group-chevron-open'} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M9 6l6 6-6 6" />
-              </svg>
-            </button>
+          <section key={g.id} style={{ '--gc': gc } as CSSProperties}>
+            <div className="b2-gh" role="button" tabIndex={0} aria-expanded={!collapsed.has(g.id)} onClick={toggle} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggle()}>
+              <i />
+              <span className="gn">{g.name}</span>
+              {budget !== null && (
+                <span className="gs">
+                  <Money minor={groupSum(g.id, 'spent_minor')} currency={baseCurrency} /> {t.budget.of} <Money minor={groupSum(g.id, 'budgeted_minor')} currency={baseCurrency} />
+                </span>
+              )}
+              <span className={collapsed.has(g.id) ? 'chev' : 'chev chev-open'}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </span>
+            </div>
             <div className={collapsed.has(g.id) ? 'card list-card list-folded' : 'card list-card'}>
               {!collapsed.has(g.id) && visible.length === 0 && <p className="hint tight pad">{t.categories.empty}</p>}
               {inGroup.map((c) => {
                 const r = rows.get(c.id) ?? EMPTY_ROW
+                const st = rowStatus(r, pace)
+                const open = () => (editMode ? setEditing(c) : onOpenCategory(c.id))
                 return (
-                  <div key={c.id} className={c.hidden ? 'budget-row entry-muted' : 'budget-row'}>
-                    <div className="budget-top">
-                      <button type="button" className="entry-open" onClick={() => (editMode ? setEditing(c) : onOpenCategory(c.id))}>
-                        <span className="entry-title">{c.name}</span>
-                        <span className="entry-sub">{c.description}</span>
-                      </button>
-                      {c.hidden && <span className="badge-muted">{t.categories.hidden}</span>}
-                      <span className="budget-balance">
-                        <Money minor={r.balance_minor} currency={baseCurrency} />
-                        <span className="budget-cap">{t.budget.balance}</span>
+                  <div key={c.id} className={`b2-row s-${st}${c.hidden ? ' entry-muted' : ''}`} role="button" tabIndex={0} onClick={open} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && open()}>
+                    <CategoryRing name={c.name} fill={fillPercent(r.spent_minor, r.budgeted_minor)} pace={r.budgeted_minor > 0 ? pace : null} status={st} />
+                    <div className="b2-mid">
+                      <span className="b2-name">
+                        {c.name}
+                        {c.hidden && <span className="badge-muted">{t.categories.hidden}</span>}
                       </span>
-                      {editMode ? (
-                        <span className="edit-mark" aria-hidden="true">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4" />
-                          </svg>
+                      <span className="b2-sub">
+                        <b>
+                          <Money minor={r.spent_minor} currency={baseCurrency} />
+                        </b>
+                        <span
+                          className="b2-plan"
+                          role="button"
+                          tabIndex={editMode ? -1 : 0}
+                          aria-disabled={editMode}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (!editMode) setPlanning(c)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.stopPropagation()
+                              if (!editMode) setPlanning(c)
+                            }
+                          }}
+                        >
+                          {r.budgeted_minor > 0 ? (
+                            <>
+                              {t.budget.of} <Money minor={r.budgeted_minor} currency={baseCurrency} />
+                            </>
+                          ) : (
+                            t.budget.setPlan
+                          )}
                         </span>
-                      ) : (
-                        !c.hidden && (
-                          <button type="button" className="plus" aria-label={`${t.categories.addExpense}: ${c.name}`} onClick={() => onAddTo(c.id)}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
-                              <path d="M12 5v14M5 12h14" />
-                            </svg>
-                          </button>
-                        )
-                      )}
-                    </div>
-                    <div className={r.balance_minor < 0 ? 'budget-bar budget-bar-over' : 'budget-bar'} aria-hidden="true">
-                      <span style={{ width: `${fillPercent(r.spent_minor, r.budgeted_minor)}%` }} />
-                    </div>
-                    <div className="budget-nums">
-                      <button type="button" className="budget-set" disabled={editMode} onClick={() => setPlanning(c)}>
-                        {t.budget.planned}
-                        <Money minor={r.budgeted_minor} currency={baseCurrency} />
-                      </button>
-                      <span>
-                        {t.budget.spent} <Money minor={r.spent_minor} currency={baseCurrency} />
+                        {c.rollover && (
+                          <span className="b2-roll" title={t.budget.rolls} aria-label={t.budget.rolls}>
+                            ↻
+                          </span>
+                        )}
                       </span>
-                      {c.rollover && <span className="budget-roll">{t.budget.rolls}</span>}
                     </div>
+                    <div className="b2-end">
+                      <Money minor={r.balance_minor} currency={baseCurrency} />
+                      <small>{t.budget.caption[st]}</small>
+                    </div>
+                    {editMode && (
+                      <span className="edit-mark" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4" />
+                        </svg>
+                      </span>
+                    )}
                   </div>
                 )
               })}
