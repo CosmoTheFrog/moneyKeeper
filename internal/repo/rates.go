@@ -3,7 +3,9 @@ package repo
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/big"
+	"sync"
 	"time"
 
 	"moneykeeper/internal/pgclient"
@@ -14,9 +16,16 @@ import (
 // storedRateScale совпадает с NUMERIC(24,10) в миграции.
 const storedRateScale = 10
 
-type Rates struct{ db *pgclient.Client }
+// Rates держит прочитанные курсы в памяти: записанный курс не меняется, а новые курсы пишет только этот процесс (Store сбрасывает день).
+type Rates struct {
+	db    *pgclient.Client
+	mu    sync.RWMutex
+	cache map[apptime.Day]map[money.Currency]*big.Rat
+}
 
-func NewRates(db *pgclient.Client) *Rates { return &Rates{db: db} }
+func NewRates(db *pgclient.Client) *Rates {
+	return &Rates{db: db, cache: map[apptime.Day]map[money.Currency]*big.Rat{}}
+}
 
 // Store сохраняет курсы дня. Уже записанный курс не меняется.
 func (r *Rates) Store(ctx context.Context, day apptime.Day, gelPerUnit map[money.Currency]*big.Rat) error {
@@ -29,11 +38,49 @@ func (r *Rates) Store(ctx context.Context, day apptime.Day, gelPerUnit map[money
 			return fmt.Errorf("store rate %s: %w", cur, err)
 		}
 	}
+	// День сбрасывается, а не дополняется: при ON CONFLICT в базе остаётся первый курс, его и прочитает ближайший ForDays.
+	r.mu.Lock()
+	delete(r.cache, day)
+	r.mu.Unlock()
 	return nil
 }
 
-// ForDays возвращает курсы на заданные дни: день, затем валюта.
+// ForDays возвращает курсы на заданные дни: день, затем валюта. Дни, которых нет в кэше, читаются из базы.
 func (r *Rates) ForDays(ctx context.Context, days []apptime.Day) (map[apptime.Day]map[money.Currency]*big.Rat, error) {
+	out := make(map[apptime.Day]map[money.Currency]*big.Rat, len(days))
+	var cold []apptime.Day
+	r.mu.RLock()
+	for _, d := range days {
+		if cached, ok := r.cache[d]; ok {
+			out[d] = maps.Clone(cached)
+		} else {
+			cold = append(cold, d)
+		}
+	}
+	r.mu.RUnlock()
+	if len(cold) == 0 {
+		return out, nil
+	}
+
+	loaded, err := r.load(ctx, cold)
+	if err != nil {
+		return nil, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for d, rates := range loaded {
+		if r.cache[d] == nil {
+			r.cache[d] = map[money.Currency]*big.Rat{}
+		}
+		for c, rate := range rates {
+			r.cache[d][c] = rate
+		}
+		out[d] = maps.Clone(r.cache[d])
+	}
+	return out, nil
+}
+
+func (r *Rates) load(ctx context.Context, days []apptime.Day) (map[apptime.Day]map[money.Currency]*big.Rat, error) {
 	dates := make([]time.Time, 0, len(days))
 	for _, d := range days {
 		dates = append(dates, d.Date())

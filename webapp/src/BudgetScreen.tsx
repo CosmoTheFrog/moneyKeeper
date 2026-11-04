@@ -5,6 +5,7 @@ import {
   createCategoryGroup,
   fetchBudgetMonth,
   setBudgeted,
+  setEnvelopes,
   updateCategory,
   type BudgetMonth,
   type Account,
@@ -13,14 +14,18 @@ import {
   type CategoryGroup,
   type Transaction,
 } from './api'
-import { fillPercent, parseBudgeted, toBudgetTone } from './budget'
+import { fillPercent, parseBudgeted, spendingOf, toBudgetTone } from './budget'
+import { BudgetCompare } from './BudgetCompare'
 import { BudgetFocus } from './BudgetFocus'
+import { BudgetSuggest } from './BudgetSuggest'
 import { monthTitle, shiftMonth } from './calendar'
 import { errorText, t } from './i18n'
+import { MonthNav } from './MonthNav'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { formatInput } from './money'
 import { ChipPicker } from './Pickers'
+import { percent } from './report'
 
 type Props = {
   groups: CategoryGroup[]
@@ -29,6 +34,8 @@ type Props = {
   // Валюта бюджета: все суммы здесь в ней.
   baseCurrency: string
   today: string
+  // Включён ли режим конвертов: заложенные суммы, «К распределению», лимиты. Иначе только траты по категориям.
+  envelopesEnabled: boolean
   // Записи бюджета: после их изменения бюджет месяца пересчитывается.
   ledger: Transaction[]
   onChanged: () => void
@@ -37,20 +44,18 @@ type Props = {
   onOpenSchedules: () => void
 }
 
-const EMPTY_ROW: BudgetRow = { category_id: 0, budgeted_minor: 0, spent_minor: 0, balance_minor: 0 }
+type View = 'spending' | 'envelopes'
 
-function Chevron({ left }: { left: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={left ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
-    </svg>
-  )
-}
+const EMPTY_ROW: BudgetRow ={ category_id: 0, budgeted_minor: 0, spent_minor: 0, balance_minor: 0 }
 
 // Бюджет месяца: сколько осталось распределить и по каждой категории заложено, потрачено, остаток.
 // Здесь же создаются и правятся категории и группы.
-export function BudgetScreen({ groups, categories, accounts, baseCurrency, today, ledger, onChanged, onOpenCategory, onAddTo, onOpenSchedules }: Props) {
+export function BudgetScreen({ groups, categories, accounts, baseCurrency, today, envelopesEnabled, ledger, onChanged, onOpenCategory, onAddTo, onOpenSchedules }: Props) {
   const [month, setMonth] = useState(today.slice(0, 7))
+  const [view, setView] = useState<View>(envelopesEnabled ? 'envelopes' : 'spending')
+  const [envelopesDialog, setEnvelopesDialog] = useState<'enable' | 'disable' | null>(null)
+  const [envelopesError, setEnvelopesError] = useState<string | null>(null)
+  const [previous, setPrevious] = useState<BudgetMonth | null>(null)
   const [budget, setBudget] = useState<BudgetMonth | null>(null)
   const [failed, setFailed] = useState(false)
   const [editMode, setEditMode] = useState(false)
@@ -60,6 +65,8 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
   const [planning, setPlanning] = useState<Category | null>(null)
   const [adding, setAdding] = useState(false)
   const [focus, setFocus] = useState(false)
+  const [comparing, setComparing] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
   // Свёрнутые группы и группы, где показаны категории без сумм.
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
   const [withEmpty, setWithEmpty] = useState<Set<number>>(new Set())
@@ -75,6 +82,40 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
       alive = false
     }
   }, [month, categories, ledger])
+
+  // В режиме трат рядом с месяцем показано изменение к прошлому.
+  useEffect(() => {
+    if (view !== 'spending') return
+    let alive = true
+    fetchBudgetMonth(shiftMonth(month, -1))
+      .then((b) => alive && setPrevious(b))
+      .catch(() => alive && setPrevious(null))
+    return () => {
+      alive = false
+    }
+  }, [view, month, categories, ledger])
+
+  // Режим конвертов выключили или включили не здесь: экран следует за флагом бюджета.
+  useEffect(() => {
+    setView(envelopesEnabled ? 'envelopes' : 'spending')
+  }, [envelopesEnabled])
+
+  const envelopes = view === 'envelopes'
+  const spending = budget === null ? null : spendingOf(budget, previous)
+
+  async function switchEnvelopes(enabled: boolean) {
+    setEnvelopesError(null)
+    try {
+      await setEnvelopes(enabled)
+      setEnvelopesDialog(null)
+      setView(enabled ? 'envelopes' : 'spending')
+      // Сразу после включения предлагаем не заполнять суммы руками.
+      if (enabled) setSuggesting(true)
+      onChanged()
+    } catch (e) {
+      setEnvelopesError(errorText(e instanceof ApiError ? e.code : 'internal'))
+    }
+  }
 
   const groupOptions = groups.map((g) => ({ value: g.id, label: g.name }))
   const firstGroup = groups[0]?.id ?? 0
@@ -99,18 +140,44 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
         </button>
       </header>
 
-      <div className="month-nav">
-        <button type="button" className="plus" aria-label={t.calendar.prev} onClick={() => setMonth(shiftMonth(month, -1))}>
-          <Chevron left />
-        </button>
-        <span className="month-title">{monthTitle(month)}</span>
-        <button type="button" className="plus" aria-label={t.calendar.next} onClick={() => setMonth(shiftMonth(month, 1))}>
-          <Chevron left={false} />
-        </button>
+      <MonthNav title={monthTitle(month)} onPrev={() => setMonth(shiftMonth(month, -1))} onNext={() => setMonth(shiftMonth(month, 1))} />
+
+      <div className="field">
+        <div className="chips" role="radiogroup" aria-label={t.budget.title}>
+          <button type="button" role="radio" aria-checked={!envelopes} className={!envelopes ? 'pill pill-on' : 'pill'} onClick={() => setView('spending')}>
+            {t.budget.views.spending}
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={envelopes}
+            className={envelopes ? 'pill pill-on' : 'pill'}
+            onClick={() => (envelopesEnabled ? setView('envelopes') : setEnvelopesDialog('enable'))}
+          >
+            {envelopesEnabled ? t.budget.views.envelopes : t.budget.views.enable}
+          </button>
+        </div>
       </div>
 
       {failed && <p className="error">{t.errors.internal}</p>}
-      {budget !== null && (
+      {!envelopes && spending !== null && (
+        <div className="card budget-head">
+          <span className="label">{t.budget.spendingTotal}</span>
+          <Money minor={spending.totalMinor} currency={baseCurrency} />
+          {spending.previousTotalMinor > 0 && spending.totalMinor !== spending.previousTotalMinor && (
+            <p className="hint tight">
+              {t.budget.vsPrevious.by} <Money minor={Math.abs(spending.totalMinor - spending.previousTotalMinor)} currency={baseCurrency} />{' '}
+              {spending.totalMinor > spending.previousTotalMinor ? t.budget.vsPrevious.more : t.budget.vsPrevious.less}
+            </p>
+          )}
+          {budget !== null && budget.missing_rates > 0 && (
+            <p className="hint tight">
+              {t.reports.missingRates}: {budget.missing_rates}
+            </p>
+          )}
+        </div>
+      )}
+      {envelopes && budget !== null && (
         <div className={`card budget-head budget-tap budget-${tone}`} role="button" tabIndex={0} onClick={() => setFocus(true)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setFocus(true)}>
           <span className="label">{t.budget.toBudget}</span>
           <Money minor={budget.to_budget_minor} currency={baseCurrency} />
@@ -138,12 +205,20 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
         <button type="button" className="chip" onClick={() => setAdding(true)}>
           + {t.budget.add}
         </button>
+        <button type="button" className="chip" disabled={budget === null} onClick={() => setComparing(true)}>
+          {t.budget.compare.open}
+        </button>
+        {envelopes && (
+          <button type="button" className="chip" onClick={() => setSuggesting(true)}>
+            {t.budget.suggest.open}
+          </button>
+        )}
       </div>
 
       {groups.map((g) => {
         const isActive = (c: Category) => {
           const r = rows.get(c.id) ?? EMPTY_ROW
-          return r.budgeted_minor !== 0 || r.spent_minor !== 0 || r.balance_minor !== 0
+          return envelopes ? r.budgeted_minor !== 0 || r.spent_minor !== 0 || r.balance_minor !== 0 : r.spent_minor > 0
         }
         const visible = categories.filter((c) => c.group_id === g.id && (editMode || !c.hidden || isActive(c)))
         // Категории без сумм прячутся за строкой «Без сумм», пока бюджет не загружен, показываются все.
@@ -162,6 +237,7 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
               {!collapsed.has(g.id) && visible.length === 0 && <p className="hint tight pad">{t.categories.empty}</p>}
               {inGroup.map((c) => {
                 const r = rows.get(c.id) ?? EMPTY_ROW
+                const was = spending?.rows.find((x) => x.categoryId === c.id)?.previousMinor ?? 0
                 return (
                   <div key={c.id} className={c.hidden ? 'budget-row entry-muted' : 'budget-row'}>
                     <div className="budget-top">
@@ -171,8 +247,8 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
                       </button>
                       {c.hidden && <span className="badge-muted">{t.categories.hidden}</span>}
                       <span className="budget-balance">
-                        <Money minor={r.balance_minor} currency={baseCurrency} />
-                        <span className="budget-cap">{t.budget.balance}</span>
+                        <Money minor={envelopes ? r.balance_minor : r.spent_minor} currency={baseCurrency} />
+                        <span className="budget-cap">{envelopes ? t.budget.balance : t.budget.spent}</span>
                       </span>
                       {editMode ? (
                         <span className="edit-mark" aria-hidden="true">
@@ -190,19 +266,41 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
                         )
                       )}
                     </div>
-                    <div className={r.balance_minor < 0 ? 'budget-bar budget-bar-over' : 'budget-bar'} aria-hidden="true">
-                      <span style={{ width: `${fillPercent(r.spent_minor, r.budgeted_minor)}%` }} />
-                    </div>
-                    <div className="budget-nums">
-                      <button type="button" className="budget-set" disabled={editMode} onClick={() => setPlanning(c)}>
-                        {t.budget.planned}
-                        <Money minor={r.budgeted_minor} currency={baseCurrency} />
-                      </button>
-                      <span>
-                        {t.budget.spent} <Money minor={r.spent_minor} currency={baseCurrency} />
-                      </span>
-                      {c.rollover && <span className="budget-roll">{t.budget.rolls}</span>}
-                    </div>
+                    {envelopes ? (
+                      <>
+                        <div className={r.balance_minor < 0 ? 'budget-bar budget-bar-over' : 'budget-bar'} aria-hidden="true">
+                          <span style={{ width: `${fillPercent(r.spent_minor, r.budgeted_minor)}%` }} />
+                        </div>
+                        <div className="budget-nums">
+                          <button type="button" className="budget-set" disabled={editMode} onClick={() => setPlanning(c)}>
+                            {t.budget.planned}
+                            <Money minor={r.budgeted_minor} currency={baseCurrency} />
+                          </button>
+                          <span>
+                            {t.budget.spent} <Money minor={r.spent_minor} currency={baseCurrency} />
+                          </span>
+                          {c.rollover && <span className="budget-roll">{t.budget.rolls}</span>}
+                        </div>
+                      </>
+                    ) : (
+                      r.spent_minor > 0 && (
+                        <>
+                          <div className="budget-bar" aria-hidden="true">
+                            <span style={{ width: `${percent(r.spent_minor, spending?.totalMinor ?? 0)}%` }} />
+                          </div>
+                          <div className="budget-nums">
+                            <span>
+                              {percent(r.spent_minor, spending?.totalMinor ?? 0)}% {t.budget.ofTotal}
+                            </span>
+                            {previous !== null && r.spent_minor !== was && (
+                              <span>
+                                <Money minor={r.spent_minor - was} currency={baseCurrency} signed /> {t.budget.toPrevious}
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )
+                    )}
                   </div>
                 )
               })}
@@ -217,6 +315,51 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
       })}
 
       {focus && budget !== null && <BudgetFocus budget={budget} tone={tone} accounts={accounts} categories={categories} baseCurrency={baseCurrency} onClose={() => setFocus(false)} />}
+
+      {envelopes && (
+        <button type="button" className="chip" onClick={() => setEnvelopesDialog('disable')}>
+          {t.budget.envelopes.disable}
+        </button>
+      )}
+
+      {envelopesDialog === 'enable' && (
+        <Modal title={t.budget.envelopes.title} onClose={() => setEnvelopesDialog(null)}>
+          <p className="hint">{t.budget.envelopes.intro}</p>
+          <ul className="hint">
+            {t.budget.envelopes.points.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+          {envelopesError !== null && <p className="error">{envelopesError}</p>}
+          <button type="button" className="primary" onClick={() => void switchEnvelopes(true)}>
+            {t.budget.envelopes.enable}
+          </button>
+        </Modal>
+      )}
+      {envelopesDialog === 'disable' && (
+        <Modal title={t.budget.envelopes.disableTitle} onClose={() => setEnvelopesDialog(null)}>
+          <p className="hint">{t.budget.envelopes.disableHint}</p>
+          {envelopesError !== null && <p className="error">{envelopesError}</p>}
+          <button type="button" className="primary" onClick={() => void switchEnvelopes(false)}>
+            {t.budget.envelopes.disable}
+          </button>
+        </Modal>
+      )}
+
+      {comparing && budget !== null && <BudgetCompare month={month} budget={budget} categories={categories} baseCurrency={baseCurrency} plan={envelopes} onClose={() => setComparing(false)} />}
+      {suggesting && (
+        <BudgetSuggest
+          month={month}
+          current={new Map([...rows].map(([id, r]) => [id, r.budgeted_minor]))}
+          categories={categories}
+          baseCurrency={baseCurrency}
+          onApplied={(b) => {
+            setBudget(b)
+            setSuggesting(false)
+          }}
+          onClose={() => setSuggesting(false)}
+        />
+      )}
 
       {adding && (
         <Modal title={t.budget.add} onClose={() => setAdding(false)}>

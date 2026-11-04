@@ -92,8 +92,8 @@ func TestSeedCategories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cats) != 15 {
-		t.Fatalf("got %d categories, want 15", len(cats))
+	if len(cats) != 24 {
+		t.Fatalf("got %d categories, want 24", len(cats))
 	}
 	groups, err := l.s.ListCategoryGroups(context.Background(), l.u)
 	if err != nil {
@@ -131,11 +131,11 @@ func TestCategoryManagement(t *testing.T) {
 	l := newLedger(t)
 
 	daily := l.group(t, models.GroupDaily)
-	created, err := l.s.CreateCategory(ctx, l.u, "  Питомцы ", daily)
-	if err != nil || created.Name != "Питомцы" || created.GroupID != daily {
+	created, err := l.s.CreateCategory(ctx, l.u, "  Спорт ", daily)
+	if err != nil || created.Name != "Спорт" || created.GroupID != daily {
 		t.Fatalf("create = %+v, %v", created, err)
 	}
-	if _, err := l.s.CreateCategory(ctx, l.u, "Питомцы", daily); !errors.Is(err, models.ErrInvalidCategory) {
+	if _, err := l.s.CreateCategory(ctx, l.u, "Спорт", daily); !errors.Is(err, models.ErrInvalidCategory) {
 		t.Errorf("duplicate name: err = %v, want ErrInvalidCategory", err)
 	}
 	if _, err := l.s.CreateCategory(ctx, l.u, "Х", 999999); !errors.Is(err, models.ErrInvalidCategory) {
@@ -239,7 +239,7 @@ func TestSpentCountsOnlyExpenses(t *testing.T) {
 	}
 
 	first := l.expense(t, l.main.ID, 5000, "Продукты")
-	l.expense(t, l.main.ID, 2500, "Одежда")
+	l.expense(t, l.main.ID, 2500, "Одежда и обувь")
 	if _, err := l.s.CreateTransaction(ctx, l.u, models.NewTransaction{Kind: models.KindIncome, AccountID: l.main.ID, AmountMinor: 20000}); err != nil {
 		t.Fatal(err)
 	}

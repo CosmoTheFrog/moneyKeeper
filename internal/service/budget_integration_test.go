@@ -144,7 +144,7 @@ func TestRolloverDefaults(t *testing.T) {
 	}
 
 	// Новая категория в накопительной группе переносит остаток сразу, в своей группе нет.
-	goal, err := l.s.CreateCategory(ctx, l.u, "Отпуск", l.group(t, models.GroupGoal))
+	goal, err := l.s.CreateCategory(ctx, l.u, "Новая машина", l.group(t, models.GroupGoal))
 	if err != nil || !goal.Rollover {
 		t.Errorf("goal category = %+v, %v", goal, err)
 	}

@@ -36,16 +36,18 @@ const PAIRED: readonly string[] = ['transfer', 'exchange']
 export function toEntries(txs: Transaction[]): Entry[] {
   const incoming = new Map<number, Transaction>()
   const fees = new Map<number, number>()
+  const hasOutgoing = new Set<number>()
   for (const t of txs) {
     if (t.transfer_id === null) continue
     if (PAIRED.includes(t.kind) && t.amount_minor > 0) incoming.set(t.transfer_id, t)
+    if (PAIRED.includes(t.kind) && t.amount_minor < 0) hasOutgoing.add(t.transfer_id)
     if (t.kind === 'fee') fees.set(t.transfer_id, (fees.get(t.transfer_id) ?? 0) - t.amount_minor)
   }
   const out: Entry[] = []
   for (const t of txs) {
     if (t.kind === 'fee') continue
     const paired = PAIRED.includes(t.kind)
-    if (paired && t.amount_minor > 0 && txs.some((o) => o.transfer_id === t.transfer_id && o.amount_minor < 0 && PAIRED.includes(o.kind))) continue
+    if (paired && t.amount_minor > 0 && t.transfer_id !== null && hasOutgoing.has(t.transfer_id)) continue
     const to = paired && t.transfer_id !== null && t.amount_minor < 0 ? incoming.get(t.transfer_id) : undefined
     out.push({
       id: t.id,

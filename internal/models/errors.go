@@ -17,4 +17,8 @@ var (
 	ErrInvalidBudget      = errors.New("invalid budget amount")
 	ErrInvalidSchedule    = errors.New("invalid schedule")
 	ErrAssetNotFound      = errors.New("asset not found at the price source")
+
+	ErrInvalidImport     = errors.New("invalid statement import")
+	ErrImportConsent     = errors.New("statement import needs the user's consent")
+	ErrImportUnavailable = errors.New("statement import is unavailable")
 )

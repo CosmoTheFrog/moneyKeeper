@@ -12,7 +12,9 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"moneykeeper/internal/chain"
 	"moneykeeper/internal/fx"
+	"moneykeeper/internal/llm"
 	"moneykeeper/internal/notify"
 	"moneykeeper/internal/pgclient"
 	"moneykeeper/internal/repo"
@@ -55,6 +57,11 @@ func run(log *slog.Logger) error {
 
 	svc := service.New(db, repo.NewUsers(db), repo.NewBudgets(db), repo.NewAccounts(db),
 		repo.NewCategories(db), repo.NewTransactions(db), repo.NewPlan(db), repo.NewSchedules(db), repo.NewRates(db), repo.NewAssets(db), fx.NewProvider(), log)
+	// Без ключа импорт выписок отвечает «недоступен», остальное работает.
+	if key := os.Getenv("GROQ_API_KEY"); key != "" {
+		svc.WithStatementLLM(llm.NewGroq(key))
+	}
+	svc.WithWallets(repo.NewWallets(db), chain.NewClient())
 	if err := svc.LoadAssets(ctx); err != nil {
 		return fmt.Errorf("load assets: %w", err)
 	}

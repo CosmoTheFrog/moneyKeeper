@@ -4,14 +4,12 @@ import type { Entry } from './ledger'
 import {
   CIRCLE,
   addDays,
-  allTimeRange,
   arcs,
   diffDays,
   inGroup,
   missingRates,
   percent,
   rangeFor,
-  resolveRange,
   spendBuckets,
   spendByCategory,
   spendByGroup,
@@ -62,14 +60,14 @@ describe('addDays', () => {
 })
 
 describe('rangeFor', () => {
-  it('counts back from today', () => {
-    expect(rangeFor('week', '2026-10-12')).toEqual({ from: '2026-10-06', to: '2026-10-12' })
-    expect(rangeFor('twoWeeks', '2026-10-12')).toEqual({ from: '2026-09-29', to: '2026-10-12' })
-    expect(rangeFor('threeWeeks', '2026-10-12')).toEqual({ from: '2026-09-22', to: '2026-10-12' })
-  })
-
-  it('takes the calendar month for month', () => {
-    expect(rangeFor('month', '2026-10-12')).toEqual({ from: '2026-10-01', to: '2026-10-12' })
+  it.each([
+    ['week', 0, { from: '2026-10-06', to: '2026-10-12' }],
+    ['week', -1, { from: '2026-09-29', to: '2026-10-05' }],
+    ['month', 0, { from: '2026-10-01', to: '2026-10-12' }],
+    ['month', -1, { from: '2026-09-01', to: '2026-09-30' }],
+    ['month', -10, { from: '2025-12-01', to: '2025-12-31' }],
+  ] as const)('%s with offset %i', (period, offset, want) => {
+    expect(rangeFor(period, '2026-10-12', offset)).toEqual(want)
   })
 })
 
@@ -218,28 +216,6 @@ describe('spending in the base currency', () => {
   it('counts spending without a rate separately', () => {
     expect(missingRates(entries, range)).toBe(1)
     expect(missingRates(entries, { from: '2026-10-05', to: '2026-10-31' })).toBe(0)
-  })
-})
-
-describe('allTimeRange', () => {
-  it('starts at the first expense', () => {
-    const entries = [exp(1, 2, -100, '2026-08-17'), exp(2, 2, -100, '2026-10-01'), { ...exp(3, 2, 100, '2026-01-01'), kind: 'income' as const }]
-    expect(allTimeRange(entries, '2026-10-12')).toEqual({ from: '2026-08-17', to: '2026-10-12' })
-  })
-
-  it('is a single day without expenses', () => {
-    expect(allTimeRange([], '2026-10-12')).toEqual({ from: '2026-10-12', to: '2026-10-12' })
-  })
-})
-
-describe('resolveRange', () => {
-  const custom = { from: '2026-09-15', to: '2026-10-03' }
-  const entries = [exp(1, 2, -100, '2026-08-17')]
-
-  it('takes presets, the calendar range and all time', () => {
-    expect(resolveRange('week', custom, '2026-10-12', entries)).toEqual({ from: '2026-10-06', to: '2026-10-12' })
-    expect(resolveRange('custom', custom, '2026-10-12', entries)).toEqual(custom)
-    expect(resolveRange('all', custom, '2026-10-12', entries)).toEqual({ from: '2026-08-17', to: '2026-10-12' })
   })
 })
 

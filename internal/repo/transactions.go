@@ -92,6 +92,22 @@ func (r *Transactions) Expenses(ctx context.Context, budgetID int64, from, to ap
 		 ORDER BY occurred_on, id`, budgetID, from.Date(), to.Date())
 }
 
+// InRange возвращает все записи бюджета за период для выгрузки.
+func (r *Transactions) InRange(ctx context.Context, budgetID int64, from, to apptime.Day) ([]models.Transaction, error) {
+	return r.query(ctx,
+		`SELECT `+txColumns+` FROM transactions
+		 WHERE budget_id = $1 AND deleted_at IS NULL AND occurred_on BETWEEN $2 AND $3
+		 ORDER BY occurred_on, id`, budgetID, from.Date(), to.Date())
+}
+
+// OnAccount возвращает записи счёта за период, по ним выписка находит уже внесённые траты.
+func (r *Transactions) OnAccount(ctx context.Context, budgetID, accountID int64, from, to apptime.Day) ([]models.Transaction, error) {
+	return r.query(ctx,
+		`SELECT `+txColumns+` FROM transactions
+		 WHERE budget_id = $1 AND account_id = $2 AND deleted_at IS NULL AND occurred_on BETWEEN $3 AND $4
+		 ORDER BY occurred_on, id`, budgetID, accountID, from.Date(), to.Date())
+}
+
 func (r *Transactions) List(ctx context.Context, budgetID int64, limit, offset int) ([]models.Transaction, error) {
 	return r.query(ctx,
 		`SELECT `+txColumns+` FROM transactions WHERE budget_id = $1 AND deleted_at IS NULL
@@ -246,4 +262,39 @@ func decodeSnapshot(raw []byte) (*models.TransactionSnapshot, error) {
 		return nil, fmt.Errorf("decode snapshot: %w", err)
 	}
 	return &s, nil
+}
+
+// HasExpenseBy сообщает, вносил ли пользователь расход на этот день.
+func (r *Transactions) HasExpenseBy(ctx context.Context, budgetID, userID int64, day apptime.Day) (bool, error) {
+	var has bool
+	err := r.db.Q(ctx).QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM transactions
+		 WHERE budget_id = $1 AND created_by = $2 AND kind = 'expense' AND occurred_on = $3 AND deleted_at IS NULL)`,
+		budgetID, userID, day.Date()).Scan(&has)
+	if err != nil {
+		return false, fmt.Errorf("has expense: %w", err)
+	}
+	return has, nil
+}
+
+// BudgetsWithExpensesSince возвращает бюджеты, где расход вносили или правили после since: только в них мог быть
+// пройден порог лимита.
+func (r *Transactions) BudgetsWithExpensesSince(ctx context.Context, since time.Time) ([]int64, error) {
+	rows, err := r.db.Q(ctx).Query(ctx,
+		`SELECT DISTINCT budget_id FROM transactions
+		 WHERE kind = 'expense' AND deleted_at IS NULL AND GREATEST(created_at, updated_at) > $1 ORDER BY budget_id`, since)
+	if err != nil {
+		return nil, fmt.Errorf("budgets with expenses: %w", err)
+	}
+	defer rows.Close()
+
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan budget: %w", err)
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }

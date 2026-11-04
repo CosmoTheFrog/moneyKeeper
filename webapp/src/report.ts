@@ -4,7 +4,8 @@ import type { Entry } from './ledger'
 // Диапазон дат включительно, обе границы в виде YYYY-MM-DD. Строки этого вида сравниваются как даты.
 export type Range = { from: string; to: string }
 
-export type PresetPeriod = 'week' | 'twoWeeks' | 'threeWeeks' | 'month'
+// Period это выбор на экране: неделя или календарный месяц. Сдвиг считается в таких же периодах назад (отрицательный) или вперёд.
+export type Period = 'week' | 'month'
 
 export function addDays(day: string, n: number): string {
   const [y, m, d] = day.split('-').map(Number)
@@ -20,39 +21,21 @@ export function diffDays(a: string, b: string): number {
   return Math.round((ms(b) - ms(a)) / 86_400_000)
 }
 
-// Неделя, две и три недели считаются назад от сегодня, месяц это текущий календарный месяц.
-export function rangeFor(period: PresetPeriod, today: string): Range {
-  switch (period) {
-    case 'week':
-      return { from: addDays(today, -6), to: today }
-    case 'twoWeeks':
-      return { from: addDays(today, -13), to: today }
-    case 'threeWeeks':
-      return { from: addDays(today, -20), to: today }
-    case 'month':
-      return { from: `${today.slice(0, 8)}01`, to: today }
+// Неделя это семь дней, заканчивающихся сегодня; месяц это календарный месяц, текущий обрезан сегодняшним днём.
+// offset сдвигает период на столько же недель или месяцев (0 текущий, -1 прошлый).
+export function rangeFor(period: Period, today: string, offset = 0): Range {
+  if (period === 'week') {
+    const to = addDays(today, offset * 7)
+    return { from: addDays(to, -6), to }
   }
+  const ym = shiftYearMonth(today.slice(0, 7), offset)
+  const last = addDays(`${nextMonth(ym)}-01`, -1)
+  return { from: `${ym}-01`, to: offset === 0 ? today : last }
 }
 
-// allTimeRange тянется от первой траты до сегодня. Без трат это один сегодняшний день.
-export function allTimeRange(entries: Entry[], today: string): Range {
-  let from = today
-  for (const e of entries) if (e.kind === 'expense' && e.date < from) from = e.date
-  return { from, to: today }
-}
-
-// Period это выбор на экране: готовый период, всё время или свой диапазон из календаря.
-export type Period = PresetPeriod | 'all' | 'custom'
-
-export function resolveRange(period: Period, custom: Range, today: string, entries: Entry[]): Range {
-  switch (period) {
-    case 'custom':
-      return custom
-    case 'all':
-      return allTimeRange(entries, today)
-    default:
-      return rangeFor(period, today)
-  }
+function shiftYearMonth(ym: string, n: number): string {
+  const [y, m] = ym.split('-').map(Number)
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1 + n, 1)).toISOString().slice(0, 7)
 }
 
 // Мера, в которой считаются траты: всё в базовой валюте по курсу дня записи или одна валюта как есть.

@@ -93,19 +93,19 @@ func TestLedgerFlow(t *testing.T) {
 
 	var cats apidto.CategoriesResponse
 	igor.ok("GET", "/api/categories", "", 200, &cats)
-	if len(cats.Categories) != 15 || cats.Categories[4].Name != "Продукты" || cats.Categories[4].GroupID != groups.Groups[2].ID {
+	if len(cats.Categories) != 24 || cats.Categories[6].Name != "Продукты" || cats.Categories[6].GroupID != groups.Groups[2].ID {
 		t.Fatalf("categories = %+v", cats.Categories)
 	}
-	food := cats.Categories[4].ID
+	food := cats.Categories[6].ID
 
 	t.Run("categories", func(t *testing.T) {
 		daily := groups.Groups[2].ID
 		var c apidto.CategoryDTO
-		igor.ok("POST", "/api/categories", fmt.Sprintf(`{"name":"Питомцы","group_id":%d}`, daily), 201, &c)
-		igor.fails("POST", "/api/categories", fmt.Sprintf(`{"name":"Питомцы","group_id":%d}`, daily), 400, apidto.CodeInvalidCategory)
+		igor.ok("POST", "/api/categories", fmt.Sprintf(`{"name":"Спорт","group_id":%d}`, daily), 201, &c)
+		igor.fails("POST", "/api/categories", fmt.Sprintf(`{"name":"Спорт","group_id":%d}`, daily), 400, apidto.CodeInvalidCategory)
 		igor.fails("POST", "/api/categories", `{"name":"Х","group_id":999999}`, 400, apidto.CodeInvalidCategory)
 		igor.ok("PATCH", fmt.Sprintf("/api/categories/%d", c.ID), `{"hidden":true,"description":"Корм"}`, 200, &c)
-		if !c.Hidden || c.Description != "Корм" || c.Name != "Питомцы" {
+		if !c.Hidden || c.Description != "Корм" || c.Name != "Спорт" {
 			t.Errorf("updated = %+v", c)
 		}
 		igor.fails("PATCH", "/api/categories/abc", `{}`, 400, apidto.CodeInvalidRequest)

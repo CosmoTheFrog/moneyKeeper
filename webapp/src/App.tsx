@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AccountReport } from './AccountReport'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AccountsScreen } from './AccountsScreen'
 import {
   fetchAccounts,
@@ -16,19 +15,23 @@ import {
 import { BudgetScreen } from './BudgetScreen'
 import { CategoryScreen } from './CategoryScreen'
 import { CurrencyScreen } from './CurrencyScreen'
+import { TourScreen } from './TourScreen'
 import { EntryForm } from './EntryForm'
 import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
 import { NoPrivacy, PrivacyContext } from './MoneyText'
 import { registerCurrencies } from './money'
 import { OperationsScreen } from './OperationsScreen'
-import { PortfolioScreen } from './PortfolioScreen'
 import { ReportsScreen } from './ReportsScreen'
-import { SchedulesScreen } from './SchedulesScreen'
-import { SavingsScreen } from './SavingsScreen'
 import { TabBar, type Tab } from './TabBar'
 import { applyTheme, readMode, resolveTheme, saveMode, type ThemeMode } from './theme'
 import { ThemeContext } from './ThemeSettings'
+
+// Экраны, которые открывают редко, грузятся отдельными кусками при первом открытии.
+const AccountReport = lazy(() => import('./AccountReport').then((m) => ({ default: m.AccountReport })))
+const PortfolioScreen = lazy(() => import('./PortfolioScreen').then((m) => ({ default: m.PortfolioScreen })))
+const SchedulesScreen = lazy(() => import('./SchedulesScreen').then((m) => ({ default: m.SchedulesScreen })))
+const SavingsScreen = lazy(() => import('./SavingsScreen').then((m) => ({ default: m.SavingsScreen })))
 
 type Data = {
   me: Me
@@ -116,6 +119,9 @@ export function App() {
 
   const load = useCallback(async () => {
     try {
+      // Группы и категории от профиля не зависят, их запрос идёт параллельно с ним.
+      const structure = Promise.all([fetchCategoryGroups(), fetchCategories()])
+      structure.catch(() => {}) // ошибку разберёт await ниже; без этого при раннем выходе она осталась бы необработанной
       const me = await fetchMe()
       registerCurrencies(me.currency_info)
       if (me.budget.base_currency === null) {
@@ -124,7 +130,7 @@ export function App() {
       }
       // Сохранённая валюта могла пропасть из списка: тогда считаем в базовой.
       const target = me.currencies.includes(displayChoice) ? displayChoice : ''
-      const [accounts, groups, categories, transactions] = await Promise.all([fetchAccounts(target), fetchCategoryGroups(), fetchCategories(), fetchTransactions(target)])
+      const [[groups, categories], accounts, transactions] = await Promise.all([structure, fetchAccounts(target), fetchTransactions(target)])
       setState({ kind: 'ready', data: { me, accounts, groups, categories, transactions } })
     } catch {
       setState({ kind: 'error' })
@@ -182,6 +188,9 @@ export function App() {
       if (base === null) {
         return <CurrencyScreen currencies={me.base_currencies} onDone={() => void load()} />
       }
+      if (!me.tour_seen) {
+        return <TourScreen onDone={() => void load()} />
+      }
 
       const today = dayIn(me.timezone)
       const reload = () => void load()
@@ -189,9 +198,19 @@ export function App() {
       const home: Screen = { kind: 'tabs' }
 
       const openEntry = (entry: Entry, returnTo: Screen) => go({ kind: 'edit', entry, returnTo })
+      // Запись меняет только счета (остатки) и список записей; профиль, группы и категории при этом не трогаются.
+      const refreshLedger = async () => {
+        try {
+          const target = me.currencies.includes(displayChoice) ? displayChoice : ''
+          const [nextAccounts, transactions] = await Promise.all([fetchAccounts(target), fetchTransactions(target)])
+          setState((prev) => (prev.kind === 'ready' ? { kind: 'ready', data: { ...prev.data, accounts: nextAccounts, transactions } } : prev))
+        } catch {
+          reload()
+        }
+      }
       const finish = (returnTo: Screen) => {
         go(returnTo)
-        reload()
+        void refreshLedger()
       }
 
       // Пока счетов нет, записывать некуда: «+» ведёт на вкладку счетов, где форма уже открыта.
@@ -331,7 +350,7 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} onOpen={(entry) => openEntry(entry, home)} />}
+              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} currency={display} today={today} onOpen={(entry) => openEntry(entry, home)} />}
               {tab === 'budget' && (
                 <BudgetScreen
                   groups={groups}
@@ -339,6 +358,7 @@ export function App() {
                   accounts={accounts}
                   baseCurrency={base}
                   today={today}
+                  envelopesEnabled={me.budget.envelopes_enabled}
                   ledger={state.data.transactions}
                   onOpenSchedules={() => go({ kind: 'schedules' })}
                   onChanged={reload}
@@ -359,7 +379,7 @@ export function App() {
                   onOpen={(entry) => openEntry(entry, home)}
                 />
               )}
-              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
+              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} reminderHour={me.reminder_hour} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>
           )
@@ -373,7 +393,9 @@ export function App() {
       return (
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>
-            {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
+            <Suspense fallback={<p className="screen hint">{t.loading}</p>}>
+              {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
+            </Suspense>
             {overlay}
           </PrivacyContext.Provider>
         </ThemeContext.Provider>

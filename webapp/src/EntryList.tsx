@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import type { Account, Category } from './api'
 import { groupByDay, type Entry } from './ledger'
 import { t } from './i18n'
@@ -15,6 +16,9 @@ type Props = {
   noteFirst?: 'plain' | 'withCategory'
 }
 
+// Сколько записей рисуется сразу; остальные добавляются по кнопке, иначе длинная история тормозит экран.
+const PAGE = 100
+
 function dayLabel(date: string, today: string): string {
   if (date === today) return t.today
   const [y, m, d] = date.split('-').map(Number)
@@ -23,8 +27,10 @@ function dayLabel(date: string, today: string): string {
 
 // Список записей по дням. Нажатие на строку открывает запись, нажатие на сумму скрывает или показывает все суммы.
 export function EntryList({ entries, accounts, categories, today, onOpen, noteFirst }: Props) {
-  const accountName = new Map(accounts.map((a) => [a.id, a.name]))
-  const categoryName = new Map(categories.map((c) => [c.id, c.name]))
+  const [shown, setShown] = useState(PAGE)
+  const accountName = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts])
+  const categoryName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories])
+  const groups = useMemo(() => groupByDay(entries.slice(0, shown)), [entries, shown])
 
   function title(e: Entry): string {
     switch (e.kind) {
@@ -60,7 +66,7 @@ export function EntryList({ entries, accounts, categories, today, onOpen, noteFi
 
   return (
     <>
-      {groupByDay(entries).map((g) => (
+      {groups.map((g) => (
         <section key={g.date}>
           <h2 className="day">{dayLabel(g.date, today)}</h2>
           <div className="card list-card">
@@ -83,6 +89,11 @@ export function EntryList({ entries, accounts, categories, today, onOpen, noteFi
           </div>
         </section>
       ))}
+      {entries.length > shown && (
+        <button type="button" className="chip" onClick={() => setShown(shown + PAGE)}>
+          {t.ledger.more} · {entries.length - shown}
+        </button>
+      )}
     </>
   )
 }
