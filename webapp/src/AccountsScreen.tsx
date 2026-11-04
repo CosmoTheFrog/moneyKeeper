@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, createAccount, type Account, type AccountKind } from './api'
 import { AccountFocus } from './AccountFocus'
-import { holdings } from './accounts'
+import { holdings, totalBalance } from './accounts'
 import { ImportScreen } from './ImportScreen'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
@@ -32,6 +32,7 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
   const [importing, setImporting] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
   const focusedAccount = accounts.find((a) => a.id === focused)
+  const total = totalBalance(every)
 
   return (
     <main className="screen">
@@ -48,6 +49,14 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
           </button>
         </span>
       </header>
+
+      {accounts.length > 0 && (
+        <div className="card ops-hero">
+          <span className="label">{t.accounts.total}</span>
+          {total === null ? <p className="hint tight">{t.accounts.noRates}</p> : <Money minor={total} currency={displayCurrency} />}
+          <p className="hint tight">{t.accounts.totalNote}</p>
+        </div>
+      )}
 
       <div className="toolbar">
         <button type="button" className="chip" onClick={onOpenSavings}>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Account, Category, CategoryGroup } from './api'
 import { EntryList } from './EntryList'
+import { groupColors } from './groupColor'
 import { t } from './i18n'
 import type { Entry } from './ledger'
 import { Money } from './MoneyText'
@@ -28,9 +29,6 @@ const byOptions = [
   { value: 'categories' as const, label: t.reports.byCategories },
 ]
 
-// Цвета групп; у категорий цвет берётся по кругу из этой же палитры.
-const palette = ['#0e7c7b', '#4c5bd4', '#d9892b', '#d4577a', '#7a8794', '#5fb3b0', '#7c88e0', '#a9b1ec', '#cdd2f5', '#a5d3d1']
-
 const POP = 6
 
 // Кольцо и список трат: по группам или по категориям. Нажатие на кусок выдвигает его и показывает траты,
@@ -47,6 +45,16 @@ export function SpendBreakdown({ slices, groups, categories, accounts, entries, 
   const drawn = arcs(shown.map((s) => s.totalMinor))
   const current = shown.find((s) => s.key === selected)
   const currentIndex = current === undefined ? -1 : shown.indexOf(current)
+  // Цвет куска это цвет его группы, такой же, как в операциях и бюджете. Категории одной группы различаются глубиной цвета.
+  const hues = groupColors(groups)
+  const tone = (i: number): string => {
+    const slice = shown[i]
+    if (slice === undefined) return 'var(--accent)'
+    const base = hues.get(slice.groupId) ?? 'var(--accent)'
+    if (groupsView) return base
+    const k = shown.slice(0, i).filter((x) => x.groupId === slice.groupId).length
+    return k === 0 ? base : `color-mix(in srgb, ${base} ${Math.max(100 - k * 16, 36)}%, var(--card))`
+  }
 
   function pick(slice: Slice) {
     setSelected((now) => (now === slice.key ? null : slice.key))
@@ -126,11 +134,10 @@ export function SpendBreakdown({ slices, groups, categories, accounts, entries, 
                       cy="100"
                       r={RADIUS}
                       fill="none"
-                      stroke={palette[i % palette.length]}
                       strokeWidth={active ? 30 : 24}
                       strokeDasharray={`${a.length} 1000`}
                       strokeDashoffset={a.offset}
-                      style={{ transform: pop(i), opacity: selected === null || active ? 1 : 0.35 }}
+                      style={{ stroke: tone(i), transform: pop(i), opacity: selected === null || active ? 1 : 0.35 }}
                       aria-label={slice?.label}
                       {...select(slice)}
                     />
@@ -148,7 +155,7 @@ export function SpendBreakdown({ slices, groups, categories, accounts, entries, 
           <div className="legend">
             {shown.map((s, i) => (
               <div key={s.key} className={s.key === selected ? 'legend-row legend-tap legend-on' : 'legend-row legend-tap'} {...select(s)}>
-                <span className="dot" style={{ background: palette[i % palette.length] }} />
+                <span className="dot" style={{ background: tone(i) }} />
                 <span className="legend-name">{s.label}</span>
                 <Money minor={s.totalMinor} currency={currency} />
                 <span className="legend-pct">{percent(s.totalMinor, total)}%</span>
@@ -161,7 +168,7 @@ export function SpendBreakdown({ slices, groups, categories, accounts, entries, 
       {current !== undefined && (
         <>
           <div className="row group-head">
-            <span className="group-title" style={{ color: palette[currentIndex % palette.length] }}>
+            <span className="group-title" style={{ color: tone(currentIndex) }}>
               {current.label}
             </span>
             {groupsView && (
