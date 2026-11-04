@@ -7,6 +7,7 @@ import { t } from './i18n'
 import { Money } from './MoneyText'
 import { currencySign, formatRate } from './money'
 import { Segmented } from './Pickers'
+import { Skeleton } from './States'
 import { formatBP, heatTone, shares, treemap } from './portfolio'
 import { CIRCLE, RADIUS, arcs } from './report'
 
@@ -86,7 +87,13 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
       </header>
       <h1>{t.portfolio.title}</h1>
 
-      {loaded.kind === 'loading' && <p className="hint">{t.loading}</p>}
+      {loaded.kind === 'loading' && (
+        <div className="card sk-hero" aria-busy="true" aria-label={t.loading}>
+          <Skeleton w={90} h={11} />
+          <Skeleton w={180} h={34} />
+          <Skeleton h={200} />
+        </div>
+      )}
       {loaded.kind === 'failed' && <p className="error">{t.errors.internal}</p>}
       {loaded.kind === 'ready' && items.length === 0 && <p className="hint">{t.portfolio.empty}</p>}
 

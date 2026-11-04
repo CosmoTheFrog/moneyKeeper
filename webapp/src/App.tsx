@@ -22,6 +22,7 @@ import { dayIn, toEntries, type Entry } from './ledger'
 import { NoPrivacy, PrivacyContext } from './MoneyText'
 import { registerCurrencies } from './money'
 import { OperationsScreen } from './OperationsScreen'
+import { ErrorState, ScreenSkeleton } from './States'
 import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
 import { applyTheme, readMode, resolveTheme, saveMode, type ThemeMode } from './theme'
@@ -159,18 +160,11 @@ export function App() {
 
   switch (state.kind) {
     case 'loading':
-      return <p className="screen hint">{t.loading}</p>
+      return <ScreenSkeleton />
     case 'outside':
       return <p className="screen hint">{t.openInTelegram}</p>
     case 'error':
-      return (
-        <main className="screen">
-          <p className="error">{t.errors.internal}</p>
-          <button type="button" className="primary" onClick={() => void load()}>
-            {t.retry}
-          </button>
-        </main>
-      )
+      return <ErrorState onRetry={() => void load()} />
     case 'ready': {
       const { me, accounts: everyAccount, groups, categories } = state.data
       // Закрытые счета не показываются в списках и выборе, но остаются в названиях старых записей.
@@ -348,7 +342,7 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} onOpen={(entry) => openEntry(entry, home)} />}
+              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} />}
               {tab === 'budget' && (
                 <BudgetScreen
                   groups={groups}
@@ -390,7 +384,7 @@ export function App() {
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>
             <CategoryColorContext.Provider value={colors}>
-              <Suspense fallback={<p className="screen hint">{t.loading}</p>}>
+              <Suspense fallback={<ScreenSkeleton />}>
                 {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
               </Suspense>
               {overlay}
