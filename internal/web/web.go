@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -30,7 +31,10 @@ const (
 type Service interface {
 	Resolve(ctx context.Context, tg models.TelegramUser, timezone string) (models.User, error)
 	Budget(ctx context.Context, u models.User) (models.Budget, error)
+	SetReminderHour(ctx context.Context, u models.User, hour *int) error
+	SetTourSeen(ctx context.Context, u models.User, seen bool) error
 	SetBaseCurrency(ctx context.Context, u models.User, code string) (models.Budget, error)
+	SetEnvelopes(ctx context.Context, u models.User, enabled bool) (models.Budget, error)
 	ListAccounts(ctx context.Context, u models.User, in string) ([]models.Account, error)
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
 	ArchiveAccount(ctx context.Context, u models.User, id int64) error
@@ -44,6 +48,7 @@ type Service interface {
 	UpdateCategory(ctx context.Context, u models.User, id int64, p models.CategoryPatch) (models.Category, error)
 
 	ListTransactions(ctx context.Context, u models.User, limit, offset int, in string) ([]models.Transaction, error)
+	ExportTransactions(ctx context.Context, u models.User, from, to apptime.Day, w io.Writer) error
 	Rates(ctx context.Context, u models.User, in string) (models.RateTable, error)
 	Portfolio(ctx context.Context, u models.User, in string) (models.Portfolio, error)
 	BudgetMonth(ctx context.Context, u models.User, month apptime.Month) (models.BudgetMonth, error)
@@ -89,6 +94,9 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("GET /healthz", h.healthz)
 	mux.HandleFunc("GET /api/me", h.auth(h.me))
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
+	mux.HandleFunc("PUT /api/budget/envelopes", h.auth(h.setEnvelopes))
+	mux.HandleFunc("PUT /api/me/reminder", h.auth(h.setReminder))
+	mux.HandleFunc("PUT /api/me/tour", h.auth(h.setTour))
 	mux.HandleFunc("POST /api/assets", h.auth(h.addAsset))
 	mux.HandleFunc("GET /api/rates", h.auth(h.rates))
 	mux.HandleFunc("GET /api/portfolio", h.auth(h.portfolio))
@@ -112,6 +120,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("POST /api/transactions", h.auth(h.createTransaction))
 	mux.HandleFunc("POST /api/exchanges", h.auth(h.createExchange))
 	mux.HandleFunc("POST /api/transactions/parse", h.auth(h.parseQuick))
+	mux.HandleFunc("GET /api/export/transactions", h.auth(h.exportTransactions))
 	mux.HandleFunc("POST /api/import/preview", h.auth(h.previewImport))
 	mux.HandleFunc("POST /api/import/file", h.auth(h.previewImportFile))
 	mux.HandleFunc("POST /api/import/commit", h.auth(h.commitImport))
@@ -172,6 +181,8 @@ func (h *handler) me(w http.ResponseWriter, r *http.Request, u models.User) {
 		BaseCurrencies: currencyCodes(money.Base),
 		Currencies:     currencyCodes(money.All()),
 		CurrencyInfo:   currencyInfo(),
+		ReminderHour:   u.ReminderHour,
+		TourSeen:       u.TourSeen,
 	})
 }
 
@@ -271,7 +282,7 @@ func (h *handler) archiveAccount(w http.ResponseWriter, r *http.Request, u model
 }
 
 func budgetDTO(b models.Budget) apidto.BudgetDTO {
-	dto := apidto.BudgetDTO{ID: b.ID, Name: b.Name}
+	dto := apidto.BudgetDTO{ID: b.ID, Name: b.Name, EnvelopesEnabled: b.EnvelopesEnabled}
 	if b.BaseCurrency != nil {
 		c := string(*b.BaseCurrency)
 		dto.BaseCurrency = &c
@@ -363,4 +374,48 @@ func (h *handler) writeJSON(w http.ResponseWriter, status int, body any) {
 	if err := json.NewEncoder(w).Encode(body); err != nil {
 		h.log.Error("write response", "err", err)
 	}
+}
+
+// setReminder включает ежедневное напоминание внести траты на час (0-23) или выключает его.
+func (h *handler) setReminder(w http.ResponseWriter, r *http.Request, u models.User) {
+	var req apidto.SetReminderRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	if req.Hour != nil && (*req.Hour < 0 || *req.Hour > 23) {
+		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidRequest)
+		return
+	}
+	if err := h.svc.SetReminderHour(r.Context(), u, req.Hour); err != nil {
+		h.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// setEnvelopes включает режим конвертов у бюджета или выключает его; ответ это бюджет с новым флагом.
+func (h *handler) setEnvelopes(w http.ResponseWriter, r *http.Request, u models.User) {
+	var req apidto.SetEnvelopesRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	b, err := h.svc.SetEnvelopes(r.Context(), u, req.Enabled)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusOK, budgetDTO(b))
+}
+
+// setTour отмечает обучение показанным или просит показать его снова.
+func (h *handler) setTour(w http.ResponseWriter, r *http.Request, u models.User) {
+	var req apidto.SetTourRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	if err := h.svc.SetTourSeen(r.Context(), u, req.Seen); err != nil {
+		h.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

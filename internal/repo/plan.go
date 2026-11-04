@@ -93,3 +93,42 @@ func (r *Plan) Flows(ctx context.Context, budgetID int64, upTo apptime.Month) ([
 	}
 	return out, rows.Err()
 }
+
+// AlertKey это порог лимита категории, о котором уже предупредили.
+type AlertKey struct {
+	CategoryID int64
+	Threshold  int
+}
+
+// LimitAlerted возвращает отправленные предупреждения бюджета за месяц.
+func (r *Plan) LimitAlerted(ctx context.Context, budgetID int64, month apptime.Month) (map[AlertKey]bool, error) {
+	rows, err := r.db.Q(ctx).Query(ctx,
+		`SELECT a.category_id, a.threshold FROM limit_alerts a JOIN categories c ON c.id = a.category_id
+		 WHERE c.budget_id = $1 AND a.month = $2`, budgetID, month.First().Date())
+	if err != nil {
+		return nil, fmt.Errorf("limit alerted: %w", err)
+	}
+	defer rows.Close()
+
+	out := map[AlertKey]bool{}
+	for rows.Next() {
+		var k AlertKey
+		if err := rows.Scan(&k.CategoryID, &k.Threshold); err != nil {
+			return nil, fmt.Errorf("scan alert: %w", err)
+		}
+		out[k] = true
+	}
+	return out, rows.Err()
+}
+
+// MarkLimitAlerted запоминает порог и все меньшие: если расход перескочил сразу к 100%, про 80% не напоминаем.
+func (r *Plan) MarkLimitAlerted(ctx context.Context, categoryID int64, month apptime.Month, threshold int) error {
+	_, err := r.db.Q(ctx).Exec(ctx,
+		`INSERT INTO limit_alerts (category_id, month, threshold)
+		 SELECT $1, $2, t FROM unnest(ARRAY[80, 100]) AS t WHERE t <= $3 ON CONFLICT DO NOTHING`,
+		categoryID, month.First().Date(), threshold)
+	if err != nil {
+		return fmt.Errorf("mark limit alerted: %w", err)
+	}
+	return nil
+}

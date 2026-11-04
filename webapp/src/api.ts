@@ -4,6 +4,8 @@ export type Budget = {
   id: number
   name: string
   base_currency: string | null
+  // Режим конвертов: заложенные суммы, «К распределению», лимиты. Выключен, пока пользователь не включит.
+  envelopes_enabled: boolean
 }
 
 export type Me = {
@@ -15,6 +17,10 @@ export type Me = {
   currencies: string[]
   // Знаки после запятой и признак монеты по каждой валюте.
   currency_info: CurrencyInfo[]
+  // Час ежедневного напоминания внести траты, null если выключено.
+  reminder_hour: number | null
+  // Обучение при первом входе уже показано.
+  tour_seen: boolean
 }
 
 // wallet и piggy (кошелёк, копилка) лежат вне бюджета.
@@ -174,6 +180,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export const fetchMe = () => request<Me>('GET', '/api/me')
+
+export const setEnvelopes = (enabled: boolean) => request<Budget>('PUT', '/api/budget/envelopes', { enabled })
 
 export const setBaseCurrency = (currency: string) => request<Budget>('PUT', '/api/budget/currency', { currency })
 
@@ -362,3 +370,11 @@ export const removeWallet = async (id: number): Promise<void> => {
 
 // Переводы адреса за последние 90 дней, ничего не сохраняет до commitImport.
 export const previewWallet = (id: number) => request<ImportPreview>('POST', `/api/wallets/${id}/preview`)
+
+// CSV с записями за период. Авторизация идёт заголовком, поэтому файл берётся запросом, а не ссылкой.
+export const fetchExport = async (from: string, to: string) =>
+  (await send('GET', `/api/export/transactions?from=${from}&to=${to}`)).blob()
+
+// Час (0-23 по времени пользователя) включает ежедневное напоминание внести траты, null выключает.
+export const setReminderHour = (hour: number | null) => send('PUT', '/api/me/reminder', { hour }).then(() => undefined)
+export const setTourSeen = (seen: boolean) => send('PUT', '/api/me/tour', { seen }).then(() => undefined)

@@ -193,3 +193,11 @@ func (s *Service) today(u models.User) apptime.Day {
 	}
 	return apptime.Today(loc, s.now())
 }
+
+// SetEnvelopes включает режим конвертов у активного бюджета или выключает его.
+func (s *Service) SetEnvelopes(ctx context.Context, u models.User, enabled bool) (models.Budget, error) {
+	if err := s.budgets.SetEnvelopes(ctx, u.ActiveBudgetID, enabled); err != nil {
+		return models.Budget{}, err
+	}
+	return s.budgets.Get(ctx, u.ActiveBudgetID)
+}

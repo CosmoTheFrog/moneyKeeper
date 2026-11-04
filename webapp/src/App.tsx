@@ -15,6 +15,7 @@ import {
 import { BudgetScreen } from './BudgetScreen'
 import { CategoryScreen } from './CategoryScreen'
 import { CurrencyScreen } from './CurrencyScreen'
+import { TourScreen } from './TourScreen'
 import { EntryForm } from './EntryForm'
 import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
@@ -187,6 +188,9 @@ export function App() {
       if (base === null) {
         return <CurrencyScreen currencies={me.base_currencies} onDone={() => void load()} />
       }
+      if (!me.tour_seen) {
+        return <TourScreen onDone={() => void load()} />
+      }
 
       const today = dayIn(me.timezone)
       const reload = () => void load()
@@ -346,7 +350,7 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} onOpen={(entry) => openEntry(entry, home)} />}
+              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} currency={display} today={today} onOpen={(entry) => openEntry(entry, home)} />}
               {tab === 'budget' && (
                 <BudgetScreen
                   groups={groups}
@@ -354,6 +358,7 @@ export function App() {
                   accounts={accounts}
                   baseCurrency={base}
                   today={today}
+                  envelopesEnabled={me.budget.envelopes_enabled}
                   ledger={state.data.transactions}
                   onOpenSchedules={() => go({ kind: 'schedules' })}
                   onChanged={reload}
@@ -374,7 +379,7 @@ export function App() {
                   onOpen={(entry) => openEntry(entry, home)}
                 />
               )}
-              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
+              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} reminderHour={me.reminder_hour} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>
           )

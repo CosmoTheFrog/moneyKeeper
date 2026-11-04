@@ -1,13 +1,15 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError, createAccount, type Account, type AccountKind } from './api'
+import { ApiError, createAccount, setTourSeen, type Account, type AccountKind } from './api'
 import { AccountFocus } from './AccountFocus'
 import { holdings } from './accounts'
+import { ExportScreen } from './ExportScreen'
 import { ImportScreen } from './ImportScreen'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { parseAmount } from './money'
 import { ChipPicker, CurrencyPicker } from './Pickers'
+import { ReminderSettings } from './ReminderSettings'
 import { ThemeSettings } from './ThemeSettings'
 
 type Props = {
@@ -16,6 +18,8 @@ type Props = {
   baseCurrency: string
   // Валюта, в которой показаны итоги на обороте карты.
   displayCurrency: string
+  // Час ежедневного напоминания внести траты, null если выключено.
+  reminderHour: number | null
   onChanged: () => void
   onOpenReport: (accountId: number) => void
   onOpenSavings: () => void
@@ -24,12 +28,14 @@ type Props = {
 
 const kindOptions = (['debit', 'credit', 'cash', 'wallet'] as const).map((k) => ({ value: k, label: t.accountKinds[k] }))
 
-export function AccountsScreen({ accounts: every, currencies, baseCurrency, displayCurrency, onChanged, onOpenReport, onOpenSavings, onOpenPortfolio }: Props) {
+export function AccountsScreen({ accounts: every, currencies, baseCurrency, displayCurrency, reminderHour, onChanged, onOpenReport, onOpenSavings, onOpenPortfolio }: Props) {
   // Копилки живут на экране «Накопления», здесь только обычные счета и кошельки.
   const accounts = every.filter((a) => a.kind !== 'piggy')
   const [adding, setAdding] = useState(accounts.length === 0)
   const [settings, setSettings] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [reminding, setReminding] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
   const focusedAccount = accounts.find((a) => a.id === focused)
 
@@ -58,6 +64,15 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
         </button>
         <button type="button" className="chip" onClick={() => setImporting(true)}>
           {t.accounts.import}
+        </button>
+        <button type="button" className="chip" onClick={() => setExporting(true)}>
+          {t.accounts.export}
+        </button>
+        <button type="button" className="chip" onClick={() => setReminding(true)}>
+          {t.accounts.reminder}
+        </button>
+        <button type="button" className="chip" onClick={() => void setTourSeen(false).then(onChanged, () => undefined)}>
+          {t.accounts.tour}
         </button>
       </div>
 
@@ -103,6 +118,8 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
         />
       )}
       {settings && <ThemeSettings onClose={() => setSettings(false)} />}
+      {exporting && <ExportScreen onClose={() => setExporting(false)} />}
+      {reminding && <ReminderSettings hour={reminderHour} onChanged={onChanged} onClose={() => setReminding(false)} />}
       {importing && (
         <ImportScreen
           accounts={accounts}
