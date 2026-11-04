@@ -165,6 +165,11 @@ export const t = {
     transfer: 'Перевод',
     uncategorized: 'Без категории',
   },
+  swipe: {
+    edit: 'Изменить',
+    delete: 'Удалить',
+    confirm: 'Удалить запись',
+  },
   day: {
     prev: 'Предыдущий день',
     next: 'Следующий день',

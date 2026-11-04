@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AccountsScreen } from './AccountsScreen'
 import {
+  deleteTransaction,
   fetchAccounts,
   fetchCategories,
   fetchCategoryGroups,
@@ -23,6 +24,8 @@ import { dayIn, toEntries, type Entry } from './ledger'
 import { NoPrivacy, PrivacyContext } from './MoneyText'
 import { registerCurrencies } from './money'
 import { OperationsScreen } from './OperationsScreen'
+import { SwipeRow } from './SwipeRow'
+import { haptic } from './haptic'
 import { ErrorState, ScreenSkeleton } from './States'
 import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
@@ -203,8 +206,18 @@ export function App() {
         }
       }
       const finish = (returnTo: Screen) => {
+        haptic('success')
         go(returnTo)
         void refreshLedger()
+      }
+      // Удаление смахиванием: запись и её вторая нога удаляются на сервере, список перечитывается.
+      const removeEntry = async (entry: Entry) => {
+        try {
+          await deleteTransaction(entry.id)
+        } catch {
+          // не удалилось: список ниже перечитается и покажет, что запись на месте
+        }
+        await refreshLedger()
       }
 
       // Пока счетов нет, записывать некуда: «+» ведёт на вкладку счетов, где форма уже открыта.
@@ -363,7 +376,7 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} />}
+              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
               {tab === 'budget' && (
                 <BudgetScreen
                   groups={groups}

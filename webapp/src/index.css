@@ -2669,3 +2669,112 @@ span.money {
   z-index: 10;
   box-shadow: 0 14px 26px -10px var(--accent);
 }
+
+/* Смахивание строки записи. */
+.swipe {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.swipe-acts {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 124px;
+}
+
+.swipe-btn {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.swipe-btn svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.swipe-edit {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.swipe-del {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+
+.swipe-confirm {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--danger);
+  color: #fff;
+  font-weight: 800;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.swipe-body {
+  position: relative;
+  background: var(--card);
+  box-shadow: 8px 0 20px -10px rgb(0 0 0 / 22%);
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  touch-action: pan-y;
+}
+
+.swipe-drag {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swipe-body {
+    transition: none;
+  }
+}
+
+/* Отклик на нажатие. */
+.primary,
+.chip,
+.plus,
+.nav-arrow,
+.tab,
+.tab-add,
+.option {
+  transition: transform 0.12s;
+}
+
+.primary:active:not(:disabled),
+.chip:active,
+.plus:active,
+.tab:active,
+.tab-add:active,
+.option:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary:active:not(:disabled),
+  .chip:active,
+  .plus:active,
+  .tab:active,
+  .tab-add:active,
+  .option:active {
+    transform: none;
+  }
+}
