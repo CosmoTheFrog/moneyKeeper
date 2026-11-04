@@ -2306,3 +2306,73 @@ span.money {
     transition: none;
   }
 }
+
+/* Операции: плитка категории в строке, итог дня, нажимаемый заголовок дня. */
+.entry-av {
+  gap: 12px;
+  padding: 0 16px 0 14px;
+  border-bottom: 0;
+}
+
+.entry-wrap + .entry-wrap {
+  border-top: 1px solid var(--line);
+}
+
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--gc) 14%, transparent);
+  color: var(--gc);
+}
+
+.avatar svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.avatar b {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.day-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.day-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.day-end .money {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.day-tap {
+  cursor: pointer;
+}
+
+.day-tap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.day-end .chev {
+  width: 20px;
+  height: 20px;
+}

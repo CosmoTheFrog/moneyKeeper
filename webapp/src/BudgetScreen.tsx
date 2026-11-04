@@ -15,6 +15,7 @@ import {
 } from './api'
 import { fillPercent, monthPace, parseBudgeted, rowStatus, toBudgetTone, type RowStatus } from './budget'
 import { CategoryRing } from './CategoryRing'
+import { groupColors } from './groupColor'
 import { BudgetFocus } from './BudgetFocus'
 import { monthTitle, shiftMonth } from './calendar'
 import { errorText, t } from './i18n'
@@ -74,7 +75,7 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
   const rows = new Map((budget?.categories ?? []).map((r) => [r.category_id, r]))
   const tone = budget === null ? 'done' : toBudgetTone(budget.to_budget_minor)
   const pace = monthPace(month, today)
-  const colorOf = new Map(groups.map((g, i) => [g.id, `var(--g${(i % 6) + 1})`]))
+  const colorOf = groupColors(groups)
   const groupSum = (groupId: number, key: 'budgeted_minor' | 'spent_minor') =>
     categories.filter((c) => c.group_id === groupId).reduce((sum, c) => sum + (rows.get(c.id)?.[key] ?? 0), 0)
   // Категории, на которые стоит посмотреть: перерасход, траты без плана, опережение темпа.

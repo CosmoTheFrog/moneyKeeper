@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useContext, type ReactNode } from 'react'
 import type { Account, Category } from './api'
-import { groupByDay, type Entry } from './ledger'
+import { EntryAvatar } from './EntryAvatar'
+import { CategoryColorContext } from './groupColor'
+import { dayNet, groupByDay, type Entry } from './ledger'
 import { t } from './i18n'
 import { Money } from './MoneyText'
 import { currencySign } from './money'
@@ -14,10 +16,13 @@ type Props = {
   // Для трат заголовок это заметка («аренда за октябрь»), а название категории запасное.
   // withCategory дописывает категорию в подпись: нужно там, где в списке разные категории.
   noteFirst?: 'plain' | 'withCategory'
+  // Валюта итогов дня; без неё итог в заголовке дня не показывается.
+  totalCurrency?: string
+  // Нажатие на заголовок дня открывает день.
+  onOpenDay?: (date: string) => void
+  // Оборачивает строку записи, например в смахивание.
+  wrapRow?: (entry: Entry, row: ReactNode) => ReactNode
 }
-
-// Сколько записей рисуется сразу; остальные добавляются по кнопке, иначе длинная история тормозит экран.
-const PAGE = 100
 
 function dayLabel(date: string, today: string): string {
   if (date === today) return t.today
@@ -25,12 +30,11 @@ function dayLabel(date: string, today: string): string {
   return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
 }
 
-// Список записей по дням. Нажатие на строку открывает запись, нажатие на сумму скрывает или показывает все суммы.
-export function EntryList({ entries, accounts, categories, today, onOpen, noteFirst }: Props) {
-  const [shown, setShown] = useState(PAGE)
-  const accountName = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts])
-  const categoryName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories])
-  const groups = useMemo(() => groupByDay(entries.slice(0, shown)), [entries, shown])
+// Список записей по дням. Нажатие на строку открывает запись, нажатие на сумму скрывает суммы.
+export function EntryList({ entries, accounts, categories, today, onOpen, noteFirst, totalCurrency, onOpenDay, wrapRow }: Props) {
+  const colors = useContext(CategoryColorContext)
+  const accountName = new Map(accounts.map((a) => [a.id, a.name]))
+  const categoryName = new Map(categories.map((c) => [c.id, c.name]))
 
   function title(e: Entry): string {
     switch (e.kind) {
@@ -66,34 +70,57 @@ export function EntryList({ entries, accounts, categories, today, onOpen, noteFi
 
   return (
     <>
-      {groups.map((g) => (
-        <section key={g.date}>
-          <h2 className="day">{dayLabel(g.date, today)}</h2>
-          <div className="card list-card">
-            {g.entries.map((e) => (
-              <div key={e.id} className="entry">
-                <button type="button" className="entry-open" onClick={() => onOpen(e)}>
-                  <span className="entry-title">{title(e)}</span>
-                  <span className="entry-sub">{subtitle(e)}</span>
-                </button>
-                {e.kind === 'exchange' ? (
-                  <span className="entry-amounts">
-                    <Money minor={-e.amountMinor} currency={e.currency} />
-                    {e.inMinor !== null && e.inCurrency !== null && <Money minor={e.inMinor} currency={e.inCurrency} signed />}
-                  </span>
-                ) : (
-                  <Money minor={e.amountMinor} currency={e.currency} signed={e.kind !== 'transfer'} />
-                )}
+      {groupByDay(entries).map((g) => {
+        const net = totalCurrency === undefined ? null : dayNet(g.entries)
+        const head = (
+          <>
+            <span>{dayLabel(g.date, today)}</span>
+            <span className="day-end">
+              {net !== null && totalCurrency !== undefined && <Money minor={net} currency={totalCurrency} signed />}
+              {onOpenDay !== undefined && (
+                <span className="chev" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </span>
+              )}
+            </span>
+          </>
+        )
+        return (
+          <section key={g.date}>
+            {onOpenDay !== undefined ? (
+              <div className="day day-row day-tap" role="button" tabIndex={0} onClick={() => onOpenDay(g.date)} onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && onOpenDay(g.date)}>
+                {head}
               </div>
-            ))}
-          </div>
-        </section>
-      ))}
-      {entries.length > shown && (
-        <button type="button" className="chip" onClick={() => setShown(shown + PAGE)}>
-          {t.ledger.more} · {entries.length - shown}
-        </button>
-      )}
+            ) : (
+              <h2 className="day day-row">{head}</h2>
+            )}
+            <div className="card list-card">
+              {g.entries.map((e) => {
+                const row = (
+                  <div className="entry entry-av">
+                    <EntryAvatar entry={e} categoryName={e.categoryId !== null ? categoryName.get(e.categoryId) : undefined} color={e.categoryId !== null ? colors.get(e.categoryId) : undefined} />
+                    <button type="button" className="entry-open" onClick={() => onOpen(e)}>
+                      <span className="entry-title">{title(e)}</span>
+                      <span className="entry-sub">{subtitle(e)}</span>
+                    </button>
+                    {e.kind === 'exchange' ? (
+                      <span className="entry-amounts">
+                        <Money minor={-e.amountMinor} currency={e.currency} />
+                        {e.inMinor !== null && e.inCurrency !== null && <Money minor={e.inMinor} currency={e.inCurrency} signed />}
+                      </span>
+                    ) : (
+                      <Money minor={e.amountMinor} currency={e.currency} signed={e.kind !== 'transfer'} />
+                    )}
+                  </div>
+                )
+                return <div key={e.id} className="entry-wrap">{wrapRow !== undefined ? wrapRow(e, row) : row}</div>
+              })}
+            </div>
+          </section>
+        )
+      })}
     </>
   )
 }

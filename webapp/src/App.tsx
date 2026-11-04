@@ -14,6 +14,7 @@ import {
 } from './api'
 import { BudgetScreen } from './BudgetScreen'
 import { CategoryScreen } from './CategoryScreen'
+import { CategoryColorContext, categoryColors } from './groupColor'
 import { CurrencyScreen } from './CurrencyScreen'
 import { EntryForm } from './EntryForm'
 import { t } from './i18n'
@@ -189,6 +190,7 @@ export function App() {
       }
 
       const today = dayIn(me.timezone)
+      const colors = categoryColors(groups, categories)
       const reload = () => void load()
       const go = (to: Screen) => setScreen(to)
       const home: Screen = { kind: 'tabs' }
@@ -387,10 +389,12 @@ export function App() {
       return (
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>
-            <Suspense fallback={<p className="screen hint">{t.loading}</p>}>
-              {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
-            </Suspense>
-            {overlay}
+            <CategoryColorContext.Provider value={colors}>
+              <Suspense fallback={<p className="screen hint">{t.loading}</p>}>
+                {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
+              </Suspense>
+              {overlay}
+            </CategoryColorContext.Provider>
           </PrivacyContext.Provider>
         </ThemeContext.Provider>
       )
