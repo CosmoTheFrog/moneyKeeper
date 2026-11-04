@@ -131,3 +131,20 @@ export function entryMatches(e: Entry, query: string, accountName: Map<number, s
   const hay = [e.note, e.categoryId === null ? '' : (categoryName.get(e.categoryId) ?? ''), accountName.get(e.accountId) ?? '', e.toAccountId === null ? '' : (accountName.get(e.toAccountId) ?? '')]
   return hay.some((h) => h.toLowerCase().includes(q))
 }
+
+export type DaySummary = { spentMinor: number; incomeMinor: number; missingRates: number }
+
+// daySummary: траты (положительное число) и доход дня в валюте пересчёта. Записи без курса не входят и считаются отдельно.
+export function daySummary(entries: Entry[]): DaySummary {
+  const out: DaySummary = { spentMinor: 0, incomeMinor: 0, missingRates: 0 }
+  for (const e of entries) {
+    if (e.kind !== 'expense' && e.kind !== 'income') continue
+    if (e.baseMinor === null) {
+      out.missingRates++
+      continue
+    }
+    if (e.kind === 'expense') out.spentMinor += -e.baseMinor
+    else out.incomeMinor += e.baseMinor
+  }
+  return out
+}

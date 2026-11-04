@@ -22,6 +22,8 @@ type Props = {
   onOpenDay?: (date: string) => void
   // Оборачивает строку записи, например в смахивание.
   wrapRow?: (entry: Entry, row: ReactNode) => ReactNode
+  // Без заголовков дней: список одного дня на его экране.
+  bare?: boolean
 }
 
 function dayLabel(date: string, today: string): string {
@@ -31,7 +33,7 @@ function dayLabel(date: string, today: string): string {
 }
 
 // Список записей по дням. Нажатие на строку открывает запись, нажатие на сумму скрывает суммы.
-export function EntryList({ entries, accounts, categories, today, onOpen, noteFirst, totalCurrency, onOpenDay, wrapRow }: Props) {
+export function EntryList({ entries, accounts, categories, today, onOpen, noteFirst, totalCurrency, onOpenDay, wrapRow, bare = false }: Props) {
   const colors = useContext(CategoryColorContext)
   const accountName = new Map(accounts.map((a) => [a.id, a.name]))
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
@@ -89,7 +91,7 @@ export function EntryList({ entries, accounts, categories, today, onOpen, noteFi
         )
         return (
           <section key={g.date}>
-            {onOpenDay !== undefined ? (
+            {bare ? null : onOpenDay !== undefined ? (
               <div className="day day-row day-tap" role="button" tabIndex={0} onClick={() => onOpenDay(g.date)} onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && onOpenDay(g.date)}>
                 {head}
               </div>

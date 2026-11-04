@@ -14,6 +14,7 @@ import {
 } from './api'
 import { BudgetScreen } from './BudgetScreen'
 import { CategoryScreen } from './CategoryScreen'
+import { DayScreen } from './DayScreen'
 import { CategoryColorContext, categoryColors } from './groupColor'
 import { CurrencyScreen } from './CurrencyScreen'
 import { EntryForm } from './EntryForm'
@@ -46,9 +47,10 @@ type State = { kind: 'loading' } | { kind: 'outside' } | { kind: 'error' } | { k
 
 type Screen =
   | { kind: 'tabs' }
-  | { kind: 'add'; categoryId?: number; returnTo: Screen }
+  | { kind: 'add'; categoryId?: number; presetDate?: string; returnTo: Screen }
   | { kind: 'edit'; entry: Entry; returnTo: Screen }
   | { kind: 'category'; categoryId: number }
+  | { kind: 'day'; date: string }
   | { kind: 'account'; accountId: number }
   | { kind: 'savings' }
   | { kind: 'schedules' }
@@ -221,6 +223,7 @@ export function App() {
             categories={categories}
             allCurrencies={me.currencies}
             presetCategoryId={screen.categoryId}
+            presetDate={screen.presetDate}
             onDone={() => finish(screen.returnTo)}
             onCancel={() => go(screen.returnTo)}
           />
@@ -260,6 +263,24 @@ export function App() {
               onBack={() => go(home)}
               onAdd={() => go({ kind: 'add', categoryId: category.id, returnTo: here })}
               onOpen={(entry) => openEntry(entry, here)}
+            />
+          )
+          break
+        }
+        case 'day': {
+          const here: Screen = { kind: 'day', date: layer.date }
+          body = (
+            <DayScreen
+              date={layer.date}
+              entries={entries}
+              accounts={everyAccount}
+              categories={categories}
+              today={today}
+              display={display}
+              onBack={() => go(home)}
+              onShift={(date) => go({ kind: 'day', date })}
+              onOpen={(entry) => openEntry(entry, here)}
+              onAdd={(date) => go({ kind: 'add', presetDate: date, returnTo: here })}
             />
           )
           break
@@ -342,7 +363,7 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} />}
+              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} />}
               {tab === 'budget' && (
                 <BudgetScreen
                   groups={groups}
@@ -385,7 +406,7 @@ export function App() {
           <PrivacyContext.Provider value={privacy}>
             <CategoryColorContext.Provider value={colors}>
               <Suspense fallback={<ScreenSkeleton />}>
-                {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
+                {hidesSums || layer.kind === 'category' || layer.kind === 'day' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
               </Suspense>
               {overlay}
             </CategoryColorContext.Provider>

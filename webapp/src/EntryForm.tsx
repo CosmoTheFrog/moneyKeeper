@@ -36,6 +36,8 @@ type Props = {
   allCurrencies: string[]
   // Категория, которую нужно выбрать заранее (кнопка «+» у категории).
   presetCategoryId?: number
+  // Дата, которую нужно выбрать заранее (запись на открытый день).
+  presetDate?: string
   onDone: () => void
   onCancel: () => void
 }
@@ -57,7 +59,7 @@ function kindLabel(kind: FormKind): string {
   return kind === 'opening' ? t.ledger.opening : t.kinds[kind]
 }
 
-export function EntryForm({ accounts, allAccounts, groups, categories, entry, allCurrencies, presetCategoryId, onDone, onCancel }: Props) {
+export function EntryForm({ accounts, allAccounts, groups, categories, entry, allCurrencies, presetCategoryId, presetDate, onDone, onCancel }: Props) {
   const editing = entry !== undefined
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
@@ -70,7 +72,7 @@ export function EntryForm({ accounts, allAccounts, groups, categories, entry, al
   const [toAccountId, setToAccountId] = useState(entry?.toAccountId ?? 0)
   const [feeAmount, setFeeAmount] = useState('')
   const [categoryId, setCategoryId] = useState(entry?.categoryId ?? presetCategoryId ?? 0)
-  const [date, setDate] = useState(entry?.date ?? '')
+  const [date, setDate] = useState(entry?.date ?? presetDate ?? '')
   const [note, setNote] = useState(entry?.note ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

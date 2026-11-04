@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Transaction } from './api'
-import { dayIn, dayNet, dayParts, entryMatches, groupByDay, lastDays, shiftDay, toEntries, type Entry } from './ledger'
+import { dayIn, dayNet, dayParts, daySummary, entryMatches, groupByDay, lastDays, shiftDay, toEntries, type Entry } from './ledger'
 
 function tx(over: Partial<Transaction> & Pick<Transaction, 'id'>): Transaction {
   return {
@@ -218,5 +218,21 @@ describe('entryMatches', () => {
   ])('%s', (_name, query, want) => {
     const e = entry({ id: 1, kind: 'transfer', note: 'Georgian Pub', categoryId: 7, toAccountId: 2 })
     expect(entryMatches(e, query, accounts, categories)).toBe(want)
+  })
+})
+
+describe('daySummary', () => {
+  it('считает траты и доход, перевод не входит, записи без курса считаются отдельно', () => {
+    const out = daySummary([
+      entry({ id: 1, baseMinor: -3400 }),
+      entry({ id: 2, baseMinor: -999 }),
+      entry({ id: 3, kind: 'income', baseMinor: 120000 }),
+      entry({ id: 4, kind: 'transfer', baseMinor: 5000 }),
+      entry({ id: 5, baseMinor: null }),
+    ])
+    expect(out).toEqual({ spentMinor: 4399, incomeMinor: 120000, missingRates: 1 })
+  })
+  it('пустой день', () => {
+    expect(daySummary([])).toEqual({ spentMinor: 0, incomeMinor: 0, missingRates: 0 })
   })
 })
