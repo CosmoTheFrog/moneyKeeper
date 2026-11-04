@@ -2,13 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { ApiError, createAccount, type Account, type AccountKind } from './api'
 import { AccountFocus } from './AccountFocus'
 import { holdings, totalBalance } from './accounts'
-import { ImportScreen } from './ImportScreen'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { parseAmount } from './money'
 import { ChipPicker, CurrencyPicker } from './Pickers'
-import { ThemeSettings } from './ThemeSettings'
 
 type Props = {
   accounts: Account[]
@@ -28,8 +26,6 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
   // Копилки живут на экране «Накопления», здесь только обычные счета и кошельки.
   const accounts = every.filter((a) => a.kind !== 'piggy')
   const [adding, setAdding] = useState(accounts.length === 0)
-  const [settings, setSettings] = useState(false)
-  const [importing, setImporting] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
   const focusedAccount = accounts.find((a) => a.id === focused)
   const total = totalBalance(every)
@@ -39,11 +35,6 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
       <header className="row">
         <h1>{t.accounts.title}</h1>
         <span className="row-tight">
-          <button type="button" className="plus" aria-label={t.theme.open} onClick={() => setSettings(true)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 3v18M12 3a9 9 0 010 18" />
-            </svg>
-          </button>
           <button type="button" className="chip" onClick={() => setAdding(true)}>
             {t.accounts.add}
           </button>
@@ -64,9 +55,6 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
         </button>
         <button type="button" className="chip" onClick={onOpenPortfolio}>
           {t.accounts.portfolio}
-        </button>
-        <button type="button" className="chip" onClick={() => setImporting(true)}>
-          {t.accounts.import}
         </button>
       </div>
 
@@ -109,17 +97,6 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
             onOpenReport(focusedAccount.id)
           }}
           onClose={() => setFocused(null)}
-        />
-      )}
-      {settings && <ThemeSettings onClose={() => setSettings(false)} />}
-      {importing && (
-        <ImportScreen
-          accounts={accounts}
-          onClose={() => setImporting(false)}
-          onDone={() => {
-            setImporting(false)
-            onChanged()
-          }}
         />
       )}
 

@@ -18,6 +18,7 @@ type Props = {
   onOpen: (entry: Entry) => void
   onAdd: () => void
   onOpenDay?: (date: string) => void
+  onOpenMore: () => void
   wrapRow?: (entry: Entry, row: ReactNode) => ReactNode
 }
 
@@ -26,7 +27,7 @@ function weekday(date: string): string {
   return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1).toLocaleDateString('ru-RU', { weekday: 'short' })
 }
 
-export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, wrapRow }: Props) {
+export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, wrapRow }: Props) {
   const [month, setMonth] = useState<BudgetMonth | null>(null)
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
@@ -64,11 +65,18 @@ export function OperationsScreen({ entries, accounts, categories, today, display
     <main className="screen">
       <header className="row">
         <h1>{t.ledger.title}</h1>
-        <button type="button" className={searching ? 'plus plus-solid' : 'plus'} aria-label={t.ledger.search} aria-pressed={searching} onClick={() => (searching ? closeSearch() : setSearching(true))}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M11 4a7 7 0 100 14 7 7 0 000-14zM16 16l4 4" />
-          </svg>
-        </button>
+        <span className="row-tight">
+          <button type="button" className={searching ? 'plus plus-solid' : 'plus'} aria-label={t.ledger.search} aria-pressed={searching} onClick={() => (searching ? closeSearch() : setSearching(true))}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11 4a7 7 0 100 14 7 7 0 000-14zM16 16l4 4" />
+            </svg>
+          </button>
+          <button type="button" className="plus" aria-label={t.more.title} onClick={onOpenMore}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h.01M12 12h.01M19 12h.01" />
+            </svg>
+          </button>
+        </span>
       </header>
 
       {searching && (

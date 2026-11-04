@@ -168,6 +168,15 @@ export const t = {
     transfer: 'Перевод',
     uncategorized: 'Без категории',
   },
+  more: {
+    title: 'Ещё',
+    view: 'Вид',
+    data: 'Данные',
+    displayCurrency: 'Валюта показа',
+    hideSums: 'Скрывать суммы',
+    hideSumsHint: 'Заменять цифры звёздочками на «Операциях» и «Счетах»',
+    importHint: 'Выписка TBC или отчёт прежнего бота',
+  },
   swipe: {
     edit: 'Изменить',
     delete: 'Удалить',

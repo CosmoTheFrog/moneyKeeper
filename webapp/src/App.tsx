@@ -23,6 +23,7 @@ import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
 import { NoPrivacy, PrivacyContext } from './MoneyText'
 import { registerCurrencies } from './money'
+import { MoreScreen } from './MoreScreen'
 import { OperationsScreen } from './OperationsScreen'
 import { SwipeRow } from './SwipeRow'
 import { haptic } from './haptic'
@@ -54,6 +55,7 @@ type Screen =
   | { kind: 'edit'; entry: Entry; returnTo: Screen }
   | { kind: 'category'; categoryId: number }
   | { kind: 'day'; date: string }
+  | { kind: 'more' }
   | { kind: 'account'; accountId: number }
   | { kind: 'savings' }
   | { kind: 'schedules' }
@@ -280,6 +282,20 @@ export function App() {
           )
           break
         }
+        case 'more':
+          body = (
+            <MoreScreen
+              name={me.first_name}
+              baseCurrency={base}
+              accounts={accounts.filter((a) => a.kind !== 'piggy')}
+              currencies={me.currencies}
+              display={display}
+              onDisplay={changeDisplay}
+              onChanged={reload}
+              onBack={() => go(home)}
+            />
+          )
+          break
         case 'day': {
           const here: Screen = { kind: 'day', date: layer.date }
           body = (
@@ -376,7 +392,7 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
+              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
               {tab === 'budget' && (
                 <BudgetScreen
                   groups={groups}
@@ -419,7 +435,7 @@ export function App() {
           <PrivacyContext.Provider value={privacy}>
             <CategoryColorContext.Provider value={colors}>
               <Suspense fallback={<ScreenSkeleton />}>
-                {hidesSums || layer.kind === 'category' || layer.kind === 'day' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
+                {hidesSums || layer.kind === 'category' || layer.kind === 'day' || layer.kind === 'more' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
               </Suspense>
               {overlay}
             </CategoryColorContext.Provider>
