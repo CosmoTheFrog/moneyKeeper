@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PortfolioItem } from './api'
-import { bubbleSize, formatBP, packBubbles, shares } from './portfolio'
+import { formatBP, heatTone, shares, treemap, type Rect } from './portfolio'
 
 function item(value: number): PortfolioItem {
   return { currency: 'BTC', quantity_minor: 1, value_minor: value, cost_minor: 0, profit_minor: 0, profit_bp: null, realized_minor: 0, avg_price: '' }
@@ -19,38 +19,70 @@ describe('formatBP', () => {
   })
 })
 
-describe('bubbleSize', () => {
-  it('grows with the profit, symmetric for loss, capped', () => {
-    expect(bubbleSize(0)).toBe(56)
-    expect(bubbleSize(null)).toBe(56)
-    expect(bubbleSize(1447)).toBeGreaterThan(bubbleSize(100))
-    expect(bubbleSize(-1447)).toBe(bubbleSize(1447))
-    expect(bubbleSize(10_000)).toBe(150)
-    expect(bubbleSize(1_000_000)).toBe(150)
+describe('treemap', () => {
+  const weights = [8400, 4100, 2650, 1900, 1370]
+  const W = 340
+  const H = 300
+  const rects = treemap(weights, W, H)
+  const total = weights.reduce((a, b) => a + b, 0)
+  const area = (r: Rect) => r.w * r.h
+
+  it('площадь плитки пропорциональна весу, вместе они закрывают прямоугольник', () => {
+    expect(rects.reduce((sum, r) => sum + area(r), 0)).toBeCloseTo(W * H, 4)
+    rects.forEach((r, i) => expect(area(r) / (W * H)).toBeCloseTo((weights[i] ?? 0) / total, 6))
+  })
+
+  it('плитки лежат внутри прямоугольника', () => {
+    for (const r of rects) {
+      expect(r.x).toBeGreaterThanOrEqual(-1e-9)
+      expect(r.y).toBeGreaterThanOrEqual(-1e-9)
+      expect(r.x + r.w).toBeLessThanOrEqual(W + 1e-9)
+      expect(r.y + r.h).toBeLessThanOrEqual(H + 1e-9)
+    }
+  })
+
+  it('плитки не пересекаются', () => {
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i]!
+        const b = rects[j]!
+        const dx = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)
+        const dy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)
+        expect(dx > 1e-6 && dy > 1e-6).toBe(false)
+      }
+    }
+  })
+
+  it.each([
+    ['один вес занимает всё', [5], [{ x: 0, y: 0, w: W, h: H }]],
+    ['пустой список', [], []],
+  ])('%s', (_name, ws, want) => {
+    expect(treemap(ws, W, H)).toEqual(want)
+  })
+
+  it('нулевой вес даёт пустую плитку и не сбивает порядок', () => {
+    const r = treemap([5, 0, 5], 100, 100)
+    expect(area(r[1]!)).toBe(0)
+    expect(area(r[0]!)).toBeCloseTo(5000, 6)
+    expect(area(r[2]!)).toBeCloseTo(5000, 6)
+  })
+
+  it('нулевой размер поля даёт пустые плитки', () => {
+    expect(treemap([1, 2], 0, 100).every((r) => area(r) === 0)).toBe(true)
   })
 })
 
-describe('packBubbles', () => {
-  const sizes = [150, 56, 80, 56, 100, 64, 56, 120]
-
-  it('keeps every circle inside the field without overlaps', () => {
-    const { placed, height } = packBubbles(sizes, 340)
-    expect(placed).toHaveLength(sizes.length)
-    placed.forEach((p, i) => {
-      const r = (sizes[i] ?? 0) / 2
-      expect(p.x - r).toBeGreaterThanOrEqual(0)
-      expect(p.x + r).toBeLessThanOrEqual(340)
-      expect(p.y - r).toBeGreaterThanOrEqual(0)
-      expect(p.y + r).toBeLessThanOrEqual(height)
-      placed.slice(i + 1).forEach((q, k) => {
-        expect(Math.hypot(p.x - q.x, p.y - q.y)).toBeGreaterThanOrEqual(r + (sizes[i + 1 + k] ?? 0) / 2)
-      })
-    })
-  })
-
-  it('handles no circles and a single one', () => {
-    expect(packBubbles([], 340).placed).toEqual([])
-    expect(packBubbles([100], 340).placed).toEqual([{ x: 170, y: 50 }])
+describe('heatTone', () => {
+  it.each([
+    [null, 'flat', 0],
+    [0, 'flat', 0],
+    [1500, 'up', 0.5],
+    [-1500, 'down', 0.5],
+    [3000, 'up', 1],
+    [9000, 'up', 1],
+    [-9000, 'down', 1],
+  ])('%s → %s, насыщенность %s', (bp, tone, strength) => {
+    expect(heatTone(bp)).toEqual({ tone, strength })
   })
 })
 

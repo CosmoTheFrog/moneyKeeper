@@ -7,54 +7,79 @@ export function formatBP(bp: number): string {
   return `${sign}${Math.trunc(abs / 100)},${String(abs % 100).padStart(2, '0')}%`
 }
 
-// bubbleSize: диаметр пузырька в пикселях по прибыли в процентах, от 56 до 150.
-export function bubbleSize(bp: number | null): number {
-  const percent = Math.min(Math.abs(bp ?? 0) / 100, 100)
-  return Math.round(56 + percent * 0.94)
+export type Rect = { x: number; y: number; w: number; h: number }
+
+// treemap раскладывает веса по прямоугольнику w×h плитками, близкими к квадратам (squarified). Площадь плитки
+// пропорциональна весу, порядок результата совпадает с порядком weights. Нулевой и отрицательный вес даёт пустую плитку.
+export function treemap(weights: number[], w: number, h: number): Rect[] {
+  const out: Rect[] = weights.map(() => ({ x: 0, y: 0, w: 0, h: 0 }))
+  const total = weights.reduce((sum, v) => sum + Math.max(v, 0), 0)
+  if (total <= 0 || w <= 0 || h <= 0) return out
+
+  const area = (i: number) => ((weights[i] ?? 0) * w * h) / total
+  const order = weights
+    .map((v, i) => i)
+    .filter((i) => (weights[i] ?? 0) > 0)
+    .sort((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0) || a - b)
+
+  // worst это худшее соотношение сторон в ряду, когда он ложится вдоль стороны side.
+  const worst = (row: number[], side: number) => {
+    const areas = row.map(area)
+    const sum = areas.reduce((a, b) => a + b, 0)
+    return Math.max((side * side * Math.max(...areas)) / (sum * sum), (sum * sum) / (side * side * Math.min(...areas)))
+  }
+
+  let x = 0
+  let y = 0
+  let rw = w
+  let rh = h
+  let row: number[] = []
+  const flush = () => {
+    const sum = row.reduce((a, i) => a + area(i), 0)
+    if (rw >= rh) {
+      // Столбец слева на всю высоту.
+      const colW = sum / rh
+      let top = y
+      for (const i of row) {
+        const tileH = area(i) / colW
+        out[i] = { x, y: top, w: colW, h: tileH }
+        top += tileH
+      }
+      x += colW
+      rw -= colW
+    } else {
+      // Ряд сверху на всю ширину.
+      const rowH = sum / rw
+      let left = x
+      for (const i of row) {
+        const tileW = area(i) / rowH
+        out[i] = { x: left, y, w: tileW, h: rowH }
+        left += tileW
+      }
+      y += rowH
+      rh -= rowH
+    }
+    row = []
+  }
+  for (const i of order) {
+    const side = Math.min(rw, rh)
+    if (row.length === 0 || worst([...row, i], side) <= worst(row, side)) {
+      row.push(i)
+    } else {
+      flush()
+      row.push(i)
+    }
+  }
+  if (row.length > 0) flush()
+  return out
 }
 
-export type Placed = { x: number; y: number }
+export type HeatTone = { tone: 'up' | 'down' | 'flat'; strength: number }
 
-const STEP_DEG = 12
-
-// packBubbles раскладывает круги разного диаметра в полосе шириной width плотной кучей, самый большой в середине сверху.
-// Возвращает центры в порядке входных диаметров и высоту поля. Каждый следующий круг (от большего к меньшему) касается
-// уже стоящего и выбирает свободное место ближе к середине кучи.
-export function packBubbles(diameters: number[], width: number, gap = 4): { placed: Placed[]; height: number } {
-  const order = diameters.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d || a.i - b.i)
-  const placed: { x: number; y: number; r: number }[] = []
-  const out: Placed[] = diameters.map(() => ({ x: 0, y: 0 }))
-
-  for (const { d, i } of order) {
-    const r = d / 2
-    let best: { x: number; y: number } | null = null
-    if (placed.length === 0) {
-      best = { x: width / 2, y: r }
-    } else {
-      const cx = placed.reduce((s, p) => s + p.x, 0) / placed.length
-      const cy = placed.reduce((s, p) => s + p.y, 0) / placed.length
-      let bestScore = Infinity
-      for (const p of placed) {
-        for (let deg = 0; deg < 360; deg += STEP_DEG) {
-          const a = (deg * Math.PI) / 180
-          const x = p.x + Math.cos(a) * (p.r + r + gap)
-          const y = p.y + Math.sin(a) * (p.r + r + gap)
-          if (x - r < 0 || x + r > width || y - r < 0) continue
-          if (placed.some((q) => Math.hypot(q.x - x, q.y - y) < q.r + r + gap - 0.01)) continue
-          const score = Math.hypot(x - cx, y - cy)
-          if (score < bestScore) {
-            bestScore = score
-            best = { x, y }
-          }
-        }
-      }
-    }
-    // Узкое поле: если места рядом нет, круг ставится под всей кучей.
-    const spot = best ?? { x: width / 2, y: Math.max(...placed.map((q) => q.y + q.r), 0) + r + gap }
-    placed.push({ ...spot, r })
-    out[i] = spot
-  }
-  return { placed: out, height: Math.max(...placed.map((q) => q.y + q.r), 0) + gap }
+// heatTone: цвет плитки по прибыли в сотых долях процента. Насыщенность растёт до 30% и дальше не меняется.
+export function heatTone(bp: number | null): HeatTone {
+  if (bp === null || bp === 0) return { tone: 'flat', strength: 0 }
+  return { tone: bp > 0 ? 'up' : 'down', strength: Math.min(Math.abs(bp) / 3000, 1) }
 }
 
 // shares: доли позиций в стоимости портфеля в процентах, суммируются в сто. Позиции без стоимости получают ноль.
