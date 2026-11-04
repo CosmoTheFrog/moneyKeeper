@@ -1898,26 +1898,26 @@ span.money {
   letter-spacing: -0.6px;
 }
 
-.seg {
+.split {
   display: flex;
   gap: 3px;
   height: 10px;
   margin-bottom: 10px;
 }
 
-.seg-part {
+.split-part {
   display: block;
   height: 100%;
   border-radius: 5px;
 }
 
-.seg-free {
+.split-free {
   flex: 1;
   border: 1.5px dashed var(--line);
   border-radius: 5px;
 }
 
-.seg-legend {
+.split-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
@@ -1926,7 +1926,7 @@ span.money {
   color: var(--muted);
 }
 
-.seg-legend i {
+.split-legend i {
   display: inline-block;
   width: 8px;
   height: 8px;
@@ -1934,7 +1934,7 @@ span.money {
   border-radius: 50%;
 }
 
-.seg-legend .money {
+.split-legend .money {
   display: inline;
   font-size: inherit;
   letter-spacing: 0;

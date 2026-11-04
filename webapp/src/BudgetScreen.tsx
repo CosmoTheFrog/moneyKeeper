@@ -119,14 +119,14 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
           <p className="budget-tone">{t.budget.tone[tone]}</p>
           {plannedBase > 0 && (
             <>
-              <div className="seg" aria-hidden="true">
+              <div className="split" aria-hidden="true">
                 {groups.map((g) => {
                   const planned = groupSum(g.id, 'budgeted_minor')
-                  return planned > 0 ? <span key={g.id} className="seg-part" style={{ width: `${(planned / plannedBase) * 100}%`, background: colorOf.get(g.id) }} /> : null
+                  return planned > 0 ? <span key={g.id} className="split-part" style={{ width: `${(planned / plannedBase) * 100}%`, background: colorOf.get(g.id) }} /> : null
                 })}
-                <span className="seg-free" />
+                <span className="split-free" />
               </div>
-              <div className="seg-legend">
+              <div className="split-legend">
                 {groups.map((g) => {
                   const planned = groupSum(g.id, 'budgeted_minor')
                   return planned > 0 ? (

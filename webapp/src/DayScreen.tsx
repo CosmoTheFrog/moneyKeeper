@@ -81,9 +81,9 @@ export function DayScreen({ date, entries, accounts, categories, today, display,
         <>
           <h2 className="day">{t.day.where}</h2>
           <div className="card">
-            <div className="seg" aria-hidden="true">
+            <div className="split" aria-hidden="true">
               {split.map((p) => (
-                <span key={p.categoryId ?? 'none'} className="seg-part" style={{ width: `${(p.totalMinor / splitTotal) * 100}%`, background: p.categoryId !== null ? (colors.get(p.categoryId) ?? 'var(--accent)') : 'var(--muted)' }} />
+                <span key={p.categoryId ?? 'none'} className="split-part" style={{ width: `${(p.totalMinor / splitTotal) * 100}%`, background: p.categoryId !== null ? (colors.get(p.categoryId) ?? 'var(--accent)') : 'var(--muted)' }} />
               ))}
             </div>
             <div className="part-list">
