@@ -185,12 +185,15 @@ func (s *Service) markDuplicates(ctx context.Context, u models.User, accountID i
 }
 
 // CommitImport сохраняет подтверждённые строки одной транзакцией БД: отрицательные расходом (категория обязательна),
-// положительные доходом. Возвращает число сохранённых записей.
+// положительные доходом. Строка с ExternalID (перевод из сети) пропускается, если он уже внесён. Возвращает число
+// сохранённых записей.
 func (s *Service) CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) (int, error) {
 	if len(rows) == 0 || len(rows) > maxImportRows {
 		return 0, fmt.Errorf("rows count: %w", models.ErrInvalidImport)
 	}
+	saved := 0
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		saved = 0
 		acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, accountID)
 		if err != nil {
 			return err
@@ -206,6 +209,18 @@ func (s *Service) CommitImport(ctx context.Context, u models.User, accountID int
 			note, err := validNote(r.Description)
 			if err != nil {
 				return err
+			}
+			if r.ExternalID != "" {
+				if s.wallets == nil || len(r.ExternalID) > maxExternalIDLen {
+					return fmt.Errorf("external id: %w", models.ErrInvalidImport)
+				}
+				fresh, err := s.wallets.MarkImported(ctx, acc.ID, r.ExternalID)
+				if err != nil {
+					return err
+				}
+				if !fresh {
+					continue
+				}
 			}
 			t := models.Transaction{
 				BudgetID: u.ActiveBudgetID, AccountID: acc.ID, Kind: models.KindIncome,
@@ -223,13 +238,14 @@ func (s *Service) CommitImport(ctx context.Context, u models.User, accountID int
 			if _, err := s.transactions.Insert(ctx, t); err != nil {
 				return err
 			}
+			saved++
 		}
 		return nil
 	})
 	if err != nil {
 		return 0, err
 	}
-	return len(rows), nil
+	return saved, nil
 }
 
 // splitStatement режет выписку на куски по строкам не больше max рун. Первая строка (заголовок колонок) повторяется

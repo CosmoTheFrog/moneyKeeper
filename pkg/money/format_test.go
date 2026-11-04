@@ -2,6 +2,26 @@ package money
 
 import "testing"
 
+func TestDecimal(t *testing.T) {
+	tests := []struct {
+		minor int64
+		cur   Currency
+		want  string
+	}{
+		{0, GEL, "0.00"},
+		{5, GEL, "0.05"},
+		{-123450, EUR, "-1234.50"},
+		{100000, "BTC", "0.00100000"},
+		{1500000, "SHIB", "1500000"},
+		{-999, "SHIB", "-999"},
+	}
+	for _, tt := range tests {
+		if got := Decimal(tt.minor, tt.cur); got != tt.want {
+			t.Errorf("Decimal(%d, %s) = %q, want %q", tt.minor, tt.cur, got, tt.want)
+		}
+	}
+}
+
 func TestFormat(t *testing.T) {
 	tests := []struct {
 		minor int64

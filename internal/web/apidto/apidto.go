@@ -29,9 +29,10 @@ type ErrorResponse struct {
 }
 
 type BudgetDTO struct {
-	ID           int64   `json:"id"`
-	Name         string  `json:"name"`
-	BaseCurrency *string `json:"base_currency"`
+	ID               int64   `json:"id"`
+	Name             string  `json:"name"`
+	BaseCurrency     *string `json:"base_currency"`
+	EnvelopesEnabled bool    `json:"envelopes_enabled"`
 }
 
 // CurrencyInfoDTO.Units это число знаков после запятой, Coin: курс берётся отдельно по требованию (монеты и акции),
@@ -51,6 +52,20 @@ type MeResponse struct {
 	BaseCurrencies []string          `json:"base_currencies"`
 	Currencies     []string          `json:"currencies"`
 	CurrencyInfo   []CurrencyInfoDTO `json:"currency_info"`
+	// ReminderHour: час ежедневного напоминания внести траты, null если выключено.
+	ReminderHour *int `json:"reminder_hour"`
+	// TourSeen: обучение при первом входе уже показано.
+	TourSeen bool `json:"tour_seen"`
+}
+
+// SetEnvelopesRequest включает режим конвертов или выключает его.
+type SetEnvelopesRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetReminderRequest: час 0-23 по времени пользователя включает ежедневное напоминание, null выключает.
+type SetReminderRequest struct {
+	Hour *int `json:"hour"`
 }
 
 // AddAssetRequest: код монеты или акции; Stock: искать на бирже акций, а не на Binance.
@@ -363,6 +378,26 @@ type ImportRowDTO struct {
 	SourceCategory string `json:"source_category"`
 	Suggested      bool   `json:"suggested"`
 	Duplicate      bool   `json:"duplicate"`
+	// external_id: у перевода, прочитанного из сети; по нему уже внесённый перевод не пишется второй раз.
+	ExternalID string `json:"external_id"`
+}
+
+// WalletDTO это публичный адрес кошелька, привязанный к счёту.
+type WalletDTO struct {
+	ID      int64  `json:"id"`
+	Chain   string `json:"chain"`
+	Address string `json:"address"`
+}
+
+type WalletsResponse struct {
+	Wallets []WalletDTO `json:"wallets"`
+}
+
+// AddWalletRequest: consent это явное согласие отправить адрес во внешний источник данных о сети.
+type AddWalletRequest struct {
+	Chain   string `json:"chain"`
+	Address string `json:"address"`
+	Consent bool   `json:"consent"`
 }
 
 type PreviewImportResponse struct {
@@ -377,4 +412,9 @@ type CommitImportRequest struct {
 
 type CommitImportResponse struct {
 	Saved int `json:"saved"`
+}
+
+// SetTourRequest: true отмечает обучение показанным, false показывает его при следующем входе.
+type SetTourRequest struct {
+	Seen bool `json:"seen"`
 }

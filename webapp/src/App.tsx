@@ -18,6 +18,7 @@ import { CategoryScreen } from './CategoryScreen'
 import { DayScreen } from './DayScreen'
 import { CategoryColorContext, categoryColors } from './groupColor'
 import { CurrencyScreen } from './CurrencyScreen'
+import { TourScreen } from './TourScreen'
 import { EntryForm } from './EntryForm'
 import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
@@ -189,6 +190,9 @@ export function App() {
       if (base === null) {
         return <CurrencyScreen currencies={me.base_currencies} onDone={() => void load()} />
       }
+      if (!me.tour_seen) {
+        return <TourScreen onDone={() => void load()} />
+      }
 
       const today = dayIn(me.timezone)
       const colors = categoryColors(groups, categories)
@@ -290,6 +294,7 @@ export function App() {
               accounts={accounts.filter((a) => a.kind !== 'piggy')}
               currencies={me.currencies}
               display={display}
+              reminderHour={me.reminder_hour}
               onDisplay={changeDisplay}
               onChanged={reload}
               onBack={() => go(home)}
@@ -400,6 +405,7 @@ export function App() {
                   accounts={accounts}
                   baseCurrency={base}
                   today={today}
+                  envelopesEnabled={me.budget.envelopes_enabled}
                   ledger={state.data.transactions}
                   onOpenSchedules={() => go({ kind: 'schedules' })}
                   onChanged={reload}

@@ -6,6 +6,7 @@ import { t } from './i18n'
 import { dayNet, entryMatches, lastDays, type Entry } from './ledger'
 import { Money } from './MoneyText'
 import { EmptyState, Skeleton } from './States'
+import { WeekCard } from './WeekCard'
 
 type Props = {
   entries: Entry[]
@@ -128,6 +129,8 @@ export function OperationsScreen({ entries, accounts, categories, today, display
           )}
         </div>
       )}
+
+      {!filtering && <WeekCard entries={entries} categories={categories} currency={display} today={today} />}
 
       {filtering && (
         <p className="found">

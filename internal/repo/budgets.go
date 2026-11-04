@@ -35,8 +35,8 @@ func (r *Budgets) Get(ctx context.Context, id int64) (models.Budget, error) {
 		b    models.Budget
 		code *string
 	)
-	err := r.db.Q(ctx).QueryRow(ctx, `SELECT id, name, base_currency FROM budgets WHERE id = $1`, id).
-		Scan(&b.ID, &b.Name, &code)
+	err := r.db.Q(ctx).QueryRow(ctx, `SELECT id, name, base_currency, envelopes_enabled FROM budgets WHERE id = $1`, id).
+		Scan(&b.ID, &b.Name, &code, &b.EnvelopesEnabled)
 	if err != nil {
 		return models.Budget{}, fmt.Errorf("get budget: %w", mapErr(err))
 	}
@@ -59,6 +59,18 @@ func (r *Budgets) SetBaseCurrency(ctx context.Context, id int64, currency money.
 			return err
 		}
 		return fmt.Errorf("budget %d: %w", id, models.ErrBaseCurrencySet)
+	}
+	return nil
+}
+
+// SetEnvelopes включает или выключает режим конвертов. Заложенные суммы при выключении остаются.
+func (r *Budgets) SetEnvelopes(ctx context.Context, id int64, enabled bool) error {
+	tag, err := r.db.Q(ctx).Exec(ctx, `UPDATE budgets SET envelopes_enabled = $2 WHERE id = $1`, id, enabled)
+	if err != nil {
+		return fmt.Errorf("set envelopes: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("set envelopes: %w", models.ErrNotFound)
 	}
 	return nil
 }

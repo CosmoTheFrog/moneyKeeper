@@ -16,12 +16,18 @@ type User struct {
 	FirstName      string
 	Timezone       string
 	ActiveBudgetID int64
+	// ReminderHour: час по времени пользователя, в который напомнить внести траты; nil значит выключено.
+	ReminderHour *int
+	// TourSeen: обучение при первом входе уже показано.
+	TourSeen bool
 }
 
 type Budget struct {
 	ID           int64
 	Name         string
 	BaseCurrency *money.Currency
+	// EnvelopesEnabled: включён режим конвертов (заложенные суммы и лимиты), иначе только траты по категориям.
+	EnvelopesEnabled bool
 }
 
 type AccountKind string

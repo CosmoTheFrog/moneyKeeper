@@ -8,6 +8,7 @@ import { Money } from './MoneyText'
 import { currencySign, formatRate } from './money'
 import { Segmented } from './Pickers'
 import { Skeleton } from './States'
+import { WalletSync } from './WalletSync'
 import { formatBP, heatTone, shares, treemap } from './portfolio'
 import { CIRCLE, RADIUS, arcs } from './report'
 
@@ -42,6 +43,7 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
   const [loaded, setLoaded] = useState<Loaded>({ kind: 'loading' })
   const [view, setView] = useState<View>('ring')
   const [adding, setAdding] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [picked, setPicked] = useState<string | null>(null)
   // Растёт после добавления: портфель запрашивается заново.
   const [version, setVersion] = useState(0)
@@ -80,6 +82,9 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
         </button>
         <span className="row-tight">
           <DisplayCurrency display={display} currencies={currencies} onChange={onDisplay} />
+          <button type="button" className="chip" onClick={() => setSyncing(true)}>
+            {t.walletSync.title}
+          </button>
           <button type="button" className="chip" onClick={() => setAdding(true)}>
             + {t.portfolioAdd.open}
           </button>
@@ -237,6 +242,18 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
           )}
           <p className="hint tight">{t.portfolio.rateNote}</p>
         </>
+      )}
+
+      {syncing && (
+        <WalletSync
+          wallets={wallets}
+          onClose={() => setSyncing(false)}
+          onDone={() => {
+            setSyncing(false)
+            setVersion((v) => v + 1)
+            onChanged()
+          }}
+        />
       )}
 
       {adding && (

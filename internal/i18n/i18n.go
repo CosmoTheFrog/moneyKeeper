@@ -50,6 +50,44 @@ func DefaultCategories() []models.DefaultCategory {
 	}
 }
 
+// ExportHeader — заголовок CSV-выгрузки записей, русский язык.
+func ExportHeader() []string {
+	return []string{"Дата", "Счёт", "Тип", "Категория", "Сумма", "Валюта", "Заметка"}
+}
+
+// KindName — тип записи для выгрузки, русский язык.
+func KindName(k models.TransactionKind) string {
+	switch k {
+	case models.KindExpense:
+		return "Расход"
+	case models.KindIncome:
+		return "Доход"
+	case models.KindTransfer:
+		return "Перевод"
+	case models.KindExchange:
+		return "Обмен"
+	case models.KindFee:
+		return "Комиссия"
+	case models.KindOpening:
+		return "Начальный остаток"
+	}
+	return string(k)
+}
+
+// DailyReminderText — ежедневное напоминание внести траты, русский язык.
+func DailyReminderText() string {
+	return "Вы внесли траты за сегодня? Откройте приложение и добавьте записи, пока ничего не забылось."
+}
+
+// LimitAlertText собирает предупреждение о лимите категории. Суммы в чат-уведомлениях не маскируются.
+func LimitAlertText(a models.LimitAlert) string {
+	amounts := money.Format(a.SpentMinor, a.Currency) + " из " + money.Format(a.BudgetedMinor, a.Currency)
+	if a.Threshold >= models.LimitFull {
+		return fmt.Sprintf("Лимит категории «%s» исчерпан: потрачено %s.", a.CategoryName, amounts)
+	}
+	return fmt.Sprintf("Категория «%s»: потрачено уже %d%% заложенного, %s.", a.CategoryName, models.LimitWarn, amounts)
+}
+
 // ReminderText собирает текст напоминания о платеже. Суммы в чат-уведомлениях не маскируются.
 func ReminderText(r models.Reminder) string {
 	s := r.Schedule
