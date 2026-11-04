@@ -8,6 +8,18 @@
   --accent-soft: #e1f2f1;
   --danger: #c8372d;
   --pos: #1f8a4c;
+  --accent-2: #0a5360;
+  --warn: #9c6508;
+  --hero: #e4f3f2;
+  --shadow: 0 1px 2px rgb(18 32 43 / 6%), 0 10px 28px -14px rgb(18 32 43 / 22%);
+
+  /* Оттенки групп: у группы по кругу свой, он идёт в иконки, кольца и разбивки. */
+  --g1: #0e7c7b;
+  --g2: #4a5fd0;
+  --g3: #9a4fb0;
+  --g4: #3a86a8;
+  --g5: #c0508a;
+  --g6: #5b8a2f;
 }
 
 /* Тёмная тема: те же переменные, другие значения. Акцент чуть светлее, чтобы читался на тёмном. */
@@ -21,6 +33,16 @@
   --accent-soft: #123f3e;
   --danger: #f0675c;
   --pos: #4cc27e;
+  --accent-2: #137a86;
+  --warn: #e0a93b;
+  --hero: #12343a;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 28px -14px rgb(0 0 0 / 70%);
+  --g1: #1fa3a1;
+  --g2: #8093f0;
+  --g3: #c48ad6;
+  --g4: #6cb5d4;
+  --g5: #e58ab8;
+  --g6: #93c25f;
 
   color-scheme: dark;
 }
@@ -256,6 +278,36 @@ h1 {
 .month-title {
   font-size: 17px;
   font-weight: 800;
+}
+
+.nav-arrow {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.nav-arrow::after {
+  position: absolute;
+  inset: -4px;
+  content: '';
+}
+
+.nav-arrow:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.nav-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .budget-head {
@@ -849,9 +901,10 @@ h1 {
 
 .card {
   padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  border-radius: 20px;
   background: var(--card);
+  box-shadow: var(--shadow);
 }
 
 .card + .card,
@@ -1672,16 +1725,21 @@ h1 {
 
 .tabbar {
   position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  left: 12px;
   z-index: 10;
   display: flex;
-  align-items: flex-start;
-  height: 76px;
-  padding: 8px 8px 14px;
-  border-top: 1px solid var(--line);
-  background: var(--card);
+  align-items: center;
+  height: 68px;
+  padding: 0 8px;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 14px 30px -12px rgb(0 0 0 / 35%);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
 
 .tab {
@@ -1689,17 +1747,30 @@ h1 {
   flex: 1;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   border: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   cursor: pointer;
 }
 
+.tab .ti {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 28px;
+  border-radius: 14px;
+  transition: background 0.15s;
+}
+
 .tab-active {
   color: var(--accent);
+}
+
+.tab-active .ti {
+  background: var(--accent-soft);
 }
 
 .tab-add {
@@ -1707,14 +1778,16 @@ h1 {
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  margin: -18px 6px 0;
+  width: 56px;
+  height: 56px;
+  margin: -26px 6px 0;
   border: 0;
-  border-radius: 26px;
-  background: var(--accent);
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--accent), var(--accent-2));
   color: #fff;
-  box-shadow: 0 6px 16px rgb(14 124 123 / 35%);
+  box-shadow:
+    0 0 0 5px var(--bg),
+    0 12px 22px -8px var(--accent);
   cursor: pointer;
 }
 
