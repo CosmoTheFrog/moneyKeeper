@@ -363,6 +363,26 @@ type ImportRowDTO struct {
 	SourceCategory string `json:"source_category"`
 	Suggested      bool   `json:"suggested"`
 	Duplicate      bool   `json:"duplicate"`
+	// external_id: у перевода, прочитанного из сети; по нему уже внесённый перевод не пишется второй раз.
+	ExternalID string `json:"external_id"`
+}
+
+// WalletDTO это публичный адрес кошелька, привязанный к счёту.
+type WalletDTO struct {
+	ID      int64  `json:"id"`
+	Chain   string `json:"chain"`
+	Address string `json:"address"`
+}
+
+type WalletsResponse struct {
+	Wallets []WalletDTO `json:"wallets"`
+}
+
+// AddWalletRequest: consent это явное согласие отправить адрес во внешний источник данных о сети.
+type AddWalletRequest struct {
+	Chain   string `json:"chain"`
+	Address string `json:"address"`
+	Consent bool   `json:"consent"`
 }
 
 type PreviewImportResponse struct {

@@ -34,6 +34,8 @@ type Service struct {
 	schedules    *repo.Schedules
 	rateStore    *repo.Rates
 	assets       *repo.Assets
+	wallets      *repo.Wallets
+	chains       ChainSource
 	fx           RateSource
 	statementLLM StatementLLM
 	log          *slog.Logger

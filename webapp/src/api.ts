@@ -331,6 +331,8 @@ export type ImportRow = {
   source_category: string
   suggested: boolean
   duplicate: boolean
+  // Задан у перевода, прочитанного из сети: по нему внесённый перевод не пишется второй раз.
+  external_id: string
 }
 
 export type ImportPreview = { rows: ImportRow[]; skipped: number }
@@ -345,3 +347,18 @@ export const previewImportFile = (accountId: number, file: File) => {
 
 export const commitImport = (accountId: number, rows: ImportRow[]) =>
   request<{ saved: number }>('POST', '/api/import/commit', { account_id: accountId, rows })
+
+// Публичный адрес кошелька, привязанный к счёту. consent это явное согласие отправить адрес в источник данных о сети.
+export type Wallet = { id: number; chain: string; address: string }
+
+export const fetchWallets = async (accountId: number) => (await request<{ wallets: Wallet[] }>('GET', `/api/accounts/${accountId}/wallets`)).wallets
+
+export const addWallet = (accountId: number, chain: string, address: string, consent: boolean) =>
+  request<Wallet>('POST', `/api/accounts/${accountId}/wallets`, { chain, address, consent })
+
+export const removeWallet = async (id: number): Promise<void> => {
+  await send('DELETE', `/api/wallets/${id}`)
+}
+
+// Переводы адреса за последние 90 дней, ничего не сохраняет до commitImport.
+export const previewWallet = (id: number) => request<ImportPreview>('POST', `/api/wallets/${id}/preview`)

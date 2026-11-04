@@ -59,7 +59,7 @@ func previewResponse(p models.ImportPreview) apidto.PreviewImportResponse {
 		out.Rows = append(out.Rows, apidto.ImportRowDTO{
 			Date: row.Date.String(), AmountMinor: row.AmountMinor, Currency: string(row.Currency),
 			Description: row.Description, CategoryID: row.CategoryID, SourceCategory: row.SourceCategory,
-			Suggested: row.Suggested, Duplicate: row.Duplicate,
+			Suggested: row.Suggested, Duplicate: row.Duplicate, ExternalID: row.ExternalID,
 		})
 	}
 	return out
@@ -85,6 +85,7 @@ func (h *handler) commitImport(w http.ResponseWriter, r *http.Request, u models.
 		}
 		rows = append(rows, models.ImportRow{
 			Date: day, AmountMinor: d.AmountMinor, Currency: cur, Description: d.Description, CategoryID: d.CategoryID,
+			ExternalID: d.ExternalID,
 		})
 	}
 	n, err := h.svc.CommitImport(r.Context(), u, req.AccountID, rows)

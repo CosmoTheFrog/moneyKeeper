@@ -65,6 +65,11 @@ type Service interface {
 	PreviewImport(ctx context.Context, u models.User, accountID int64, text string, consent bool) (models.ImportPreview, error)
 	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte) (models.ImportPreview, error)
 	CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) (int, error)
+
+	ListWallets(ctx context.Context, u models.User, accountID int64) ([]models.WalletAddress, error)
+	AddWallet(ctx context.Context, u models.User, accountID int64, chainName, address string, consent bool) (models.WalletAddress, error)
+	RemoveWallet(ctx context.Context, u models.User, id int64) error
+	PreviewWallet(ctx context.Context, u models.User, walletID int64) (models.ImportPreview, error)
 }
 
 type handler struct {
@@ -110,6 +115,10 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("POST /api/import/preview", h.auth(h.previewImport))
 	mux.HandleFunc("POST /api/import/file", h.auth(h.previewImportFile))
 	mux.HandleFunc("POST /api/import/commit", h.auth(h.commitImport))
+	mux.HandleFunc("GET /api/accounts/{id}/wallets", h.auth(h.listWallets))
+	mux.HandleFunc("POST /api/accounts/{id}/wallets", h.auth(h.addWallet))
+	mux.HandleFunc("DELETE /api/wallets/{id}", h.auth(h.removeWallet))
+	mux.HandleFunc("POST /api/wallets/{id}/preview", h.auth(h.previewWallet))
 	mux.HandleFunc("PATCH /api/transactions/{id}", h.auth(h.updateTransaction))
 	mux.HandleFunc("DELETE /api/transactions/{id}", h.auth(h.deleteTransaction))
 	mux.HandleFunc("GET /api/transactions/{id}/events", h.auth(h.transactionEvents))
