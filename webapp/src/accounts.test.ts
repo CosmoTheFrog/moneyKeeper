@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Account } from './api'
-import { allows, balanceIn, holdings, pickAccount, usableCurrencies } from './accounts'
+import { allows, balanceIn, holdings, pickAccount, totalBalance, usableCurrencies } from './accounts'
 
 describe('holdings', () => {
   const bal = (currency: string, minor: number, base: number | null) => ({ currency, balance_minor: minor, spent_minor: 0, base_balance_minor: base, base_spent_minor: null })
@@ -82,5 +82,22 @@ describe('pickAccount', () => {
 
   it('returns 0 when nothing fits', () => {
     expect(pickAccount([acc(1, 'GEL')], 'EUR', 1)).toBe(0)
+  })
+})
+
+describe('totalBalance', () => {
+  const bal = (minor: number, base: number | null) => ({ currency: 'GEL', balance_minor: minor, spent_minor: 0, base_balance_minor: base, base_spent_minor: null })
+  const acc = (over: Partial<Account>): Account => ({
+    id: 1, name: 'a', kind: 'debit', currency: 'GEL', multi_currency: false, is_default: false, off_budget: false, archived: false, target_minor: null, target_date: null, category_id: null, balances: [],
+    ...over,
+  })
+  it.each([
+    ['складывает остатки в валюте пересчёта', [acc({ balances: [bal(100, 100)] }), acc({ id: 2, balances: [bal(50, 50), bal(10, 27)] })], 177],
+    ['счёт вне бюджета не входит', [acc({ balances: [bal(100, 100)] }), acc({ id: 2, off_budget: true, balances: [bal(900, 900)] })], 100],
+    ['закрытый счёт не входит', [acc({ balances: [bal(100, 100)] }), acc({ id: 2, archived: true, balances: [bal(900, 900)] })], 100],
+    ['нет курса', [acc({ balances: [bal(100, null)] })], null],
+    ['нет счетов', [], 0],
+  ])('%s', (_name, accounts, want) => {
+    expect(totalBalance(accounts)).toBe(want)
   })
 })

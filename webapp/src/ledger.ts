@@ -77,3 +77,74 @@ export function groupByDay(entries: Entry[]): DayGroup[] {
   }
   return groups
 }
+
+// shiftDay сдвигает календарный день YYYY-MM-DD на delta дней.
+export function shiftDay(date: string, delta: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + delta)).toISOString().slice(0, 10)
+}
+
+// dayNet: сумма доходов и расходов дня со знаком в валюте пересчёта. null, если таких записей нет или у какой-то нет курса:
+// неполную сумму показывать нельзя. Переводы и обмены в итог не входят.
+export function dayNet(entries: Entry[]): number | null {
+  let sum = 0
+  let any = false
+  for (const e of entries) {
+    if (e.kind !== 'expense' && e.kind !== 'income') continue
+    if (e.baseMinor === null) return null
+    sum += e.baseMinor
+    any = true
+  }
+  return any ? sum : null
+}
+
+export type DaySpend = { date: string; spentMinor: number }
+
+// lastDays: траты за последние n дней по дням, старые первыми, в валюте пересчёта. Расход без курса не входит.
+export function lastDays(entries: Entry[], today: string, n: number): DaySpend[] {
+  const days: DaySpend[] = Array.from({ length: n }, (_, i) => ({ date: shiftDay(today, i - (n - 1)), spentMinor: 0 }))
+  const at = new Map(days.map((d) => [d.date, d]))
+  for (const e of entries) {
+    if (e.kind !== 'expense' || e.baseMinor === null) continue
+    const day = at.get(e.date)
+    if (day !== undefined) day.spentMinor += -e.baseMinor
+  }
+  return days
+}
+
+export type DayPart = { categoryId: number | null; totalMinor: number }
+
+// dayParts: расходы дня по категориям, больше первыми, в валюте пересчёта. Расход без курса не входит.
+export function dayParts(entries: Entry[]): DayPart[] {
+  const total = new Map<number | null, number>()
+  for (const e of entries) {
+    if (e.kind !== 'expense' || e.baseMinor === null) continue
+    total.set(e.categoryId, (total.get(e.categoryId) ?? 0) - e.baseMinor)
+  }
+  return [...total].map(([categoryId, totalMinor]) => ({ categoryId, totalMinor })).sort((a, b) => b.totalMinor - a.totalMinor)
+}
+
+// entryMatches: запись подходит под строку поиска, если она есть в заметке, названии категории или счёта.
+export function entryMatches(e: Entry, query: string, accountName: Map<number, string>, categoryName: Map<number, string>): boolean {
+  const q = query.trim().toLowerCase()
+  if (q === '') return true
+  const hay = [e.note, e.categoryId === null ? '' : (categoryName.get(e.categoryId) ?? ''), accountName.get(e.accountId) ?? '', e.toAccountId === null ? '' : (accountName.get(e.toAccountId) ?? '')]
+  return hay.some((h) => h.toLowerCase().includes(q))
+}
+
+export type DaySummary = { spentMinor: number; incomeMinor: number; missingRates: number }
+
+// daySummary: траты (положительное число) и доход дня в валюте пересчёта. Записи без курса не входят и считаются отдельно.
+export function daySummary(entries: Entry[]): DaySummary {
+  const out: DaySummary = { spentMinor: 0, incomeMinor: 0, missingRates: 0 }
+  for (const e of entries) {
+    if (e.kind !== 'expense' && e.kind !== 'income') continue
+    if (e.baseMinor === null) {
+      out.missingRates++
+      continue
+    }
+    if (e.kind === 'expense') out.spentMinor += -e.baseMinor
+    else out.incomeMinor += e.baseMinor
+  }
+  return out
+}

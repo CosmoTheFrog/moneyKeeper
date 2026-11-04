@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { fetchPortfolio, type Account, type Portfolio } from './api'
 import { AddHoldingForm } from './AddHoldingForm'
 import { DisplayCurrency } from './DisplayCurrency'
@@ -7,8 +7,9 @@ import { t } from './i18n'
 import { Money } from './MoneyText'
 import { currencySign, formatRate } from './money'
 import { Segmented } from './Pickers'
+import { Skeleton } from './States'
 import { WalletSync } from './WalletSync'
-import { bubbleSize, formatBP, packBubbles, shares } from './portfolio'
+import { formatBP, heatTone, shares, treemap } from './portfolio'
 import { CIRCLE, RADIUS, arcs } from './report'
 
 type Props = {
@@ -23,19 +24,21 @@ type Props = {
 }
 
 type Loaded = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; portfolio: Portfolio }
-type View = 'ring' | 'bubbles'
+type View = 'ring' | 'heat'
 
-// Ширина поля пузырьков в условных единицах: рисунок масштабируется под экран.
-const FIELD = 340
+// Размер поля тепловой карты в условных единицах: плитки считаются в них, а на экране занимают проценты поля.
+const HEAT_W = 340
+const HEAT_H = 300
 
 const palette = ['#0e7c7b', '#4c5bd4', '#d9892b', '#d4577a', '#7a8794', '#5fb3b0', '#7c88e0', '#a9b1ec', '#cdd2f5', '#a5d3d1']
 
 const viewOptions = [
   { value: 'ring' as const, label: t.portfolio.ring },
-  { value: 'bubbles' as const, label: t.portfolio.bubbles },
+  { value: 'heat' as const, label: t.portfolio.heat },
 ]
 
-// Портфель: монеты во всех кошельках. Кольцо показывает доли по стоимости, пузырьки прибыль в процентах от цены покупки.
+// Портфель: монеты во всех кошельках. Кольцо показывает доли по стоимости, тепловая карта прибыль в процентах от цены
+// покупки: площадь плитки это доля, цвет это прибыль.
 export function PortfolioScreen({ display, currencies, wallets, today, onChanged, onDisplay, onBack }: Props) {
   const [loaded, setLoaded] = useState<Loaded>({ kind: 'loading' })
   const [view, setView] = useState<View>('ring')
@@ -61,8 +64,11 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
   const percents = shares(items)
   const cur = loaded.kind === 'ready' ? loaded.portfolio.currency : display
   const current = items.find((i) => i.currency === picked)
-  const sizes = items.map((i) => bubbleSize(i.profit_bp))
-  const field = packBubbles(sizes, FIELD)
+  const tiles = treemap(
+    items.map((i) => i.value_minor),
+    HEAT_W,
+    HEAT_H,
+  )
 
   function pick(code: string) {
     setPicked((now) => (now === code ? null : code))
@@ -86,7 +92,13 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
       </header>
       <h1>{t.portfolio.title}</h1>
 
-      {loaded.kind === 'loading' && <p className="hint">{t.loading}</p>}
+      {loaded.kind === 'loading' && (
+        <div className="card sk-hero" aria-busy="true" aria-label={t.loading}>
+          <Skeleton w={90} h={11} />
+          <Skeleton w={180} h={34} />
+          <Skeleton h={200} />
+        </div>
+      )}
       {loaded.kind === 'failed' && <p className="error">{t.errors.internal}</p>}
       {loaded.kind === 'ready' && items.length === 0 && <p className="hint">{t.portfolio.empty}</p>}
 
@@ -141,25 +153,48 @@ export function PortfolioScreen({ display, currencies, wallets, today, onChanged
               </div>
             ) : (
               <>
-                <svg className="bubble-field" viewBox={`0 0 ${FIELD} ${field.height}`} role="img" aria-label={t.portfolio.bubbles}>
+                <div className="heat" role="group" aria-label={t.portfolio.heat}>
                   {items.map((i, k) => {
-                    const d = sizes[k] ?? 0
-                    const at = field.placed[k] ?? { x: 0, y: 0 }
-                    const tone = (i.profit_bp ?? 0) >= 0 ? 'bubble-up' : 'bubble-down'
+                    const r = tiles[k]
+                    if (r === undefined || r.w === 0 || r.h === 0) return null
+                    const { tone, strength } = heatTone(i.profit_bp)
+                    const small = r.w < HEAT_W * 0.2 || r.h < HEAT_H * 0.24
+                    const active = i.currency === picked
+                    const style = {
+                      left: `${(r.x / HEAT_W) * 100}%`,
+                      top: `${(r.y / HEAT_H) * 100}%`,
+                      width: `${(r.w / HEAT_W) * 100}%`,
+                      height: `${(r.h / HEAT_H) * 100}%`,
+                      '--ts': strength,
+                    } as CSSProperties
                     return (
-                      <g key={i.currency} className={`bubble ${tone}`}>
-                        <circle cx={at.x} cy={at.y} r={d / 2} />
-                        <text x={at.x} y={at.y - d * 0.04} textAnchor="middle" fontSize={d * 0.24} fontWeight="700">
-                          {i.currency}
-                        </text>
-                        <text x={at.x} y={at.y + d * 0.2} textAnchor="middle" fontSize={d * 0.16} fontWeight="600">
-                          {i.profit_bp === null ? '–' : formatBP(i.profit_bp)}
-                        </text>
-                      </g>
+                      <div
+                        key={i.currency}
+                        className={`heat-tile heat-${tone}${small ? ' heat-small' : ''}${active ? ' heat-on' : ''}`}
+                        style={style}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={active}
+                        onClick={() => pick(i.currency)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            pick(i.currency)
+                          }
+                        }}
+                      >
+                        <span className="heat-tk">{i.currency}</span>
+                        <span>
+                          <span className="heat-pct">{i.profit_bp === null ? '–' : formatBP(i.profit_bp)}</span>
+                          <span className="heat-val">
+                            <Money minor={i.value_minor} currency={cur} />
+                          </span>
+                        </span>
+                      </div>
                     )
                   })}
-                </svg>
-                <p className="hint tight">{t.portfolio.bubbleHint}</p>
+                </div>
+                <p className="hint tight">{t.portfolio.heatHint}</p>
               </>
             )}
           </div>

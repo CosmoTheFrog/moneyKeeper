@@ -1,16 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError, createAccount, setTourSeen, type Account, type AccountKind } from './api'
+import { ApiError, createAccount, type Account, type AccountKind } from './api'
 import { AccountFocus } from './AccountFocus'
-import { holdings } from './accounts'
-import { ExportScreen } from './ExportScreen'
-import { ImportScreen } from './ImportScreen'
+import { holdings, totalBalance } from './accounts'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { parseAmount } from './money'
 import { ChipPicker, CurrencyPicker } from './Pickers'
-import { ReminderSettings } from './ReminderSettings'
-import { ThemeSettings } from './ThemeSettings'
 
 type Props = {
   accounts: Account[]
@@ -18,8 +14,6 @@ type Props = {
   baseCurrency: string
   // Валюта, в которой показаны итоги на обороте карты.
   displayCurrency: string
-  // Час ежедневного напоминания внести траты, null если выключено.
-  reminderHour: number | null
   onChanged: () => void
   onOpenReport: (accountId: number) => void
   onOpenSavings: () => void
@@ -28,32 +22,32 @@ type Props = {
 
 const kindOptions = (['debit', 'credit', 'cash', 'wallet'] as const).map((k) => ({ value: k, label: t.accountKinds[k] }))
 
-export function AccountsScreen({ accounts: every, currencies, baseCurrency, displayCurrency, reminderHour, onChanged, onOpenReport, onOpenSavings, onOpenPortfolio }: Props) {
+export function AccountsScreen({ accounts: every, currencies, baseCurrency, displayCurrency, onChanged, onOpenReport, onOpenSavings, onOpenPortfolio }: Props) {
   // Копилки живут на экране «Накопления», здесь только обычные счета и кошельки.
   const accounts = every.filter((a) => a.kind !== 'piggy')
   const [adding, setAdding] = useState(accounts.length === 0)
-  const [settings, setSettings] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const [reminding, setReminding] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
   const focusedAccount = accounts.find((a) => a.id === focused)
+  const total = totalBalance(every)
 
   return (
     <main className="screen">
       <header className="row">
         <h1>{t.accounts.title}</h1>
         <span className="row-tight">
-          <button type="button" className="plus" aria-label={t.theme.open} onClick={() => setSettings(true)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 3v18M12 3a9 9 0 010 18" />
-            </svg>
-          </button>
           <button type="button" className="chip" onClick={() => setAdding(true)}>
             {t.accounts.add}
           </button>
         </span>
       </header>
+
+      {accounts.length > 0 && (
+        <div className="card ops-hero">
+          <span className="label">{t.accounts.total}</span>
+          {total === null ? <p className="hint tight">{t.accounts.noRates}</p> : <Money minor={total} currency={displayCurrency} />}
+          <p className="hint tight">{t.accounts.totalNote}</p>
+        </div>
+      )}
 
       <div className="toolbar">
         <button type="button" className="chip" onClick={onOpenSavings}>
@@ -61,18 +55,6 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
         </button>
         <button type="button" className="chip" onClick={onOpenPortfolio}>
           {t.accounts.portfolio}
-        </button>
-        <button type="button" className="chip" onClick={() => setImporting(true)}>
-          {t.accounts.import}
-        </button>
-        <button type="button" className="chip" onClick={() => setExporting(true)}>
-          {t.accounts.export}
-        </button>
-        <button type="button" className="chip" onClick={() => setReminding(true)}>
-          {t.accounts.reminder}
-        </button>
-        <button type="button" className="chip" onClick={() => void setTourSeen(false).then(onChanged, () => undefined)}>
-          {t.accounts.tour}
         </button>
       </div>
 
@@ -115,19 +97,6 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
             onOpenReport(focusedAccount.id)
           }}
           onClose={() => setFocused(null)}
-        />
-      )}
-      {settings && <ThemeSettings onClose={() => setSettings(false)} />}
-      {exporting && <ExportScreen onClose={() => setExporting(false)} />}
-      {reminding && <ReminderSettings hour={reminderHour} onChanged={onChanged} onClose={() => setReminding(false)} />}
-      {importing && (
-        <ImportScreen
-          accounts={accounts}
-          onClose={() => setImporting(false)}
-          onDone={() => {
-            setImporting(false)
-            onChanged()
-          }}
         />
       )}
 

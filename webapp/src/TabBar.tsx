@@ -24,9 +24,11 @@ const right: Item[] = [
 function TabButton({ item, active, onTab }: { item: Item; active: boolean; onTab: (tab: Tab) => void }) {
   return (
     <button type="button" className={active ? 'tab tab-active' : 'tab'} onClick={() => onTab(item.id)}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d={item.icon} />
-      </svg>
+      <span className="ti">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d={item.icon} />
+        </svg>
+      </span>
       {item.label}
     </button>
   )

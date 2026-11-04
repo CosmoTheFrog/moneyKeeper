@@ -43,3 +43,17 @@ export function holdings(account: Account, limit: number): Holdings {
   const sorted = [...nonZero].sort((a, b) => size(b) - size(a) || a.currency.localeCompare(b.currency))
   return { total, top: sorted.slice(0, limit), more: Math.max(sorted.length - limit, 0) }
 }
+
+// totalBalance: сумма остатков счетов бюджета в валюте пересчёта. Закрытые счета и счета вне бюджета не входят.
+// null, если у какого-то остатка нет курса: неполную сумму показывать нельзя.
+export function totalBalance(accounts: Account[]): number | null {
+  let sum = 0
+  for (const a of accounts) {
+    if (a.archived || a.off_budget) continue
+    for (const b of a.balances) {
+      if (b.base_balance_minor === null) return null
+      sum += b.base_balance_minor
+    }
+  }
+  return sum
+}

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AccountsScreen } from './AccountsScreen'
 import {
+  deleteTransaction,
   fetchAccounts,
   fetchCategories,
   fetchCategoryGroups,
@@ -14,6 +15,8 @@ import {
 } from './api'
 import { BudgetScreen } from './BudgetScreen'
 import { CategoryScreen } from './CategoryScreen'
+import { DayScreen } from './DayScreen'
+import { CategoryColorContext, categoryColors } from './groupColor'
 import { CurrencyScreen } from './CurrencyScreen'
 import { TourScreen } from './TourScreen'
 import { EntryForm } from './EntryForm'
@@ -21,7 +24,11 @@ import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
 import { NoPrivacy, PrivacyContext } from './MoneyText'
 import { registerCurrencies } from './money'
+import { MoreScreen } from './MoreScreen'
 import { OperationsScreen } from './OperationsScreen'
+import { SwipeRow } from './SwipeRow'
+import { haptic } from './haptic'
+import { ErrorState, ScreenSkeleton } from './States'
 import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
 import { applyTheme, readMode, resolveTheme, saveMode, type ThemeMode } from './theme'
@@ -45,9 +52,11 @@ type State = { kind: 'loading' } | { kind: 'outside' } | { kind: 'error' } | { k
 
 type Screen =
   | { kind: 'tabs' }
-  | { kind: 'add'; categoryId?: number; returnTo: Screen }
+  | { kind: 'add'; categoryId?: number; presetDate?: string; returnTo: Screen }
   | { kind: 'edit'; entry: Entry; returnTo: Screen }
   | { kind: 'category'; categoryId: number }
+  | { kind: 'day'; date: string }
+  | { kind: 'more' }
   | { kind: 'account'; accountId: number }
   | { kind: 'savings' }
   | { kind: 'schedules' }
@@ -159,18 +168,11 @@ export function App() {
 
   switch (state.kind) {
     case 'loading':
-      return <p className="screen hint">{t.loading}</p>
+      return <ScreenSkeleton />
     case 'outside':
       return <p className="screen hint">{t.openInTelegram}</p>
     case 'error':
-      return (
-        <main className="screen">
-          <p className="error">{t.errors.internal}</p>
-          <button type="button" className="primary" onClick={() => void load()}>
-            {t.retry}
-          </button>
-        </main>
-      )
+      return <ErrorState onRetry={() => void load()} />
     case 'ready': {
       const { me, accounts: everyAccount, groups, categories } = state.data
       // Закрытые счета не показываются в списках и выборе, но остаются в названиях старых записей.
@@ -193,6 +195,7 @@ export function App() {
       }
 
       const today = dayIn(me.timezone)
+      const colors = categoryColors(groups, categories)
       const reload = () => void load()
       const go = (to: Screen) => setScreen(to)
       const home: Screen = { kind: 'tabs' }
@@ -209,8 +212,18 @@ export function App() {
         }
       }
       const finish = (returnTo: Screen) => {
+        haptic('success')
         go(returnTo)
         void refreshLedger()
+      }
+      // Удаление смахиванием: запись и её вторая нога удаляются на сервере, список перечитывается.
+      const removeEntry = async (entry: Entry) => {
+        try {
+          await deleteTransaction(entry.id)
+        } catch {
+          // не удалилось: список ниже перечитается и покажет, что запись на месте
+        }
+        await refreshLedger()
       }
 
       // Пока счетов нет, записывать некуда: «+» ведёт на вкладку счетов, где форма уже открыта.
@@ -229,6 +242,7 @@ export function App() {
             categories={categories}
             allCurrencies={me.currencies}
             presetCategoryId={screen.categoryId}
+            presetDate={screen.presetDate}
             onDone={() => finish(screen.returnTo)}
             onCancel={() => go(screen.returnTo)}
           />
@@ -268,6 +282,39 @@ export function App() {
               onBack={() => go(home)}
               onAdd={() => go({ kind: 'add', categoryId: category.id, returnTo: here })}
               onOpen={(entry) => openEntry(entry, here)}
+            />
+          )
+          break
+        }
+        case 'more':
+          body = (
+            <MoreScreen
+              name={me.first_name}
+              baseCurrency={base}
+              accounts={accounts.filter((a) => a.kind !== 'piggy')}
+              currencies={me.currencies}
+              display={display}
+              reminderHour={me.reminder_hour}
+              onDisplay={changeDisplay}
+              onChanged={reload}
+              onBack={() => go(home)}
+            />
+          )
+          break
+        case 'day': {
+          const here: Screen = { kind: 'day', date: layer.date }
+          body = (
+            <DayScreen
+              date={layer.date}
+              entries={entries}
+              accounts={everyAccount}
+              categories={categories}
+              today={today}
+              display={display}
+              onBack={() => go(home)}
+              onShift={(date) => go({ kind: 'day', date })}
+              onOpen={(entry) => openEntry(entry, here)}
+              onAdd={(date) => go({ kind: 'add', presetDate: date, returnTo: here })}
             />
           )
           break
@@ -350,7 +397,7 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} currency={display} today={today} onOpen={(entry) => openEntry(entry, home)} />}
+              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
               {tab === 'budget' && (
                 <BudgetScreen
                   groups={groups}
@@ -363,7 +410,6 @@ export function App() {
                   onOpenSchedules={() => go({ kind: 'schedules' })}
                   onChanged={reload}
                   onOpenCategory={(id) => go({ kind: 'category', categoryId: id })}
-                  onAddTo={(id) => go({ kind: 'add', categoryId: id, returnTo: home })}
                 />
               )}
               {tab === 'reports' && (
@@ -379,7 +425,7 @@ export function App() {
                   onOpen={(entry) => openEntry(entry, home)}
                 />
               )}
-              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} reminderHour={me.reminder_hour} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
+              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
               <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
             </>
           )
@@ -393,10 +439,12 @@ export function App() {
       return (
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>
-            <Suspense fallback={<p className="screen hint">{t.loading}</p>}>
-              {hidesSums || layer.kind === 'category' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
-            </Suspense>
-            {overlay}
+            <CategoryColorContext.Provider value={colors}>
+              <Suspense fallback={<ScreenSkeleton />}>
+                {hidesSums || layer.kind === 'category' || layer.kind === 'day' || layer.kind === 'more' || layer.kind === 'add' || layer.kind === 'edit' ? body : <NoPrivacy>{body}</NoPrivacy>}
+              </Suspense>
+              {overlay}
+            </CategoryColorContext.Provider>
           </PrivacyContext.Provider>
         </ThemeContext.Provider>
       )

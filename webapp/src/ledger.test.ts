@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Transaction } from './api'
-import { dayIn, groupByDay, toEntries } from './ledger'
+import { dayIn, dayNet, dayParts, daySummary, entryMatches, groupByDay, lastDays, shiftDay, toEntries, type Entry } from './ledger'
 
 function tx(over: Partial<Transaction> & Pick<Transaction, 'id'>): Transaction {
   return {
@@ -129,5 +129,110 @@ describe('groupByDay', () => {
 
   it('returns nothing for an empty list', () => {
     expect(groupByDay([])).toEqual([])
+  })
+})
+
+function entry(over: Partial<Entry> & Pick<Entry, 'id'>): Entry {
+  return {
+    kind: 'expense',
+    date: '2026-11-03',
+    amountMinor: -100,
+    currency: 'GEL',
+    baseMinor: -100,
+    accountId: 1,
+    toAccountId: null,
+    categoryId: null,
+    note: '',
+    inMinor: null,
+    inCurrency: null,
+    feeMinor: 0,
+    ...over,
+  }
+}
+
+describe('shiftDay', () => {
+  it.each([
+    ['2026-11-03', 1, '2026-11-04'],
+    ['2026-11-30', 1, '2026-12-01'],
+    ['2026-12-31', 1, '2027-01-01'],
+    ['2026-03-01', -1, '2026-02-28'],
+    ['2028-03-01', -1, '2028-02-29'],
+    ['2026-11-03', 0, '2026-11-03'],
+  ])('%s %i → %s', (date, delta, want) => {
+    expect(shiftDay(date, delta)).toBe(want)
+  })
+})
+
+describe('dayNet', () => {
+  it.each([
+    ['расходы и доходы', [entry({ id: 1, baseMinor: -3400 }), entry({ id: 2, kind: 'income', baseMinor: 120000 })], 116600],
+    ['перевод не входит', [entry({ id: 1, baseMinor: -3400 }), entry({ id: 2, kind: 'transfer', baseMinor: 5000 })], -3400],
+    ['только перевод', [entry({ id: 1, kind: 'transfer', baseMinor: 5000 })], null],
+    ['нет курса у одной записи', [entry({ id: 1, baseMinor: -3400 }), entry({ id: 2, baseMinor: null })], null],
+    ['пусто', [], null],
+  ])('%s', (_name, entries, want) => {
+    expect(dayNet(entries)).toBe(want)
+  })
+})
+
+describe('lastDays', () => {
+  it('раскладывает расходы по дням, старые первыми, пустые дни с нулём', () => {
+    const out = lastDays(
+      [entry({ id: 1, date: '2026-11-03', baseMinor: -400 }), entry({ id: 2, date: '2026-11-03', baseMinor: -100 }), entry({ id: 3, date: '2026-11-01', baseMinor: -250 }), entry({ id: 4, date: '2026-10-01', baseMinor: -999 })],
+      '2026-11-03',
+      3,
+    )
+    expect(out).toEqual([
+      { date: '2026-11-01', spentMinor: 250 },
+      { date: '2026-11-02', spentMinor: 0 },
+      { date: '2026-11-03', spentMinor: 500 },
+    ])
+  })
+
+  it('доходы и расходы без курса не считаются', () => {
+    const out = lastDays([entry({ id: 1, kind: 'income', baseMinor: 5000 }), entry({ id: 2, baseMinor: null })], '2026-11-03', 1)
+    expect(out).toEqual([{ date: '2026-11-03', spentMinor: 0 }])
+  })
+})
+
+describe('dayParts', () => {
+  it('складывает расходы по категориям, больше первыми', () => {
+    const out = dayParts([entry({ id: 1, categoryId: 2, baseMinor: -999 }), entry({ id: 2, categoryId: 1, baseMinor: -3400 }), entry({ id: 3, categoryId: 2, baseMinor: -1 }), entry({ id: 4, kind: 'income', baseMinor: 9000 })])
+    expect(out).toEqual([
+      { categoryId: 1, totalMinor: 3400 },
+      { categoryId: 2, totalMinor: 1000 },
+    ])
+  })
+})
+
+describe('entryMatches', () => {
+  const accounts = new Map([[1, 'TBC'], [2, 'Наличные']])
+  const categories = new Map([[7, 'Питание вне дома']])
+  it.each([
+    ['пустой запрос', '', true],
+    ['по заметке без учёта регистра', 'PUB', true],
+    ['по категории', 'питание', true],
+    ['по счёту', 'tbc', true],
+    ['по счёту получателя', 'налич', true],
+    ['нет совпадений', 'такси', false],
+  ])('%s', (_name, query, want) => {
+    const e = entry({ id: 1, kind: 'transfer', note: 'Georgian Pub', categoryId: 7, toAccountId: 2 })
+    expect(entryMatches(e, query, accounts, categories)).toBe(want)
+  })
+})
+
+describe('daySummary', () => {
+  it('считает траты и доход, перевод не входит, записи без курса считаются отдельно', () => {
+    const out = daySummary([
+      entry({ id: 1, baseMinor: -3400 }),
+      entry({ id: 2, baseMinor: -999 }),
+      entry({ id: 3, kind: 'income', baseMinor: 120000 }),
+      entry({ id: 4, kind: 'transfer', baseMinor: 5000 }),
+      entry({ id: 5, baseMinor: null }),
+    ])
+    expect(out).toEqual({ spentMinor: 4399, incomeMinor: 120000, missingRates: 1 })
+  })
+  it('пустой день', () => {
+    expect(daySummary([])).toEqual({ spentMinor: 0, incomeMinor: 0, missingRates: 0 })
   })
 })
