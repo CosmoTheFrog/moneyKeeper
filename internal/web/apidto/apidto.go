@@ -403,6 +403,12 @@ type CommitImportRequest struct {
 
 type CommitImportResponse struct {
 	Saved int `json:"saved"`
+	// ids: номера созданных записей, по ним импорт можно отменить.
+	IDs []int64 `json:"ids"`
+}
+
+type UndoImportRequest struct {
+	IDs []int64 `json:"ids"`
 }
 
 // SetTourRequest: true отмечает обучение показанным, false показывает его при следующем входе.

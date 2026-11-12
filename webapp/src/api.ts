@@ -350,8 +350,15 @@ export const previewImportFile = (accountId: number, file: File) => {
   return request<ImportPreview>('POST', '/api/import/file', form)
 }
 
+// Текст выписки (csv, txt) уходит на разбор во внешнюю модель, только с явным согласием пользователя.
+export const previewImportText = (accountId: number, text: string, consent: boolean) =>
+  request<ImportPreview>('POST', '/api/import/preview', { account_id: accountId, text, consent })
+
+// ids: номера созданных записей, по ним импорт можно отменить.
 export const commitImport = (accountId: number, rows: ImportRow[]) =>
-  request<{ saved: number }>('POST', '/api/import/commit', { account_id: accountId, rows })
+  request<{ saved: number; ids: number[] }>('POST', '/api/import/commit', { account_id: accountId, rows })
+
+export const undoImport = (ids: number[]) => request<void>('POST', '/api/import/undo', { ids })
 
 // Публичный адрес кошелька, привязанный к счёту. consent это явное согласие отправить адрес в источник данных о сети.
 export type Wallet = { id: number; chain: string; address: string }

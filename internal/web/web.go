@@ -68,7 +68,8 @@ type Service interface {
 
 	PreviewImport(ctx context.Context, u models.User, accountID int64, text string, consent bool) (models.ImportPreview, error)
 	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte) (models.ImportPreview, error)
-	CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) (int, error)
+	CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) ([]int64, error)
+	UndoImport(ctx context.Context, u models.User, ids []int64) error
 
 	ListWallets(ctx context.Context, u models.User, accountID int64) ([]models.WalletAddress, error)
 	AddWallet(ctx context.Context, u models.User, accountID int64, chainName, address string, consent bool) (models.WalletAddress, error)
@@ -122,6 +123,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("POST /api/import/preview", h.auth(h.previewImport))
 	mux.HandleFunc("POST /api/import/file", h.auth(h.previewImportFile))
 	mux.HandleFunc("POST /api/import/commit", h.auth(h.commitImport))
+	mux.HandleFunc("POST /api/import/undo", h.auth(h.undoImport))
 	mux.HandleFunc("GET /api/accounts/{id}/wallets", h.auth(h.listWallets))
 	mux.HandleFunc("POST /api/accounts/{id}/wallets", h.auth(h.addWallet))
 	mux.HandleFunc("DELETE /api/wallets/{id}", h.auth(h.removeWallet))

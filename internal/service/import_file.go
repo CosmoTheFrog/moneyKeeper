@@ -84,6 +84,9 @@ func (s *Service) PreviewTrackerExport(ctx context.Context, u models.User, accou
 	if !found {
 		return models.ImportPreview{}, fmt.Errorf("no %q or %q sheet: %w", trackerExpenses, trackerIncome, models.ErrInvalidImport)
 	}
+	if err := s.applyRules(ctx, u, out.Rows, byName); err != nil {
+		return models.ImportPreview{}, err
+	}
 	if err := s.markDuplicates(ctx, u, acc.ID, out.Rows); err != nil {
 		return models.ImportPreview{}, err
 	}

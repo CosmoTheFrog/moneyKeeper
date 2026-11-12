@@ -2834,3 +2834,49 @@ span.money {
   font-size: 14px;
   line-height: 1.45;
 }
+
+.imp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 48vh;
+  overflow-y: auto;
+}
+
+.imp-row {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.imp-off {
+  opacity: 0.55;
+}
+
+.imp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.imp-desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.imp-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.imp-sub select {
+  max-width: 60%;
+}

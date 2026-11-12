@@ -107,13 +107,13 @@ func TestWalletImport(t *testing.T) {
 		t.Fatal("failed commit must not mark transfers as imported")
 	}
 
-	n, err := s.CommitImport(ctx, u, wallet.ID, p.Rows[:1])
-	if err != nil || n != 1 {
-		t.Fatalf("commit = %d, %v; want 1", n, err)
+	ids, err := s.CommitImport(ctx, u, wallet.ID, p.Rows[:1])
+	if err != nil || len(ids) != 1 {
+		t.Fatalf("commit = %v, %v; want 1", ids, err)
 	}
-	n, err = s.CommitImport(ctx, u, wallet.ID, p.Rows[:1])
-	if err != nil || n != 0 {
-		t.Fatalf("repeat commit = %d, %v; want 0 saved", n, err)
+	ids, err = s.CommitImport(ctx, u, wallet.ID, p.Rows[:1])
+	if err != nil || len(ids) != 0 {
+		t.Fatalf("repeat commit = %v, %v; want 0 saved", ids, err)
 	}
 	again, _ := s.PreviewWallet(ctx, u, w.ID)
 	if !again.Rows[0].Duplicate || again.Rows[1].Duplicate {

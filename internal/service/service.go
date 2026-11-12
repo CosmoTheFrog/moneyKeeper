@@ -38,6 +38,7 @@ type Service struct {
 	chains       ChainSource
 	fx           RateSource
 	statementLLM StatementLLM
+	importRules  *repo.ImportRules
 	log          *slog.Logger
 	now          func() time.Time
 	live         livePrices

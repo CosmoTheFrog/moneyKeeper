@@ -61,6 +61,7 @@ func run(log *slog.Logger) error {
 	if key := os.Getenv("GROQ_API_KEY"); key != "" {
 		svc.WithStatementLLM(llm.NewGroq(key))
 	}
+	svc.WithImportRules(repo.NewImportRules(db))
 	svc.WithWallets(repo.NewWallets(db), chain.NewClient())
 	if err := svc.LoadAssets(ctx); err != nil {
 		return fmt.Errorf("load assets: %w", err)
