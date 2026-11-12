@@ -6,7 +6,12 @@ export type Budget = {
   base_currency: string | null
   // Режим конвертов: заложенные суммы, «К распределению», лимиты. Выключен, пока пользователь не включит.
   envelopes_enabled: boolean
+  // Режим интерфейса; null, пока пользователь не выбрал.
+  interface_mode: InterfaceMode | null
 }
+
+// simple: траты по категориям без карт и счетов. full: карты, переводы, обмен, копилка, портфель.
+export type InterfaceMode = 'simple' | 'full'
 
 export type Me = {
   id: number
@@ -174,6 +179,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export const fetchMe = () => request<Me>('GET', '/api/me')
 
+export const setInterfaceMode = (mode: InterfaceMode) => request<Budget>('PUT', '/api/budget/mode', { mode })
 export const setEnvelopes = (enabled: boolean) => request<Budget>('PUT', '/api/budget/envelopes', { enabled })
 
 export const setBaseCurrency = (currency: string) => request<Budget>('PUT', '/api/budget/currency', { currency })

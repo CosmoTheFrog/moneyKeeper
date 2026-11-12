@@ -33,6 +33,8 @@ type BudgetDTO struct {
 	Name             string  `json:"name"`
 	BaseCurrency     *string `json:"base_currency"`
 	EnvelopesEnabled bool    `json:"envelopes_enabled"`
+	// InterfaceMode: simple или full, null пока пользователь не выбрал.
+	InterfaceMode *string `json:"interface_mode"`
 }
 
 // CurrencyInfoDTO.Units это число знаков после запятой, Coin: курс берётся отдельно по требованию (монеты и акции),
@@ -61,6 +63,11 @@ type MeResponse struct {
 // SetEnvelopesRequest включает режим конвертов или выключает его.
 type SetEnvelopesRequest struct {
 	Enabled bool `json:"enabled"`
+}
+
+// SetInterfaceModeRequest выбирает режим интерфейса: simple или full.
+type SetInterfaceModeRequest struct {
+	Mode string `json:"mode"`
 }
 
 // SetReminderRequest: час 0-23 по времени пользователя включает ежедневное напоминание, null выключает.

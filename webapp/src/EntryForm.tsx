@@ -32,6 +32,8 @@ type Props = {
   entry?: Entry
   // Все валюты, которые знает приложение; на многовалютном счёте доступна любая из них.
   allCurrencies: string[]
+  // Простой режим: только расход и доход на основной счёт, без выбора счёта, переводов и обмена.
+  simple?: boolean
   // Категория, которую нужно выбрать заранее (кнопка «+» у категории).
   presetCategoryId?: number
   // Дата, которую нужно выбрать заранее (запись на открытый день).
@@ -41,6 +43,7 @@ type Props = {
 }
 
 const kindOptions = (['expense', 'income', 'transfer', 'exchange'] as const).map((k) => ({ value: k, label: t.kinds[k] }))
+const simpleKindOptions = kindOptions.filter((o) => o.value === 'expense' || o.value === 'income')
 
 // routeOf: откуда куда для заголовка записи при правке: «Счёт → Счёт», «Счёт · Категория».
 function routeOf(entry: Entry, kind: FormKind, nameOf: (id: number | null) => string, categoryName: Map<number, string>): string {
@@ -57,7 +60,7 @@ function kindLabel(kind: FormKind): string {
   return kind === 'opening' ? t.ledger.opening : t.kinds[kind]
 }
 
-export function EntryForm({ accounts, allAccounts, categories, entry, allCurrencies, presetCategoryId, presetDate, onDone, onCancel }: Props) {
+export function EntryForm({ accounts, allAccounts, categories, entry, allCurrencies, simple = false, presetCategoryId, presetDate, onDone, onCancel }: Props) {
   const editing = entry !== undefined
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
@@ -85,7 +88,7 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
   const currencyEditable = !editing || kind === 'expense' || kind === 'income'
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
 
-  const canPickAccount = editing ? kind === 'expense' || kind === 'income' : true
+  const canPickAccount = !simple && (editing ? kind === 'expense' || kind === 'income' : true)
   const canPickTarget = !editing && kind === 'transfer'
   const targets = accountsInCurrency.filter((a) => a.id !== accountId)
   const fromAccount = accounts.find((a) => a.id === accountId)
@@ -227,7 +230,7 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
     <Modal title={editing ? t.edit.title : t.add.title} onClose={onCancel}>
       {!editing && (
         <div className="top-gap">
-          <ChipPicker value={kind === 'opening' ? 'expense' : kind} options={kindOptions} onChange={setKind} />
+          <ChipPicker value={kind === 'opening' ? 'expense' : kind} options={simple ? simpleKindOptions : kindOptions} onChange={setKind} />
         </div>
       )}
       {ticket}
@@ -277,7 +280,7 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
                   {!currencyEditable && <span className="amount-suffix">{currencySign(currency)}</span>}
                 </span>
               </label>
-              {currencyEditable && currencies.length > 0 && <CurrencyPicker label={t.add.currency} value={currency} options={currencies} onChange={chooseCurrency} />}
+              {currencyEditable && currencies.length > (simple ? 1 : 0) && <CurrencyPicker label={t.add.currency} value={currency} options={currencies} onChange={chooseCurrency} />}
             </div>
           )}
 

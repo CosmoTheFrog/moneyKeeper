@@ -74,16 +74,19 @@ export function ImportScreen({ accounts, onClose, onDone }: Props) {
       ) : preview === null ? (
         <>
           <p className="hint">{t.importFile.hint}</p>
-          <label className="field">
-            <span className="label">{t.importFile.account}</span>
-            <select value={accountId} onChange={(e) => setAccountId(Number(e.target.value))}>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {accounts.length > 1 && (
+            <label className="field">
+              <span className="label">{t.importFile.account}</span>
+              <select value={accountId} onChange={(e) => setAccountId(Number(e.target.value))}>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+          )}
           <label className="field">
             <span className="label">{t.importFile.file}</span>
             <input type="file" accept=".xlsx,.pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />

@@ -14,6 +14,7 @@ import {
 import { BudgetScreen } from './BudgetScreen'
 import { CategoryScreen } from './CategoryScreen'
 import { DayScreen } from './DayScreen'
+import { ModeScreen } from './ModeScreen'
 import { CategoryColorContext, categoryColors } from './categoryColor'
 import { CurrencyScreen } from './CurrencyScreen'
 import { TourScreen } from './TourScreen'
@@ -173,7 +174,10 @@ export function App() {
     case 'ready': {
       const { me, accounts: everyAccount, categories } = state.data
       // Закрытые счета не показываются в списках и выборе, но остаются в названиях старых записей.
-      const accounts = everyAccount.filter((a) => !a.archived)
+      const openAccounts = everyAccount.filter((a) => !a.archived)
+      // Простой режим: один скрытый основной счёт, выбирать счёт и переводить деньги не нужно.
+      const simple = me.budget.interface_mode === 'simple'
+      const accounts = simple ? openAccounts.filter((a) => a.is_default) : openAccounts
       const base = me.budget.base_currency
       const display = me.currencies.includes(displayChoice) ? displayChoice : (base ?? '')
       const changeDisplay = (code: string) => {
@@ -187,6 +191,9 @@ export function App() {
       if (base === null) {
         return <CurrencyScreen currencies={me.base_currencies} onDone={() => void load()} />
       }
+      if (me.budget.interface_mode === null) {
+        return <ModeScreen onDone={() => void load()} />
+      }
       if (!me.tour_seen) {
         return <TourScreen onDone={() => void load()} />
       }
@@ -196,6 +203,8 @@ export function App() {
       const reload = () => void load()
       const go = (to: Screen) => setScreen(to)
       const home: Screen = { kind: 'tabs' }
+      // Вкладки счетов в простом режиме нет: если пользователь был на ней, показываем операции.
+      const shownTab: Tab = simple && tab === 'accounts' ? 'operations' : tab
 
       const openEntry = (entry: Entry, returnTo: Screen) => go({ kind: 'edit', entry, returnTo })
       // Запись меняет только счета (остатки) и список записей; профиль, группы и категории при этом не трогаются.
@@ -237,6 +246,7 @@ export function App() {
             allAccounts={everyAccount}
             categories={categories}
             allCurrencies={me.currencies}
+            simple={simple}
             presetCategoryId={screen.categoryId}
             presetDate={screen.presetDate}
             onDone={() => finish(screen.returnTo)}
@@ -250,6 +260,7 @@ export function App() {
             allAccounts={everyAccount}
             categories={categories}
             allCurrencies={me.currencies}
+            simple={simple}
             entry={screen.entry}
             onDone={() => finish(screen.returnTo)}
             onCancel={() => go(screen.returnTo)}
@@ -286,6 +297,7 @@ export function App() {
               name={me.first_name}
               baseCurrency={base}
               accounts={accounts.filter((a) => a.kind !== 'piggy')}
+              interfaceMode={me.budget.interface_mode}
               currencies={me.currencies}
               display={display}
               reminderHour={me.reminder_hour}
@@ -389,8 +401,8 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
-              {tab === 'budget' && (
+              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
+              {shownTab === 'budget' && (
                 <BudgetScreen
                         categories={categories}
                   accounts={accounts}
@@ -403,7 +415,7 @@ export function App() {
                   onOpenCategory={(id) => go({ kind: 'category', categoryId: id })}
                 />
               )}
-              {tab === 'reports' && (
+              {shownTab === 'reports' && (
                 <ReportsScreen
                   entries={entries}
                   accounts={everyAccount}
@@ -415,8 +427,8 @@ export function App() {
                   onOpen={(entry) => openEntry(entry, home)}
                 />
               )}
-              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
-              <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
+              {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
+              <TabBar tab={shownTab} onTab={setTab} onAdd={onAdd} simple={simple} />
             </>
           )
           break
@@ -425,7 +437,7 @@ export function App() {
       }
 
       // Режим скрытия сумм работает только на вкладках «Операции» и «Счета».
-      const hidesSums = layer.kind === 'tabs' && (tab === 'operations' || tab === 'accounts')
+      const hidesSums = layer.kind === 'tabs' && (shownTab === 'operations' || shownTab === 'accounts')
       return (
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>

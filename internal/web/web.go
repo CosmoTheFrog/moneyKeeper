@@ -35,6 +35,7 @@ type Service interface {
 	SetTourSeen(ctx context.Context, u models.User, seen bool) error
 	SetBaseCurrency(ctx context.Context, u models.User, code string) (models.Budget, error)
 	SetEnvelopes(ctx context.Context, u models.User, enabled bool) (models.Budget, error)
+	SetInterfaceMode(ctx context.Context, u models.User, mode string) (models.Budget, error)
 	ListAccounts(ctx context.Context, u models.User, in string) ([]models.Account, error)
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
 	ArchiveAccount(ctx context.Context, u models.User, id int64) error
@@ -93,6 +94,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("GET /api/me", h.auth(h.me))
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
 	mux.HandleFunc("PUT /api/budget/envelopes", h.auth(h.setEnvelopes))
+	mux.HandleFunc("PUT /api/budget/mode", h.auth(h.setInterfaceMode))
 	mux.HandleFunc("PUT /api/me/reminder", h.auth(h.setReminder))
 	mux.HandleFunc("PUT /api/me/tour", h.auth(h.setTour))
 	mux.HandleFunc("POST /api/assets", h.auth(h.addAsset))
@@ -279,6 +281,10 @@ func (h *handler) archiveAccount(w http.ResponseWriter, r *http.Request, u model
 
 func budgetDTO(b models.Budget) apidto.BudgetDTO {
 	dto := apidto.BudgetDTO{ID: b.ID, Name: b.Name, EnvelopesEnabled: b.EnvelopesEnabled}
+	if b.InterfaceMode != "" {
+		m := string(b.InterfaceMode)
+		dto.InterfaceMode = &m
+	}
 	if b.BaseCurrency != nil {
 		c := string(*b.BaseCurrency)
 		dto.BaseCurrency = &c
@@ -396,6 +402,20 @@ func (h *handler) setEnvelopes(w http.ResponseWriter, r *http.Request, u models.
 		return
 	}
 	b, err := h.svc.SetEnvelopes(r.Context(), u, req.Enabled)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusOK, budgetDTO(b))
+}
+
+// setInterfaceMode выбирает простой или полный режим интерфейса; ответ это бюджет с новым режимом.
+func (h *handler) setInterfaceMode(w http.ResponseWriter, r *http.Request, u models.User) {
+	var req apidto.SetInterfaceModeRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	b, err := h.svc.SetInterfaceMode(r.Context(), u, req.Mode)
 	if err != nil {
 		h.fail(w, err)
 		return

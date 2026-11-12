@@ -34,15 +34,19 @@ func (r *Budgets) Get(ctx context.Context, id int64) (models.Budget, error) {
 	var (
 		b    models.Budget
 		code *string
+		mode *string
 	)
-	err := r.db.Q(ctx).QueryRow(ctx, `SELECT id, name, base_currency, envelopes_enabled FROM budgets WHERE id = $1`, id).
-		Scan(&b.ID, &b.Name, &code, &b.EnvelopesEnabled)
+	err := r.db.Q(ctx).QueryRow(ctx, `SELECT id, name, base_currency, envelopes_enabled, interface_mode FROM budgets WHERE id = $1`, id).
+		Scan(&b.ID, &b.Name, &code, &b.EnvelopesEnabled, &mode)
 	if err != nil {
 		return models.Budget{}, fmt.Errorf("get budget: %w", mapErr(err))
 	}
 	if code != nil {
 		c := money.Currency(*code)
 		b.BaseCurrency = &c
+	}
+	if mode != nil {
+		b.InterfaceMode = models.InterfaceMode(*mode)
 	}
 	return b, nil
 }
@@ -71,6 +75,18 @@ func (r *Budgets) SetEnvelopes(ctx context.Context, id int64, enabled bool) erro
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("set envelopes: %w", models.ErrNotFound)
+	}
+	return nil
+}
+
+// SetInterfaceMode запоминает выбранный режим интерфейса.
+func (r *Budgets) SetInterfaceMode(ctx context.Context, id int64, mode models.InterfaceMode) error {
+	tag, err := r.db.Q(ctx).Exec(ctx, `UPDATE budgets SET interface_mode = $2 WHERE id = $1`, id, string(mode))
+	if err != nil {
+		return fmt.Errorf("set interface mode: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("set interface mode: %w", models.ErrNotFound)
 	}
 	return nil
 }

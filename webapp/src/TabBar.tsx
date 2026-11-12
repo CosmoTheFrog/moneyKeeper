@@ -6,6 +6,8 @@ type Props = {
   tab: Tab
   onTab: (tab: Tab) => void
   onAdd: () => void
+  // В простом режиме счетов нет, вкладки «Счета» тоже.
+  simple?: boolean
 }
 
 type Item = { id: Tab; label: string; icon: string }
@@ -34,7 +36,7 @@ function TabButton({ item, active, onTab }: { item: Item; active: boolean; onTab
   )
 }
 
-export function TabBar({ tab, onTab, onAdd }: Props) {
+export function TabBar({ tab, onTab, onAdd, simple = false }: Props) {
   return (
     <nav className="tabbar">
       {left.map((x) => (
@@ -45,7 +47,7 @@ export function TabBar({ tab, onTab, onAdd }: Props) {
           <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
-      {right.map((x) => (
+      {right.filter((x) => !simple || x.id !== 'accounts').map((x) => (
         <TabButton key={x.id} item={x} active={tab === x.id} onTab={onTab} />
       ))}
     </nav>

@@ -9,6 +9,9 @@ import (
 	"moneykeeper/pkg/money"
 )
 
+// DefaultAccountName это название скрытого счёта, который заводится в простом режиме, русский язык.
+const DefaultAccountName = "Основной"
+
 // DefaultCategories — стартовый набор категорий из README, русский язык.
 func DefaultCategories() []models.DefaultCategory {
 	return []models.DefaultCategory{
