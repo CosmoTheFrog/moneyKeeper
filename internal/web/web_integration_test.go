@@ -53,9 +53,9 @@ func TestFlow(t *testing.T) {
 		wantBody   string
 	}{
 		{"first login creates user and budget", "GET", "/api/me", "", 200,
-			`{"id":1,"first_name":"Igor","timezone":"Asia/Tbilisi","budget":{"id":1,"name":"","base_currency":null},"base_currencies":["GEL","EUR","USD","RUB"],"currencies":["GEL","EUR","USD","RUB","USDT","BTC",…`},
+			`{"id":1,"first_name":"Igor","timezone":"Asia/Tbilisi","budget":{"id":1,"name":"","base_currency":null,"envelopes_enabled":false,"interface_mode":null},"base_currencies":["GEL","EUR","USD","RUB"],"currencies":["GEL","EUR","USD","RUB","USDT","BTC",…`},
 		{"invalid base currency", "PUT", "/api/budget/currency", `{"currency":"USDT"}`, 400, `{"code":"invalid_currency"}`},
-		{"set base currency", "PUT", "/api/budget/currency", `{"currency":"GEL"}`, 200, `{"id":1,"name":"","base_currency":"GEL"}`},
+		{"set base currency", "PUT", "/api/budget/currency", `{"currency":"GEL"}`, 200, `{"id":1,"name":"","base_currency":"GEL","envelopes_enabled":false,"interface_mode":null}`},
 		{"base currency is set once", "PUT", "/api/budget/currency", `{"currency":"EUR"}`, 409, `{"code":"base_currency_set"}`},
 		{"unknown field is rejected", "PUT", "/api/budget/currency", `{"currency":"GEL","x":1}`, 400, `{"code":"invalid_request"}`},
 		{"no accounts yet", "GET", "/api/accounts", "", 200, `{"accounts":[]}`},

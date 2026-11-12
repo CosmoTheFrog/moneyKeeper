@@ -38,6 +38,7 @@ type Service struct {
 	chains       ChainSource
 	fx           RateSource
 	statementLLM StatementLLM
+	importRules  *repo.ImportRules
 	log          *slog.Logger
 	now          func() time.Time
 	live         livePrices
@@ -82,7 +83,7 @@ func (s *Service) Resolve(ctx context.Context, tg models.TelegramUser, timezone 
 		if err := s.budgets.AddMember(ctx, b.ID, created.ID); err != nil {
 			return err
 		}
-		if err := s.categories.SeedDefaults(ctx, b.ID, i18n.DefaultGroups(), i18n.DefaultCategories()); err != nil {
+		if err := s.categories.SeedDefaults(ctx, b.ID, i18n.DefaultCategories()); err != nil {
 			return err
 		}
 		return s.users.SetActiveBudget(ctx, created.ID, b.ID)
@@ -200,4 +201,49 @@ func (s *Service) SetEnvelopes(ctx context.Context, u models.User, enabled bool)
 		return models.Budget{}, err
 	}
 	return s.budgets.Get(ctx, u.ActiveBudgetID)
+}
+
+// SetInterfaceMode запоминает режим интерфейса. Для простого режима нужен основной счёт в базовой валюте: если
+// подходящего нет, он заводится. Счета и записи полного режима не трогаются, при возврате в него всё на месте.
+func (s *Service) SetInterfaceMode(ctx context.Context, u models.User, mode string) (models.Budget, error) {
+	m := models.InterfaceMode(mode)
+	if m != models.ModeSimple && m != models.ModeFull {
+		return models.Budget{}, fmt.Errorf("mode %q: %w", mode, models.ErrInvalidAccount)
+	}
+	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		b, err := s.budgets.Get(ctx, u.ActiveBudgetID)
+		if err != nil {
+			return err
+		}
+		if b.BaseCurrency == nil {
+			return fmt.Errorf("base currency is not set: %w", models.ErrInvalidAccount)
+		}
+		if m == models.ModeSimple {
+			accs, err := s.accounts.List(ctx, u.ActiveBudgetID)
+			if err != nil {
+				return err
+			}
+			has := false
+			for _, a := range accs {
+				if a.IsDefault && !a.Archived {
+					has = true
+				}
+			}
+			if !has {
+				if _, err := s.accounts.Create(ctx, u.ActiveBudgetID, models.NewAccount{Name: i18n.DefaultAccountName, Kind: models.AccountCash, Currency: *b.BaseCurrency}); err != nil {
+					return err
+				}
+			}
+		}
+		return s.budgets.SetInterfaceMode(ctx, u.ActiveBudgetID, m)
+	})
+	if err != nil {
+		return models.Budget{}, err
+	}
+	return s.budgets.Get(ctx, u.ActiveBudgetID)
+}
+
+// FindUser находит пользователя по Telegram-аккаунту, не создавая его. Нет такого: ErrNotFound.
+func (s *Service) FindUser(ctx context.Context, telegramID int64) (models.User, error) {
+	return s.users.GetByTelegramID(ctx, telegramID)
 }

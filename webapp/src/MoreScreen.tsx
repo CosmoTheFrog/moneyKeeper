@@ -1,8 +1,11 @@
 import { useContext, useState, type CSSProperties, type ReactNode } from 'react'
-import { setTourSeen, type Account } from './api'
+import { setTourSeen, type Account, type InterfaceMode } from './api'
 import { DisplayCurrency } from './DisplayCurrency'
 import { ExportScreen } from './ExportScreen'
 import { ImportScreen } from './ImportScreen'
+import { Modal } from './Modal'
+import { ModePicker } from './ModeScreen'
+import { setInterfaceMode } from './api'
 import { t } from './i18n'
 import { PrivacyContext } from './MoneyText'
 import { ReminderSettings } from './ReminderSettings'
@@ -12,6 +15,7 @@ type Props = {
   name: string
   baseCurrency: string
   accounts: Account[]
+  interfaceMode: InterfaceMode | null
   currencies: string[]
   display: string
   // Час ежедневного напоминания внести траты, null если выключено.
@@ -29,6 +33,7 @@ const ICONS = {
   upload: 'M12 15V3M7 8l5-5 5 5M5 21h14',
   download: 'M12 3v12M7 10l5 5 5-5M5 21h14',
   bell: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9zM13.7 21a2 2 0 01-3.4 0',
+  layout: 'M4 5h16v14H4zM4 10h16M10 10v9',
   help: 'M12 21a9 9 0 100-18 9 9 0 000 18zM9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.1-1.5 2M12 17h.01',
 }
 
@@ -62,13 +67,14 @@ function Row({ icon, tint, title, sub, end, onClick }: { icon: keyof typeof ICON
 }
 
 // Ещё: настройки и работа с данными в одном месте.
-export function MoreScreen({ name, baseCurrency, accounts, currencies, display, reminderHour, onDisplay, onChanged, onBack }: Props) {
+export function MoreScreen({ name, baseCurrency, accounts, interfaceMode, currencies, display, reminderHour, onDisplay, onChanged, onBack }: Props) {
   const { mode } = useContext(ThemeContext)
   const { hidden, toggle } = useContext(PrivacyContext)
   const [theme, setTheme] = useState(false)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [reminding, setReminding] = useState(false)
+  const [switching, setSwitching] = useState(false)
 
   return (
     <main className="screen">
@@ -93,6 +99,7 @@ export function MoreScreen({ name, baseCurrency, accounts, currencies, display, 
 
       <h2 className="day">{t.more.view}</h2>
       <div className="card list-card">
+        <Row icon="layout" tint="var(--g1)" title={t.mode.row} sub={interfaceMode === null ? '' : t.mode[interfaceMode].title} onClick={() => setSwitching(true)} />
         <Row icon="palette" tint="var(--g3)" title={t.theme.open} sub={t.theme.modes[mode]} onClick={() => setTheme(true)} />
         <Row icon="globe" tint="var(--g4)" title={t.more.displayCurrency} sub={t.rates.countInHint} end={<DisplayCurrency display={display} currencies={currencies} onChange={onDisplay} />} />
         <label className="more-row">
@@ -124,6 +131,19 @@ export function MoreScreen({ name, baseCurrency, accounts, currencies, display, 
         <Row icon="help" tint="var(--g6)" title={t.accounts.tour} onClick={() => void setTourSeen(false).then(onChanged, () => undefined)} />
       </div>
 
+      {switching && (
+        <Modal title={t.mode.title} onClose={() => setSwitching(false)}>
+          <ModePicker
+            value={interfaceMode}
+            onPick={(m) => {
+              void setInterfaceMode(m).then(() => {
+                setSwitching(false)
+                onChanged()
+              }, () => undefined)
+            }}
+          />
+        </Modal>
+      )}
       {theme && <ThemeSettings onClose={() => setTheme(false)} />}
       {exporting && <ExportScreen onClose={() => setExporting(false)} />}
       {reminding && <ReminderSettings hour={reminderHour} onChanged={onChanged} onClose={() => setReminding(false)} />}

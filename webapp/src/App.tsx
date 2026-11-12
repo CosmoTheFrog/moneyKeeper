@@ -4,19 +4,18 @@ import {
   deleteTransaction,
   fetchAccounts,
   fetchCategories,
-  fetchCategoryGroups,
   fetchMe,
   fetchTransactions,
   type Account,
   type Category,
-  type CategoryGroup,
   type Me,
   type Transaction,
 } from './api'
 import { BudgetScreen } from './BudgetScreen'
 import { CategoryScreen } from './CategoryScreen'
 import { DayScreen } from './DayScreen'
-import { CategoryColorContext, categoryColors } from './groupColor'
+import { ModeScreen } from './ModeScreen'
+import { CategoryColorContext, categoryColors } from './categoryColor'
 import { CurrencyScreen } from './CurrencyScreen'
 import { TourScreen } from './TourScreen'
 import { EntryForm } from './EntryForm'
@@ -43,7 +42,6 @@ const SavingsScreen = lazy(() => import('./SavingsScreen').then((m) => ({ defaul
 type Data = {
   me: Me
   accounts: Account[]
-  groups: CategoryGroup[]
   categories: Category[]
   transactions: Transaction[]
 }
@@ -128,19 +126,19 @@ export function App() {
 
   const load = useCallback(async () => {
     try {
-      // Группы и категории от профиля не зависят, их запрос идёт параллельно с ним.
-      const structure = Promise.all([fetchCategoryGroups(), fetchCategories()])
+      // Категории от профиля не зависят, их запрос идёт параллельно с ним.
+      const structure = fetchCategories()
       structure.catch(() => {}) // ошибку разберёт await ниже; без этого при раннем выходе она осталась бы необработанной
       const me = await fetchMe()
       registerCurrencies(me.currency_info)
       if (me.budget.base_currency === null) {
-        setState({ kind: 'ready', data: { me, accounts: [], groups: [], categories: [], transactions: [] } })
+        setState({ kind: 'ready', data: { me, accounts: [], categories: [], transactions: [] } })
         return
       }
       // Сохранённая валюта могла пропасть из списка: тогда считаем в базовой.
       const target = me.currencies.includes(displayChoice) ? displayChoice : ''
-      const [[groups, categories], accounts, transactions] = await Promise.all([structure, fetchAccounts(target), fetchTransactions(target)])
-      setState({ kind: 'ready', data: { me, accounts, groups, categories, transactions } })
+      const [categories, accounts, transactions] = await Promise.all([structure, fetchAccounts(target), fetchTransactions(target)])
+      setState({ kind: 'ready', data: { me, accounts, categories, transactions } })
     } catch {
       setState({ kind: 'error' })
     }
@@ -174,9 +172,12 @@ export function App() {
     case 'error':
       return <ErrorState onRetry={() => void load()} />
     case 'ready': {
-      const { me, accounts: everyAccount, groups, categories } = state.data
+      const { me, accounts: everyAccount, categories } = state.data
       // Закрытые счета не показываются в списках и выборе, но остаются в названиях старых записей.
-      const accounts = everyAccount.filter((a) => !a.archived)
+      const openAccounts = everyAccount.filter((a) => !a.archived)
+      // Простой режим: один скрытый основной счёт, выбирать счёт и переводить деньги не нужно.
+      const simple = me.budget.interface_mode === 'simple'
+      const accounts = simple ? openAccounts.filter((a) => a.is_default) : openAccounts
       const base = me.budget.base_currency
       const display = me.currencies.includes(displayChoice) ? displayChoice : (base ?? '')
       const changeDisplay = (code: string) => {
@@ -190,18 +191,23 @@ export function App() {
       if (base === null) {
         return <CurrencyScreen currencies={me.base_currencies} onDone={() => void load()} />
       }
+      if (me.budget.interface_mode === null) {
+        return <ModeScreen onDone={() => void load()} />
+      }
       if (!me.tour_seen) {
         return <TourScreen onDone={() => void load()} />
       }
 
       const today = dayIn(me.timezone)
-      const colors = categoryColors(groups, categories)
+      const colors = categoryColors(categories)
       const reload = () => void load()
       const go = (to: Screen) => setScreen(to)
       const home: Screen = { kind: 'tabs' }
+      // Вкладки счетов в простом режиме нет: если пользователь был на ней, показываем операции.
+      const shownTab: Tab = simple && tab === 'accounts' ? 'operations' : tab
 
       const openEntry = (entry: Entry, returnTo: Screen) => go({ kind: 'edit', entry, returnTo })
-      // Запись меняет только счета (остатки) и список записей; профиль, группы и категории при этом не трогаются.
+      // Запись меняет только счета (остатки) и список записей; профиль и категории при этом не трогаются.
       const refreshLedger = async () => {
         try {
           const target = me.currencies.includes(displayChoice) ? displayChoice : ''
@@ -238,9 +244,11 @@ export function App() {
           <EntryForm
             accounts={accounts}
             allAccounts={everyAccount}
-            groups={groups}
             categories={categories}
             allCurrencies={me.currencies}
+            simple={simple}
+            recentEntries={entries}
+            onSaved={() => void refreshLedger()}
             presetCategoryId={screen.categoryId}
             presetDate={screen.presetDate}
             onDone={() => finish(screen.returnTo)}
@@ -252,9 +260,9 @@ export function App() {
           <EntryForm
             accounts={accounts}
             allAccounts={everyAccount}
-            groups={groups}
             categories={categories}
             allCurrencies={me.currencies}
+            simple={simple}
             entry={screen.entry}
             onDone={() => finish(screen.returnTo)}
             onCancel={() => go(screen.returnTo)}
@@ -274,7 +282,6 @@ export function App() {
           body = (
             <CategoryScreen
               category={category}
-              groupName={groups.find((g) => g.id === category.group_id)?.name ?? ''}
               entries={entries.filter((e) => e.categoryId === category.id)}
               accounts={everyAccount}
               categories={categories}
@@ -292,6 +299,7 @@ export function App() {
               name={me.first_name}
               baseCurrency={base}
               accounts={accounts.filter((a) => a.kind !== 'piggy')}
+              interfaceMode={me.budget.interface_mode}
               currencies={me.currencies}
               display={display}
               reminderHour={me.reminder_hour}
@@ -331,8 +339,7 @@ export function App() {
               account={account}
               entries={entries}
               accounts={everyAccount}
-              groups={groups}
-              categories={categories}
+                categories={categories}
               baseCurrency={display}
               currencies={me.currencies}
               onDisplay={changeDisplay}
@@ -349,8 +356,7 @@ export function App() {
         case 'schedules':
           body = (
             <SchedulesScreen
-              groups={groups}
-              categories={categories}
+                categories={categories}
               accounts={accounts}
               baseCurrency={base}
               currencies={me.currencies}
@@ -397,11 +403,10 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
-              {tab === 'budget' && (
+              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
+              {shownTab === 'budget' && (
                 <BudgetScreen
-                  groups={groups}
-                  categories={categories}
+                        categories={categories}
                   accounts={accounts}
                   baseCurrency={base}
                   today={today}
@@ -412,12 +417,11 @@ export function App() {
                   onOpenCategory={(id) => go({ kind: 'category', categoryId: id })}
                 />
               )}
-              {tab === 'reports' && (
+              {shownTab === 'reports' && (
                 <ReportsScreen
                   entries={entries}
                   accounts={everyAccount}
-                  groups={groups}
-                  categories={categories}
+                        categories={categories}
                   baseCurrency={display}
                   currencies={me.currencies}
                   onDisplay={changeDisplay}
@@ -425,8 +429,8 @@ export function App() {
                   onOpen={(entry) => openEntry(entry, home)}
                 />
               )}
-              {tab === 'accounts' && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
-              <TabBar tab={tab} onTab={setTab} onAdd={onAdd} />
+              {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
+              <TabBar tab={shownTab} onTab={setTab} onAdd={onAdd} simple={simple} />
             </>
           )
           break
@@ -435,7 +439,7 @@ export function App() {
       }
 
       // Режим скрытия сумм работает только на вкладках «Операции» и «Счета».
-      const hidesSums = layer.kind === 'tabs' && (tab === 'operations' || tab === 'accounts')
+      const hidesSums = layer.kind === 'tabs' && (shownTab === 'operations' || shownTab === 'accounts')
       return (
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>

@@ -346,7 +346,7 @@ func TestPiggyBank(t *testing.T) {
 		piggy.TargetMinor == nil || *piggy.TargetMinor != 250000 || piggy.TargetDate == nil || *piggy.TargetDate != *until {
 		t.Fatalf("piggy = %+v", piggy)
 	}
-	// Конверт копилки появился в группе «Цели накопления» и переносит остаток.
+	// Конверт копилки появился в списке категорий и переносит остаток.
 	cats, _ := l.s.ListCategories(ctx, l.u)
 	var envelope models.Category
 	for _, c := range cats {
@@ -354,7 +354,7 @@ func TestPiggyBank(t *testing.T) {
 			envelope = c
 		}
 	}
-	if envelope.Name != "Новая машина" || envelope.GroupID != l.group(t, models.GroupGoal) || !envelope.Rollover {
+	if envelope.Name != "Новая машина" || !envelope.Rollover {
 		t.Errorf("envelope = %+v", envelope)
 	}
 	// Основным счётом копилка не становится.
@@ -377,7 +377,7 @@ func TestPiggyBank(t *testing.T) {
 	}
 
 	// Копилка в другой валюте и с тем же названием использует уже созданный конверт.
-	usdt, err := l.s.CreatePiggy(ctx, l.u, "отпуск", "USDT", nil, nil)
+	usdt, err := l.s.CreatePiggy(ctx, l.u, "новая машина", "USDT", nil, nil)
 	if err != nil || usdt.CategoryID == nil || *usdt.CategoryID != *piggy.CategoryID || usdt.TargetMinor != nil {
 		t.Errorf("second piggy = %+v, %v", usdt, err)
 	}

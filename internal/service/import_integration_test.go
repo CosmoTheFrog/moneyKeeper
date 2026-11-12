@@ -9,6 +9,7 @@ import (
 
 	"moneykeeper/internal/llm"
 	"moneykeeper/internal/models"
+	"moneykeeper/internal/repo"
 	"moneykeeper/pkg/apptime"
 )
 
@@ -77,9 +78,9 @@ func TestPreviewAndCommitImport(t *testing.T) {
 	}
 
 	before := l.balance(t, l.cash.ID)
-	n, err := l.s.CommitImport(ctx, l.u, l.cash.ID, p.Rows[1:])
-	if err != nil || n != 2 {
-		t.Fatalf("commit = %d, %v", n, err)
+	ids, err := l.s.CommitImport(ctx, l.u, l.cash.ID, p.Rows[1:])
+	if err != nil || len(ids) != 2 {
+		t.Fatalf("commit = %v, %v", ids, err)
 	}
 	if got, want := l.balance(t, l.cash.ID), before-1250+100000; got != want {
 		t.Errorf("balance = %d, want %d", got, want)
@@ -95,4 +96,59 @@ func TestPreviewAndCommitImport(t *testing.T) {
 			t.Errorf("balance changed to %d after a rejected import, want %d", got, before)
 		}
 	})
+}
+
+func TestImportRulesAndUndo(t *testing.T) {
+	ctx := context.Background()
+	s, db := newService(t)
+	s.WithImportRules(repo.NewImportRules(db))
+	u, err := s.Resolve(ctx, tgIgor, "Asia/Tbilisi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetBaseCurrency(ctx, u, "GEL"); err != nil {
+		t.Fatal(err)
+	}
+	acc, err := s.CreateAccount(ctx, u, "Cash", "cash", "GEL", false, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cats, _ := s.ListCategories(ctx, u)
+	food := cats[6].ID // «Продукты»
+	day, _ := apptime.ParseDay("2026-10-03")
+	row := func(desc, source string, cat *int64) models.ImportRow {
+		return models.ImportRow{Date: day, AmountMinor: -500, Currency: acc.Currency, Description: desc, SourceCategory: source, CategoryID: cat}
+	}
+
+	// Выбранная категория запоминается по продавцу и по коду MCC.
+	ids, err := s.CommitImport(ctx, u, acc.ID, []models.ImportRow{row("Test Market", "MCC 5411", &food)})
+	if err != nil || len(ids) != 1 {
+		t.Fatalf("commit = %v, %v", ids, err)
+	}
+	rows := []models.ImportRow{row("  TEST   market ", "MCC 1", nil), row("Other", "MCC 5411", nil), row("Unknown", "MCC 9", nil)}
+	if err := s.applyRules(ctx, u, rows, map[string]int64{"продукты": food}); err != nil {
+		t.Fatal(err)
+	}
+	for i, wantSet := range []bool{true, true, false} {
+		got := rows[i].CategoryID != nil && *rows[i].CategoryID == food && rows[i].Suggested
+		if got != wantSet {
+			t.Errorf("row %d: category applied = %v, want %v", i, got, wantSet)
+		}
+	}
+	// Скрытая или пропавшая из списка категория не подставляется.
+	rows = []models.ImportRow{row("Test Market", "", nil)}
+	if err := s.applyRules(ctx, u, rows, map[string]int64{}); err != nil || rows[0].CategoryID != nil {
+		t.Errorf("unusable category applied: %+v, %v", rows[0], err)
+	}
+
+	// Отмена удаляет записи импорта; запись другого вида отклоняется целиком.
+	if err := s.UndoImport(ctx, u, ids); err != nil {
+		t.Fatal(err)
+	}
+	if txs, _ := s.ListTransactions(ctx, u, 50, 0, ""); len(txs) != 0 {
+		t.Errorf("transactions after undo = %d, want 0", len(txs))
+	}
+	if err := s.UndoImport(ctx, u, []int64{999}); !errors.Is(err, models.ErrNotFound) {
+		t.Errorf("unknown id: err = %v, want ErrNotFound", err)
+	}
 }

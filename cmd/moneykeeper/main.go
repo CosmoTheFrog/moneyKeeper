@@ -12,6 +12,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"moneykeeper/internal/bot"
 	"moneykeeper/internal/chain"
 	"moneykeeper/internal/fx"
 	"moneykeeper/internal/llm"
@@ -61,12 +62,16 @@ func run(log *slog.Logger) error {
 	if key := os.Getenv("GROQ_API_KEY"); key != "" {
 		svc.WithStatementLLM(llm.NewGroq(key))
 	}
+	svc.WithImportRules(repo.NewImportRules(db))
 	svc.WithWallets(repo.NewWallets(db), chain.NewClient())
 	if err := svc.LoadAssets(ctx); err != nil {
 		return fmt.Errorf("load assets: %w", err)
 	}
 	// Напоминания о платежах уходят из этого же процесса.
-	go notify.New(svc, telegram.New(token), log).Run(ctx)
+	tg := telegram.New(token)
+	go notify.New(svc, tg, log).Run(ctx)
+	// Бот принимает сообщения в личном чате и записывает из них траты.
+	go bot.New(svc, tg, log).Run(ctx)
 
 	srv := &http.Server{
 		Addr:              httpAddr,

@@ -143,18 +143,10 @@ func TestRolloverDefaults(t *testing.T) {
 		t.Errorf("seeded rollover: savings %v food %v rent %v", byName["Сбережения"].Rollover, byName["Продукты"].Rollover, byName["Аренда и ипотека"].Rollover)
 	}
 
-	// Новая категория в накопительной группе переносит остаток сразу, в своей группе нет.
-	goal, err := l.s.CreateCategory(ctx, l.u, "Новая машина", l.group(t, models.GroupGoal))
-	if err != nil || !goal.Rollover {
-		t.Errorf("goal category = %+v, %v", goal, err)
-	}
-	own, err := l.s.CreateCategoryGroup(ctx, l.u, "Путешествия")
-	if err != nil {
-		t.Fatal(err)
-	}
-	trip, err := l.s.CreateCategory(ctx, l.u, "Авиабилеты", own.ID)
+	// Новая категория переносит остаток только после включения флага.
+	trip, err := l.s.CreateCategory(ctx, l.u, "Авиабилеты")
 	if err != nil || trip.Rollover {
-		t.Errorf("category in own group = %+v, %v", trip, err)
+		t.Errorf("new category = %+v, %v", trip, err)
 	}
 
 	// Флаг переключается.

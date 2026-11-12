@@ -2,7 +2,6 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import {
   ApiError,
   createCategory,
-  createCategoryGroup,
   fetchBudgetMonth,
   setBudgeted,
   setEnvelopes,
@@ -11,7 +10,6 @@ import {
   type Account,
   type BudgetRow,
   type Category,
-  type CategoryGroup,
   type Transaction,
 } from './api'
 import { fillPercent, monthPace, parseBudgeted, rowStatus, spendingOf, toBudgetTone, type RowStatus } from './budget'
@@ -20,17 +18,15 @@ import { BudgetFocus } from './BudgetFocus'
 import { BudgetSuggest } from './BudgetSuggest'
 import { CategoryRing } from './CategoryRing'
 import { monthTitle, shiftMonth } from './calendar'
-import { groupColors } from './groupColor'
+import { categoryColors } from './categoryColor'
 import { errorText, t } from './i18n'
 import { MonthNav } from './MonthNav'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { formatInput } from './money'
-import { ChipPicker } from './Pickers'
 import { percent } from './report'
 
 type Props = {
-  groups: CategoryGroup[]
   categories: Category[]
   accounts: Account[]
   // Валюта бюджета: все суммы здесь в ней.
@@ -50,8 +46,8 @@ type View = 'spending' | 'envelopes'
 const EMPTY_ROW: BudgetRow ={ category_id: 0, budgeted_minor: 0, spent_minor: 0, balance_minor: 0 }
 
 // Бюджет месяца: сколько осталось распределить и по каждой категории заложено, потрачено, остаток.
-// Здесь же создаются и правятся категории и группы.
-export function BudgetScreen({ groups, categories, accounts, baseCurrency, today, envelopesEnabled, ledger, onChanged, onOpenCategory, onOpenSchedules }: Props) {
+// Здесь же создаются и правятся категории.
+export function BudgetScreen({ categories, accounts, baseCurrency, today, envelopesEnabled, ledger, onChanged, onOpenCategory, onOpenSchedules }: Props) {
   const [month, setMonth] = useState(today.slice(0, 7))
   const [view, setView] = useState<View>(envelopesEnabled ? 'envelopes' : 'spending')
   const [envelopesDialog, setEnvelopesDialog] = useState<'enable' | 'disable' | null>(null)
@@ -61,16 +57,13 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
   const [failed, setFailed] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [creatingGroup, setCreatingGroup] = useState(false)
   const [editing, setEditing] = useState<Category | null>(null)
   const [planning, setPlanning] = useState<Category | null>(null)
-  const [adding, setAdding] = useState(false)
   const [focus, setFocus] = useState(false)
   const [comparing, setComparing] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
-  // Свёрнутые группы и группы, где показаны категории без сумм.
-  const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
-  const [withEmpty, setWithEmpty] = useState<Set<number>>(new Set())
+  // Показаны ли категории без сумм.
+  const [withEmpty, setWithEmpty] = useState(false)
 
   // Месяц, записи и категории могли измениться: бюджет запрашивается заново, а старый остаётся на экране до ответа.
   useEffect(() => {
@@ -118,14 +111,17 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
     }
   }
 
-  const groupOptions = groups.map((g) => ({ value: g.id, label: g.name }))
-  const firstGroup = groups[0]?.id ?? 0
   const rows = new Map((budget?.categories ?? []).map((r) => [r.category_id, r]))
   const tone = budget === null ? 'done' : toBudgetTone(budget.to_budget_minor)
   const pace = monthPace(month, today)
-  const colorOf = groupColors(groups)
-  const groupSum = (groupId: number, key: 'budgeted_minor' | 'spent_minor') =>
-    categories.filter((c) => c.group_id === groupId).reduce((sum, c) => sum + (rows.get(c.id)?.[key] ?? 0), 0)
+  const colorOf = categoryColors(categories)
+  // Категории с суммой по ключу, самые большие первыми: из них строятся полоса и подписи под ней.
+  const partsOf = (key: 'budgeted_minor' | 'spent_minor') =>
+    categories
+      .map((c) => ({ c, sum: rows.get(c.id)?.[key] ?? 0 }))
+      .filter((x) => x.sum > 0)
+      .sort((a, z) => z.sum - a.sum)
+  const LEGEND_MAX = 5
   // Категории, на которые стоит посмотреть: перерасход, траты без плана, опережение темпа. Только в режиме конвертов.
   const rank: Partial<Record<RowStatus, number>> = { over: 0, noplan: 1, warn: 2 }
   const attention =
@@ -138,12 +134,6 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
           .filter((x) => rank[x.st] !== undefined)
           .sort((a, b) => (rank[a.st] ?? 0) - (rank[b.st] ?? 0))
   const plannedBase = budget === null ? 0 : Math.max(budget.income_minor, budget.budgeted_minor)
-
-  function flip(set: Set<number>, id: number): Set<number> {
-    const next = new Set(set)
-    if (!next.delete(id)) next.add(id)
-    return next
-  }
 
   return (
     <main className="screen">
@@ -190,21 +180,17 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
           {spending.totalMinor > 0 && (
             <>
               <div className="split" aria-hidden="true">
-                {groups.map((g) => {
-                  const spent = groupSum(g.id, 'spent_minor')
-                  return spent > 0 ? <span key={g.id} className="split-part" style={{ width: `${(spent / spending.totalMinor) * 100}%`, background: colorOf.get(g.id) }} /> : null
-                })}
+                {partsOf('spent_minor').map(({ c, sum }) => (
+                  <span key={c.id} className="split-part" style={{ width: `${(sum / spending.totalMinor) * 100}%`, background: colorOf.get(c.id) }} />
+                ))}
               </div>
               <div className="split-legend">
-                {groups.map((g) => {
-                  const spent = groupSum(g.id, 'spent_minor')
-                  return spent > 0 ? (
-                    <span key={g.id}>
-                      <i style={{ background: colorOf.get(g.id) }} />
-                      {g.name} <Money minor={spent} currency={baseCurrency} />
-                    </span>
-                  ) : null
-                })}
+                {partsOf('spent_minor').slice(0, LEGEND_MAX).map(({ c, sum }) => (
+                  <span key={c.id}>
+                    <i style={{ background: colorOf.get(c.id) }} />
+                    {c.name} <Money minor={sum} currency={baseCurrency} />
+                  </span>
+                ))}
               </div>
             </>
           )}
@@ -223,22 +209,18 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
           {plannedBase > 0 && (
             <>
               <div className="split" aria-hidden="true">
-                {groups.map((g) => {
-                  const planned = groupSum(g.id, 'budgeted_minor')
-                  return planned > 0 ? <span key={g.id} className="split-part" style={{ width: `${(planned / plannedBase) * 100}%`, background: colorOf.get(g.id) }} /> : null
-                })}
+                {partsOf('budgeted_minor').map(({ c, sum }) => (
+                  <span key={c.id} className="split-part" style={{ width: `${(sum / plannedBase) * 100}%`, background: colorOf.get(c.id) }} />
+                ))}
                 <span className="split-free" />
               </div>
               <div className="split-legend">
-                {groups.map((g) => {
-                  const planned = groupSum(g.id, 'budgeted_minor')
-                  return planned > 0 ? (
-                    <span key={g.id}>
-                      <i style={{ background: colorOf.get(g.id) }} />
-                      {g.name} <Money minor={planned} currency={baseCurrency} />
-                    </span>
-                  ) : null
-                })}
+                {partsOf('budgeted_minor').slice(0, LEGEND_MAX).map(({ c, sum }) => (
+                  <span key={c.id}>
+                    <i style={{ background: colorOf.get(c.id) }} />
+                    {c.name} <Money minor={sum} currency={baseCurrency} />
+                  </span>
+                ))}
               </div>
             </>
           )}
@@ -279,7 +261,7 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
         <button type="button" className={editMode ? 'chip chip-on' : 'chip'} onClick={() => setEditMode(!editMode)}>
           {editMode ? t.categories.editDone : t.categories.edit}
         </button>
-        <button type="button" className="chip" onClick={() => setAdding(true)}>
+        <button type="button" className="chip" onClick={() => setCreating(true)}>
           + {t.budget.add}
         </button>
         <button type="button" className="chip" disabled={budget === null} onClick={() => setComparing(true)}>
@@ -292,50 +274,28 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
         )}
       </div>
 
-      {groups.map((g) => {
+      {(() => {
         const isActive = (c: Category) => {
           const r = rows.get(c.id) ?? EMPTY_ROW
           return envelopes ? r.budgeted_minor !== 0 || r.spent_minor !== 0 || r.balance_minor !== 0 : r.spent_minor > 0
         }
-        const visible = categories.filter((c) => c.group_id === g.id && (editMode || !c.hidden || isActive(c)))
+        const visible = categories.filter((c) => editMode || !c.hidden || isActive(c))
         // Категории без сумм прячутся за строкой «Без сумм», пока бюджет не загружен, показываются все.
         const emptyCount = budget === null || editMode ? 0 : visible.filter((c) => !isActive(c)).length
-        const showEmpty = emptyCount === 0 || withEmpty.has(g.id)
-        const inGroup = collapsed.has(g.id) ? [] : visible.filter((c) => showEmpty || isActive(c))
-        const gc = colorOf.get(g.id)
-        const toggle = () => setCollapsed(flip(collapsed, g.id))
+        const showEmpty = emptyCount === 0 || withEmpty
+        const shown = visible.filter((c) => showEmpty || isActive(c))
         return (
-          <section key={g.id} style={{ '--gc': gc } as CSSProperties}>
-            <div className="b2-gh" role="button" tabIndex={0} aria-expanded={!collapsed.has(g.id)} onClick={toggle} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggle()}>
-              <i />
-              <span className="gn">{g.name}</span>
-              {budget !== null && (
-                <span className="gs">
-                  <Money minor={groupSum(g.id, 'spent_minor')} currency={baseCurrency} />
-                  {envelopes && (
-                    <>
-                      {' '}
-                      {t.budget.of} <Money minor={groupSum(g.id, 'budgeted_minor')} currency={baseCurrency} />
-                    </>
-                  )}
-                </span>
-              )}
-              <span className={collapsed.has(g.id) ? 'chev' : 'chev chev-open'}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 6l6 6-6 6" />
-                </svg>
-              </span>
-            </div>
-            <div className={collapsed.has(g.id) ? 'card list-card list-folded' : 'card list-card'}>
-              {!collapsed.has(g.id) && visible.length === 0 && <p className="hint tight pad">{t.categories.empty}</p>}
-              {inGroup.map((c) => {
+          <section>
+            <div className="card list-card">
+              {visible.length === 0 && <p className="hint tight pad">{t.categories.empty}</p>}
+              {shown.map((c) => {
                 const r = rows.get(c.id) ?? EMPTY_ROW
                 const was = spending?.rows.find((x) => x.categoryId === c.id)?.previousMinor ?? 0
                 const st: RowStatus = envelopes ? rowStatus(r, pace) : 'ok'
                 const share = percent(r.spent_minor, spending?.totalMinor ?? 0)
                 const open = () => (editMode ? setEditing(c) : onOpenCategory(c.id))
                 return (
-                  <div key={c.id} className={`b2-row s-${st}${c.hidden ? ' entry-muted' : ''}`} role="button" tabIndex={0} onClick={open} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && open()}>
+                  <div key={c.id} className={`b2-row s-${st}${c.hidden ? ' entry-muted' : ''}`} style={{ '--gc': colorOf.get(c.id) } as CSSProperties} role="button" tabIndex={0} onClick={open} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && open()}>
                     <CategoryRing name={c.name} fill={envelopes ? fillPercent(r.spent_minor, r.budgeted_minor) : share} pace={envelopes && r.budgeted_minor > 0 ? pace : null} status={st} />
                     <div className="b2-mid">
                       <span className="b2-name">
@@ -404,15 +364,15 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
                   </div>
                 )
               })}
-              {!collapsed.has(g.id) && emptyCount > 0 && (
-                <button type="button" className="empty-rows" onClick={() => setWithEmpty(flip(withEmpty, g.id))}>
+              {emptyCount > 0 && (
+                <button type="button" className="empty-rows" onClick={() => setWithEmpty(!withEmpty)}>
                   {showEmpty ? t.budget.collapse : `${t.budget.emptyRows}: ${emptyCount}`}
                 </button>
               )}
             </div>
           </section>
         )
-      })}
+      })()}
 
       {focus && budget !== null && <BudgetFocus budget={budget} tone={tone} accounts={accounts} categories={categories} baseCurrency={baseCurrency} onClose={() => setFocus(false)} />}
 
@@ -461,33 +421,6 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
         />
       )}
 
-      {adding && (
-        <Modal title={t.budget.add} onClose={() => setAdding(false)}>
-          <div className="stack">
-            <button
-              type="button"
-              className="option"
-              onClick={() => {
-                setAdding(false)
-                setCreating(true)
-              }}
-            >
-              {t.categories.new}
-            </button>
-            <button
-              type="button"
-              className="option"
-              onClick={() => {
-                setAdding(false)
-                setCreatingGroup(true)
-              }}
-            >
-              {t.categories.newGroup}
-            </button>
-          </div>
-        </Modal>
-      )}
-
       {planning !== null && (
         <Modal title={planning.name} onClose={() => setPlanning(null)}>
           <PlanForm
@@ -506,23 +439,10 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
       {creating && (
         <Modal title={t.categories.new} onClose={() => setCreating(false)}>
           <CategoryForm
-            initial={{ name: '', description: '', groupId: firstGroup, hidden: false, rollover: false }}
-            groupOptions={groupOptions}
+            initial={{ name: '', description: '', hidden: false, rollover: false }}
             onSubmit={async (v) => {
-              await createCategory(v.name, v.groupId)
+              await createCategory(v.name)
               setCreating(false)
-              onChanged()
-            }}
-          />
-        </Modal>
-      )}
-
-      {creatingGroup && (
-        <Modal title={t.categories.newGroup} onClose={() => setCreatingGroup(false)}>
-          <GroupForm
-            onSubmit={async (name) => {
-              await createCategoryGroup(name)
-              setCreatingGroup(false)
               onChanged()
             }}
           />
@@ -532,7 +452,7 @@ export function BudgetScreen({ groups, categories, accounts, baseCurrency, today
       {editing !== null && (
         <Modal title={t.categories.editTitle} onClose={() => setEditing(null)}>
           <CategoryForm
-            initial={{ name: editing.name, description: editing.description, groupId: editing.group_id, hidden: editing.hidden, rollover: editing.rollover }}
+            initial={{ name: editing.name, description: editing.description, hidden: editing.hidden, rollover: editing.rollover }}
             withDetails
             onSubmit={async (v) => {
               const patch: { name?: string; description?: string; hidden?: boolean; rollover?: boolean } = {}
@@ -612,41 +532,21 @@ function PlanForm({ category, month, currency, current, onSaved }: PlanProps) {
   )
 }
 
-function GroupForm({ onSubmit }: { onSubmit: (name: string) => Promise<void> }) {
-  const [name, setName] = useState('')
-  const { busy, error, run } = useSubmit()
-
-  return (
-    <form className="form" onSubmit={(e) => void run(e, () => onSubmit(name))}>
-      <label className="field">
-        <span className="label">{t.categories.name}</span>
-        <input value={name} maxLength={40} autoFocus onChange={(e) => setName(e.target.value)} />
-      </label>
-      {error !== null && <p className="error">{error}</p>}
-      <button type="submit" className="primary" disabled={busy || name.trim() === ''}>
-        {t.save}
-      </button>
-    </form>
-  )
-}
-
 type Values = {
   name: string
   description: string
-  groupId: number
   hidden: boolean
   rollover: boolean
 }
 
 type FormProps = {
   initial: Values
-  // groupOptions: выбор группы при создании. withDetails: описание, «скрыта» и перенос при правке.
-  groupOptions?: { value: number; label: string }[]
+  // withDetails: описание, «скрыта» и перенос при правке.
   withDetails?: boolean
   onSubmit: (v: Values) => Promise<void>
 }
 
-function CategoryForm({ initial, groupOptions, withDetails = false, onSubmit }: FormProps) {
+function CategoryForm({ initial, withDetails = false, onSubmit }: FormProps) {
   const [v, setV] = useState(initial)
   const { busy, error, run } = useSubmit()
 
@@ -656,9 +556,6 @@ function CategoryForm({ initial, groupOptions, withDetails = false, onSubmit }: 
         <span className="label">{t.categories.name}</span>
         <input value={v.name} maxLength={40} autoFocus onChange={(e) => setV({ ...v, name: e.target.value })} />
       </label>
-      {groupOptions !== undefined && (
-        <ChipPicker label={t.categories.group} value={v.groupId} options={groupOptions} onChange={(groupId) => setV({ ...v, groupId })} />
-      )}
       {withDetails && (
         <>
           <label className="field">

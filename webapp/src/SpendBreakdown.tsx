@@ -1,17 +1,15 @@
 import { useState } from 'react'
-import type { Account, Category, CategoryGroup } from './api'
+import type { Account, Category } from './api'
 import { EntryList } from './EntryList'
-import { groupColors } from './groupColor'
+import { categoryColors } from './categoryColor'
 import { t } from './i18n'
 import type { Entry } from './ledger'
 import { Money } from './MoneyText'
-import { Segmented } from './Pickers'
-import { RADIUS, arcs, CIRCLE, inGroup, percent, spendByGroup, spendEntries, type Measure, type Range, type Slice } from './report'
+import { RADIUS, arcs, CIRCLE, percent, spendEntries, type Measure, type Range, type Slice } from './report'
 
 type Props = {
   // Траты по категориям за период, самые большие первыми.
   slices: Slice[]
-  groups: CategoryGroup[]
   categories: Category[]
   accounts: Account[]
   entries: Entry[]
@@ -22,39 +20,20 @@ type Props = {
   onOpen: (entry: Entry) => void
 }
 
-type By = 'groups' | 'categories'
-
-const byOptions = [
-  { value: 'groups' as const, label: t.reports.byGroups },
-  { value: 'categories' as const, label: t.reports.byCategories },
-]
-
 const POP = 6
 
-// Кольцо и список трат: по группам или по категориям. Нажатие на кусок выдвигает его и показывает траты,
-// из которых он сложен; у группы можно открыть её категории.
-export function SpendBreakdown({ slices, groups, categories, accounts, entries, range, measure, currency, today, onOpen }: Props) {
-  const [by, setBy] = useState<By>('groups')
-  // Открытая группа: кольцо показывает её категории, а не все группы сразу.
-  const [openGroup, setOpenGroup] = useState<number | null>(null)
+// Кольцо и список трат по категориям. Нажатие на кусок выдвигает его и показывает траты, из которых он сложен.
+export function SpendBreakdown({ slices, categories, accounts, entries, range, measure, currency, today, onOpen }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
 
-  const groupsView = by === 'groups' && openGroup === null
-  const shown = openGroup !== null ? inGroup(slices, openGroup) : by === 'groups' ? spendByGroup(slices, groups) : slices
+  const shown = slices
   const total = shown.reduce((s, x) => s + x.totalMinor, 0)
   const drawn = arcs(shown.map((s) => s.totalMinor))
   const current = shown.find((s) => s.key === selected)
   const currentIndex = current === undefined ? -1 : shown.indexOf(current)
-  // Цвет куска это цвет его группы, такой же, как в операциях и бюджете. Категории одной группы различаются глубиной цвета.
-  const hues = groupColors(groups)
-  const tone = (i: number): string => {
-    const slice = shown[i]
-    if (slice === undefined) return 'var(--accent)'
-    const base = hues.get(slice.groupId) ?? 'var(--accent)'
-    if (groupsView) return base
-    const k = shown.slice(0, i).filter((x) => x.groupId === slice.groupId).length
-    return k === 0 ? base : `color-mix(in srgb, ${base} ${Math.max(100 - k * 16, 36)}%, var(--card))`
-  }
+  // Цвет куска это цвет его категории, такой же, как в операциях и бюджете.
+  const hues = categoryColors(categories)
+  const tone = (i: number): string => hues.get(Number(shown[i]?.key)) ?? 'var(--accent)'
 
   function pick(slice: Slice) {
     setSelected((now) => (now === slice.key ? null : slice.key))
@@ -84,37 +63,10 @@ export function SpendBreakdown({ slices, groups, categories, accounts, entries, 
     return `translate(${(Math.cos(mid) * POP).toFixed(2)}px, ${(Math.sin(mid) * POP).toFixed(2)}px)`
   }
 
-  const list = current === undefined ? [] : spendEntries(entries, categories, range, measure, current, groupsView ? 'group' : 'category')
+  const list = current === undefined ? [] : spendEntries(entries, range, measure, current)
 
   return (
     <>
-      <Segmented
-        label={t.reports.byGroups}
-        value={by}
-        options={byOptions}
-        onChange={(v) => {
-          setBy(v)
-          setOpenGroup(null)
-          setSelected(null)
-        }}
-      />
-
-      {openGroup !== null && (
-        <div className="row group-head">
-          <button
-            type="button"
-            className="chip"
-            onClick={() => {
-              setOpenGroup(null)
-              setSelected(null)
-            }}
-          >
-            {t.reports.allGroups}
-          </button>
-          <span className="group-title">{groups.find((g) => g.id === openGroup)?.name}</span>
-        </div>
-      )}
-
       {shown.length === 0 ? (
         <p className="hint">{t.reports.empty}</p>
       ) : (
@@ -171,18 +123,6 @@ export function SpendBreakdown({ slices, groups, categories, accounts, entries, 
             <span className="group-title" style={{ color: tone(currentIndex) }}>
               {current.label}
             </span>
-            {groupsView && (
-              <button
-                type="button"
-                className="chip"
-                onClick={() => {
-                  setOpenGroup(current.groupId)
-                  setSelected(null)
-                }}
-              >
-                {t.reports.openCategories}
-              </button>
-            )}
           </div>
           <EntryList entries={list} accounts={accounts} categories={categories} today={today} onOpen={onOpen} noteFirst="withCategory" />
         </>

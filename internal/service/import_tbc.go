@@ -76,6 +76,9 @@ func (s *Service) PreviewTBCStatement(ctx context.Context, u models.User, accoun
 		out.Skipped += len(out.Rows) - maxImportRows
 		out.Rows = out.Rows[:maxImportRows]
 	}
+	if err := s.applyRules(ctx, u, out.Rows, byName); err != nil {
+		return models.ImportPreview{}, err
+	}
 	if err := s.markDuplicates(ctx, u, acc.ID, out.Rows); err != nil {
 		return models.ImportPreview{}, err
 	}

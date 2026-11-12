@@ -33,6 +33,8 @@ type BudgetDTO struct {
 	Name             string  `json:"name"`
 	BaseCurrency     *string `json:"base_currency"`
 	EnvelopesEnabled bool    `json:"envelopes_enabled"`
+	// InterfaceMode: simple или full, null пока пользователь не выбрал.
+	InterfaceMode *string `json:"interface_mode"`
 }
 
 // CurrencyInfoDTO.Units это число знаков после запятой, Coin: курс берётся отдельно по требованию (монеты и акции),
@@ -61,6 +63,11 @@ type MeResponse struct {
 // SetEnvelopesRequest включает режим конвертов или выключает его.
 type SetEnvelopesRequest struct {
 	Enabled bool `json:"enabled"`
+}
+
+// SetInterfaceModeRequest выбирает режим интерфейса: simple или full.
+type SetInterfaceModeRequest struct {
+	Mode string `json:"mode"`
 }
 
 // SetReminderRequest: час 0-23 по времени пользователя включает ежедневное напоминание, null выключает.
@@ -123,7 +130,6 @@ type CreateAccountRequest struct {
 
 type CategoryDTO struct {
 	ID          int64  `json:"id"`
-	GroupID     int64  `json:"group_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Hidden      bool   `json:"hidden"`
@@ -135,21 +141,6 @@ type CategoriesResponse struct {
 }
 
 type CreateCategoryRequest struct {
-	Name    string `json:"name"`
-	GroupID int64  `json:"group_id"`
-}
-
-// CategoryGroupDTO приходит в порядке показа. Name уже на языке пользователя.
-type CategoryGroupDTO struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-}
-
-type CategoryGroupsResponse struct {
-	Groups []CategoryGroupDTO `json:"groups"`
-}
-
-type CreateCategoryGroupRequest struct {
 	Name string `json:"name"`
 }
 
@@ -412,6 +403,12 @@ type CommitImportRequest struct {
 
 type CommitImportResponse struct {
 	Saved int `json:"saved"`
+	// ids: номера созданных записей, по ним импорт можно отменить.
+	IDs []int64 `json:"ids"`
+}
+
+type UndoImportRequest struct {
+	IDs []int64 `json:"ids"`
 }
 
 // SetTourRequest: true отмечает обучение показанным, false показывает его при следующем входе.

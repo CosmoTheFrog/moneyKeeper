@@ -6,7 +6,12 @@ export type Budget = {
   base_currency: string | null
   // Режим конвертов: заложенные суммы, «К распределению», лимиты. Выключен, пока пользователь не включит.
   envelopes_enabled: boolean
+  // Режим интерфейса; null, пока пользователь не выбрал.
+  interface_mode: InterfaceMode | null
 }
+
+// simple: траты по категориям без карт и счетов. full: карты, переводы, обмен, копилка, портфель.
+export type InterfaceMode = 'simple' | 'full'
 
 export type Me = {
   id: number
@@ -55,15 +60,8 @@ export type Account = {
   balances: Balance[]
 }
 
-// Группа категорий приходит в порядке показа, название уже на языке пользователя.
-export type CategoryGroup = {
-  id: number
-  name: string
-}
-
 export type Category = {
   id: number
-  group_id: number
   name: string
   description: string
   hidden: boolean
@@ -181,6 +179,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export const fetchMe = () => request<Me>('GET', '/api/me')
 
+export const setInterfaceMode = (mode: InterfaceMode) => request<Budget>('PUT', '/api/budget/mode', { mode })
 export const setEnvelopes = (enabled: boolean) => request<Budget>('PUT', '/api/budget/envelopes', { enabled })
 
 export const setBaseCurrency = (currency: string) => request<Budget>('PUT', '/api/budget/currency', { currency })
@@ -200,17 +199,15 @@ export const fetchRates = (inCurrency: string) => request<RateTable>('GET', `/ap
 export const createAccount = (name: string, kind: AccountKind, currency: string, multiCurrency: boolean, openingBalanceMinor: number) =>
   request<Account>('POST', '/api/accounts', { name, kind, currency, multi_currency: multiCurrency, opening_balance_minor: openingBalanceMinor })
 
-// Копилка заводится вместе с конвертом в группе «Цели накопления»; цель необязательна.
+// Копилка заводится вместе с конвертом-категорией; цель необязательна.
 export const createPiggy = (name: string, currency: string, targetMinor: number | null, targetDate: string | null) =>
   request<Account>('POST', '/api/accounts', { name, kind: 'piggy', currency, target_minor: targetMinor ?? undefined, target_date: targetDate ?? undefined })
 
 export const fetchCategories = async () => (await request<{ categories: Category[] }>('GET', '/api/categories')).categories
 
-export const fetchCategoryGroups = async () => (await request<{ groups: CategoryGroup[] }>('GET', '/api/category-groups')).groups
 
-export const createCategoryGroup = (name: string) => request<CategoryGroup>('POST', '/api/category-groups', { name })
 
-export const createCategory = (name: string, groupId: number) => request<Category>('POST', '/api/categories', { name, group_id: groupId })
+export const createCategory = (name: string) => request<Category>('POST', '/api/categories', { name })
 
 // Бюджет месяца в базовой валюте. to_budget_minor накопительное: нераспределённое переходит в следующий месяц само.
 // missing_rates число сумм без курса, в итоги они не вошли.
@@ -353,8 +350,15 @@ export const previewImportFile = (accountId: number, file: File) => {
   return request<ImportPreview>('POST', '/api/import/file', form)
 }
 
+// Текст выписки (csv, txt) уходит на разбор во внешнюю модель, только с явным согласием пользователя.
+export const previewImportText = (accountId: number, text: string, consent: boolean) =>
+  request<ImportPreview>('POST', '/api/import/preview', { account_id: accountId, text, consent })
+
+// ids: номера созданных записей, по ним импорт можно отменить.
 export const commitImport = (accountId: number, rows: ImportRow[]) =>
-  request<{ saved: number }>('POST', '/api/import/commit', { account_id: accountId, rows })
+  request<{ saved: number; ids: number[] }>('POST', '/api/import/commit', { account_id: accountId, rows })
+
+export const undoImport = (ids: number[]) => send('POST', '/api/import/undo', { ids }).then(() => undefined)
 
 // Публичный адрес кошелька, привязанный к счёту. consent это явное согласие отправить адрес в источник данных о сети.
 export type Wallet = { id: number; chain: string; address: string }

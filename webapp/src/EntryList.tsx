@@ -1,7 +1,7 @@
 import { useContext, type ReactNode } from 'react'
 import type { Account, Category } from './api'
 import { EntryAvatar } from './EntryAvatar'
-import { CategoryColorContext } from './groupColor'
+import { CategoryColorContext } from './categoryColor'
 import { dayNet, groupByDay, type Entry } from './ledger'
 import { t } from './i18n'
 import { Money } from './MoneyText'

@@ -14,7 +14,7 @@ const SIZE = 44
 const R = 19
 const C = 2 * Math.PI * R
 
-// CategoryRing: значок категории в кольце расхода. Цвет кольца берётся из --gc (оттенок группы) или из статуса.
+// CategoryRing: значок категории в кольце расхода. Цвет кольца берётся из --gc (оттенок категории) или из статуса.
 export function CategoryRing({ name, fill, pace, status }: Props) {
   const icon = categoryIcon(name)
   const mid = SIZE / 2

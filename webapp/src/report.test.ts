@@ -1,38 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import type { Category, CategoryGroup } from './api'
+import type { Category } from './api'
 import type { Entry } from './ledger'
 import {
   CIRCLE,
   addDays,
   arcs,
   diffDays,
-  inGroup,
   missingRates,
   percent,
   rangeFor,
   spendBuckets,
   spendByCategory,
-  spendByGroup,
   spendEntries,
   spendOf,
   spendTotals,
   type Measure,
 } from './report'
 
-const CRITICAL = 1
-const DAILY = 3
-const GOAL = 5
-
-const groups: CategoryGroup[] = [
-  { id: CRITICAL, name: 'Критичные' },
-  { id: 2, name: 'Долги' },
-  { id: DAILY, name: 'Ежедневные' },
-  { id: GOAL, name: 'Цели' },
-  { id: 6, name: 'Своя' },
-]
-
-function cat(id: number, name: string, groupId: number): Category {
-  return { id, name, group_id: groupId, description: '', hidden: false, rollover: false }
+function cat(id: number, name: string): Category {
+  return { id, name, description: '', hidden: false, rollover: false }
 }
 
 // В GEL базовая сумма равна самой сумме, для остальных валют курса по умолчанию нет.
@@ -44,7 +30,7 @@ const GEL: Measure = { kind: 'currency', code: 'GEL' }
 const EUR: Measure = { kind: 'currency', code: 'EUR' }
 const BASE: Measure = { kind: 'base' }
 
-const categories = [cat(1, 'Аренда', CRITICAL), cat(2, 'Продукты', DAILY), cat(3, 'Кафе', DAILY)]
+const categories = [cat(1, 'Аренда'), cat(2, 'Продукты'), cat(3, 'Кафе')]
 
 describe('addDays', () => {
   it.each([
@@ -106,39 +92,13 @@ describe('spendByCategory', () => {
   })
 })
 
-describe('spendByGroup', () => {
-  it('sums categories into groups, biggest first', () => {
-    const slices = spendByCategory(
-      [exp(1, 2, -500, '2026-10-02'), exp(2, 3, -800, '2026-10-03'), exp(3, 1, -90000, '2026-10-01')],
-      categories,
-      { from: '2026-10-01', to: '2026-10-31' },
-      GEL,
-    )
-    expect(spendByGroup(slices, groups).map((g) => [g.label, g.totalMinor])).toEqual([
-      ['Критичные', 90000],
-      ['Ежедневные', 1300],
-    ])
-  })
-
-  it('knows groups created by the user', () => {
-    const own = [...categories, cat(7, 'Авиабилеты', 6)]
-    const slices = spendByCategory([exp(1, 7, -4000, '2026-10-02')], own, { from: '2026-10-01', to: '2026-10-31' }, GEL)
-    expect(spendByGroup(slices, groups).map((g) => [g.label, g.totalMinor])).toEqual([['Своя', 4000]])
-  })
-})
-
 describe('spendEntries', () => {
   const range = { from: '2026-10-01', to: '2026-10-31' }
   const all = [exp(1, 2, -1000, '2026-10-02'), exp(2, 3, -500, '2026-10-05'), exp(3, 2, -700, '2026-10-09'), exp(4, 2, -900, '2026-09-30'), exp(5, 2, -300, '2026-10-06', 'EUR')]
 
   it('takes the entries of one category, newest first, within the period and measure', () => {
-    const slice = { key: '2', label: 'Продукты', totalMinor: 1700, groupId: DAILY }
-    expect(spendEntries(all, categories, range, GEL, slice, 'category').map((e) => e.id)).toEqual([3, 1])
-  })
-
-  it('takes every category of the group', () => {
-    const slice = { key: String(DAILY), label: 'Ежедневные', totalMinor: 2200, groupId: DAILY }
-    expect(spendEntries(all, categories, range, GEL, slice, 'group').map((e) => e.id)).toEqual([3, 2, 1])
+    const slice = { key: '2', label: 'Продукты', totalMinor: 1700 }
+    expect(spendEntries(all, range, GEL, slice).map((e) => e.id)).toEqual([3, 1])
   })
 })
 
@@ -172,23 +132,6 @@ describe('spendTotals', () => {
       exp(5, 2, -100, '2026-11-01'),
     ]
     expect(spendTotals(entries, range, 'GEL')).toEqual([])
-  })
-})
-
-describe('inGroup', () => {
-  it('keeps only the categories of one group, biggest first', () => {
-    const slices = spendByCategory(
-      [exp(1, 2, -500, '2026-10-02'), exp(2, 3, -800, '2026-10-03'), exp(3, 1, -90000, '2026-10-01')],
-      categories,
-      { from: '2026-10-01', to: '2026-10-31' },
-      GEL,
-    )
-    expect(inGroup(slices, DAILY).map((s) => [s.label, s.totalMinor])).toEqual([
-      ['Кафе', 800],
-      ['Продукты', 500],
-    ])
-    expect(inGroup(slices, CRITICAL).map((s) => s.label)).toEqual(['Аренда'])
-    expect(inGroup(slices, GOAL)).toEqual([])
   })
 })
 

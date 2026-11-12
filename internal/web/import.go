@@ -88,10 +88,23 @@ func (h *handler) commitImport(w http.ResponseWriter, r *http.Request, u models.
 			ExternalID: d.ExternalID,
 		})
 	}
-	n, err := h.svc.CommitImport(r.Context(), u, req.AccountID, rows)
+	ids, err := h.svc.CommitImport(r.Context(), u, req.AccountID, rows)
 	if err != nil {
 		h.fail(w, err)
 		return
 	}
-	h.writeJSON(w, http.StatusCreated, apidto.CommitImportResponse{Saved: n})
+	h.writeJSON(w, http.StatusCreated, apidto.CommitImportResponse{Saved: len(ids), IDs: ids})
+}
+
+// undoImport отменяет только что выполненный импорт: удаляет созданные им записи.
+func (h *handler) undoImport(w http.ResponseWriter, r *http.Request, u models.User) {
+	var req apidto.UndoImportRequest
+	if !h.decodeLimit(w, r, &req, maxImportBodyBytes) {
+		return
+	}
+	if err := h.svc.UndoImport(r.Context(), u, req.IDs); err != nil {
+		h.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

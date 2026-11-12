@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Transaction } from './api'
-import { dayIn, dayNet, dayParts, daySummary, entryMatches, groupByDay, lastDays, shiftDay, toEntries, type Entry } from './ledger'
+import { dayIn, dayNet, frequentCategories, guessCategory, dayParts, daySummary, entryMatches, groupByDay, lastDays, shiftDay, toEntries, type Entry } from './ledger'
 
 function tx(over: Partial<Transaction> & Pick<Transaction, 'id'>): Transaction {
   return {
@@ -234,5 +234,28 @@ describe('daySummary', () => {
   })
   it('пустой день', () => {
     expect(daySummary([])).toEqual({ spentMinor: 0, incomeMinor: 0, missingRates: 0 })
+  })
+})
+
+describe('frequentCategories and guessCategory', () => {
+  const spend = (id: number, categoryId: number | null, note = '', kind: Entry['kind'] = 'expense'): Entry => ({
+    id, kind, date: '2026-10-12', amountMinor: -100, currency: 'GEL', baseMinor: -100, accountId: 1, toAccountId: null, categoryId, note, inMinor: null, inCurrency: null, feeMinor: 0,
+  })
+  // Новые первыми: продукты 3 раза, кафе 2, такси 2 (но свежее кафе), доход и запись без категории не считаются.
+  const entries = [spend(1, 20), spend(2, 10, 'Кофе '), spend(3, 30), spend(4, null), spend(5, 10), spend(6, 30), spend(7, 20), spend(8, 20), spend(9, 99, '', 'income')]
+
+  it('puts the most used first and breaks ties by recency', () => {
+    expect(frequentCategories(entries, 8)).toEqual([20, 10, 30])
+    expect(frequentCategories(entries, 2)).toEqual([20, 10])
+  })
+
+  it('returns nothing without expenses', () => {
+    expect(frequentCategories([], 8)).toEqual([])
+  })
+
+  it('guesses the category from the latest expense with the same note', () => {
+    expect(guessCategory(entries, 'кофе')).toBe(10)
+    expect(guessCategory(entries, 'такси')).toBeNull()
+    expect(guessCategory(entries, '  ')).toBeNull()
   })
 })

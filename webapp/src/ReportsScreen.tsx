@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { Account, Category, CategoryGroup } from './api'
+import type { Account, Category } from './api'
 import { DisplayCurrency } from './DisplayCurrency'
 import { t } from './i18n'
 import type { Entry } from './ledger'
@@ -12,7 +12,6 @@ import { SpendBreakdown } from './SpendBreakdown'
 type Props = {
   entries: Entry[]
   accounts: Account[]
-  groups: CategoryGroup[]
   categories: Category[]
   // Валюта, в которой посчитаны суммы «по курсу», и список валют для её выбора.
   baseCurrency: string
@@ -24,7 +23,7 @@ type Props = {
 
 const BASE = 'base'
 
-export function ReportsScreen({ entries, accounts, onOpen, groups, categories, baseCurrency, currencies, onDisplay, today }: Props) {
+export function ReportsScreen({ entries, accounts, onOpen, categories, baseCurrency, currencies, onDisplay, today }: Props) {
   const [period, setPeriod] = useState<Period>('month')
   const [offset, setOffset] = useState(0)
   // 'base': всё в базовой валюте по курсу дня каждой траты; код валюты: только траты в ней, как есть.
@@ -74,7 +73,6 @@ export function ReportsScreen({ entries, accounts, onOpen, groups, categories, b
       <SpendBreakdown
         key={chosen}
         slices={slices}
-        groups={groups}
         categories={categories}
         accounts={accounts}
         entries={entries}

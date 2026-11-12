@@ -28,7 +28,16 @@ type Budget struct {
 	BaseCurrency *money.Currency
 	// EnvelopesEnabled: включён режим конвертов (заложенные суммы и лимиты), иначе только траты по категориям.
 	EnvelopesEnabled bool
+	// InterfaceMode: простой (траты по категориям, один скрытый счёт) или полный (карты и счета). Пусто, пока не выбран.
+	InterfaceMode InterfaceMode
 }
+
+type InterfaceMode string
+
+const (
+	ModeSimple InterfaceMode = "simple"
+	ModeFull   InterfaceMode = "full"
+)
 
 type AccountKind string
 

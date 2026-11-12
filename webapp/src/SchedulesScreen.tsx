@@ -9,7 +9,6 @@ import {
   type Account,
   type AmountKind,
   type Category,
-  type CategoryGroup,
   type Occurrence,
   type Schedule,
   type Transaction,
@@ -24,7 +23,6 @@ import { ChipPicker, CurrencyPicker, Segmented, SheetPicker } from './Pickers'
 import { daysText, describeRepeat, groupOccurrences, parseDays, type Section } from './schedule'
 
 type Props = {
-  groups: CategoryGroup[]
   categories: Category[]
   accounts: Account[]
   baseCurrency: string
@@ -55,7 +53,7 @@ function Amount({ s }: { s: Schedule }) {
 }
 
 // Платежи: что и когда нужно оплатить. Оплаченным платёж становится сам, когда найдётся подходящая трата.
-export function SchedulesScreen({ groups, categories, accounts, baseCurrency, currencies, today, ledger, onBack, onAddExpense }: Props) {
+export function SchedulesScreen({ categories, accounts, baseCurrency, currencies, today, ledger, onBack, onAddExpense }: Props) {
   const [list, setList] = useState<Occurrence[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [version, setVersion] = useState(0)
@@ -141,7 +139,6 @@ export function SchedulesScreen({ groups, categories, accounts, baseCurrency, cu
         <Modal title={form === 'new' ? t.schedules.add : t.schedules.editTitle} onClose={() => setForm(null)}>
           <ScheduleForm
             schedule={form === 'new' ? null : form}
-            groups={groups}
             categories={categories}
             accounts={accounts}
             baseCurrency={baseCurrency}
@@ -213,7 +210,6 @@ function Actions({ occurrence, today, onEnter, onEdit, onChanged }: ActionsProps
 
 type FormProps = {
   schedule: Schedule | null
-  groups: CategoryGroup[]
   categories: Category[]
   accounts: Account[]
   baseCurrency: string
@@ -226,7 +222,7 @@ const everyOptions = ([1, 2, 3, 6, 12] as const).map((n) => ({ value: n, label: 
 const shiftOptions = (['none', 'back', 'forward'] as const).map((s) => ({ value: s, label: t.schedules.shifts[s] }))
 const remindOptions = ([0, 1, 2, 3, 7] as const).map((n) => ({ value: n, label: t.schedules.reminds[n] }))
 
-function ScheduleForm({ schedule, groups, categories, accounts, baseCurrency, currencies, onDone }: FormProps) {
+function ScheduleForm({ schedule, categories, accounts, baseCurrency, currencies, onDone }: FormProps) {
   const [name, setName] = useState(schedule?.name ?? '')
   const [categoryId, setCategoryId] = useState(schedule?.category_id ?? 0)
   const [accountId, setAccountId] = useState(schedule?.account_id ?? 0)
@@ -242,12 +238,7 @@ function ScheduleForm({ schedule, groups, categories, accounts, baseCurrency, cu
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const categoryGroups = groups
-    .map((g) => ({
-      title: g.name,
-      options: categories.filter((c) => c.group_id === g.id && (!c.hidden || c.id === schedule?.category_id)).map((c) => ({ value: c.id, label: c.name })),
-    }))
-    .filter((g) => g.options.length > 0)
+  const categoryOptions = categories.filter((c) => !c.hidden || c.id === schedule?.category_id).map((c) => ({ value: c.id, label: c.name }))
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -289,7 +280,7 @@ function ScheduleForm({ schedule, groups, categories, accounts, baseCurrency, cu
         <span className="label">{t.schedules.name}</span>
         <input value={name} maxLength={40} placeholder={t.schedules.namePlaceholder} autoFocus={schedule === null} onChange={(e) => setName(e.target.value)} />
       </label>
-      <SheetPicker label={t.schedules.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
+      <SheetPicker label={t.schedules.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
 
       <span className="label">{t.schedules.amountKind}</span>
       <Segmented value={kind} options={kindOptions} onChange={setKind} />

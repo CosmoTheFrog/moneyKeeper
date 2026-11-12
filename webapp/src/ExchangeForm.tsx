@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError, createExchange, type Account, type Category, type CategoryGroup } from './api'
+import { ApiError, createExchange, type Account, type Category } from './api'
 import { DateField } from './DateField'
 import { errorText, t } from './i18n'
 import { currencySign, dealPrice, formatRate, isCoin, parseAmount } from './money'
@@ -7,7 +7,6 @@ import { CurrencyPicker, SheetPicker } from './Pickers'
 
 type Props = {
   accounts: Account[]
-  groups: CategoryGroup[]
   categories: Category[]
   allCurrencies: string[]
   onDone: () => void
@@ -29,7 +28,7 @@ function dealLine(out: number, outCur: string, inn: number, inCur: string): stri
 }
 // Обмен: отдаю одну сумму, получаю другую, обе как провёл банк или биржа; курс считается сам. Через границу бюджета
 // нужна категория, комиссия со счёта внутри бюджета уходит расходом в свою категорию.
-export function ExchangeFields({ accounts, groups, categories, allCurrencies, onDone }: Props) {
+export function ExchangeFields({ accounts, categories, allCurrencies, onDone }: Props) {
   const first = accounts.find((a) => a.is_default) ?? accounts[0]
   const [fromId, setFromId] = useState(first?.id ?? 0)
   const [toId, setToId] = useState(0)
@@ -50,12 +49,7 @@ export function ExchangeFields({ accounts, groups, categories, allCurrencies, on
   const crossing = from !== undefined && to !== undefined && !from.off_budget && to.off_budget
   const feeOnBudget = from !== undefined && !from.off_budget
 
-  const categoryGroups = groups
-    .map((g) => ({
-      title: g.name,
-      options: categories.filter((c) => c.group_id === g.id && !c.hidden).map((c) => ({ value: c.id, label: c.name })),
-    }))
-    .filter((g) => g.options.length > 0)
+  const categoryOptions = categories.filter((c) => !c.hidden).map((c) => ({ value: c.id, label: c.name }))
 
   function pickFrom(a: Account) {
     setFromId(a.id)
@@ -156,7 +150,7 @@ export function ExchangeFields({ accounts, groups, categories, allCurrencies, on
           {crossing ? (
             <>
               <p className="hint tight">{t.exchange.leavesBudget}</p>
-              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
+              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
             </>
           ) : (
             from.off_budget && to.off_budget && <p className="hint tight">{t.exchange.insideHint}</p>
@@ -173,7 +167,7 @@ export function ExchangeFields({ accounts, groups, categories, allCurrencies, on
           <>
             <p className="hint tight">{feeOnBudget ? t.exchange.feeBudgetHint : t.exchange.feeWalletHint}</p>
             {feeOnBudget && (
-              <SheetPicker label={t.exchange.feeCategory} value={feeCategoryId === 0 ? null : feeCategoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setFeeCategoryId} />
+              <SheetPicker label={t.exchange.feeCategory} value={feeCategoryId === 0 ? null : feeCategoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setFeeCategoryId} />
             )}
           </>
         )}

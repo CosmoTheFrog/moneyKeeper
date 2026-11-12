@@ -35,6 +35,7 @@ type Service interface {
 	SetTourSeen(ctx context.Context, u models.User, seen bool) error
 	SetBaseCurrency(ctx context.Context, u models.User, code string) (models.Budget, error)
 	SetEnvelopes(ctx context.Context, u models.User, enabled bool) (models.Budget, error)
+	SetInterfaceMode(ctx context.Context, u models.User, mode string) (models.Budget, error)
 	ListAccounts(ctx context.Context, u models.User, in string) ([]models.Account, error)
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
 	ArchiveAccount(ctx context.Context, u models.User, id int64) error
@@ -42,9 +43,7 @@ type Service interface {
 	CreatePiggy(ctx context.Context, u models.User, name, currency string, targetMinor *int64, targetDate *apptime.Day) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
-	CreateCategory(ctx context.Context, u models.User, name string, groupID int64) (models.Category, error)
-	ListCategoryGroups(ctx context.Context, u models.User) ([]models.CategoryGroup, error)
-	CreateCategoryGroup(ctx context.Context, u models.User, name string) (models.CategoryGroup, error)
+	CreateCategory(ctx context.Context, u models.User, name string) (models.Category, error)
 	UpdateCategory(ctx context.Context, u models.User, id int64, p models.CategoryPatch) (models.Category, error)
 
 	ListTransactions(ctx context.Context, u models.User, limit, offset int, in string) ([]models.Transaction, error)
@@ -69,7 +68,8 @@ type Service interface {
 
 	PreviewImport(ctx context.Context, u models.User, accountID int64, text string, consent bool) (models.ImportPreview, error)
 	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte) (models.ImportPreview, error)
-	CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) (int, error)
+	CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) ([]int64, error)
+	UndoImport(ctx context.Context, u models.User, ids []int64) error
 
 	ListWallets(ctx context.Context, u models.User, accountID int64) ([]models.WalletAddress, error)
 	AddWallet(ctx context.Context, u models.User, accountID int64, chainName, address string, consent bool) (models.WalletAddress, error)
@@ -95,6 +95,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("GET /api/me", h.auth(h.me))
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
 	mux.HandleFunc("PUT /api/budget/envelopes", h.auth(h.setEnvelopes))
+	mux.HandleFunc("PUT /api/budget/mode", h.auth(h.setInterfaceMode))
 	mux.HandleFunc("PUT /api/me/reminder", h.auth(h.setReminder))
 	mux.HandleFunc("PUT /api/me/tour", h.auth(h.setTour))
 	mux.HandleFunc("POST /api/assets", h.auth(h.addAsset))
@@ -111,8 +112,6 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("GET /api/accounts", h.auth(h.listAccounts))
 	mux.HandleFunc("POST /api/accounts", h.auth(h.createAccount))
 	mux.HandleFunc("POST /api/accounts/{id}/archive", h.auth(h.archiveAccount))
-	mux.HandleFunc("GET /api/category-groups", h.auth(h.listCategoryGroups))
-	mux.HandleFunc("POST /api/category-groups", h.auth(h.createCategoryGroup))
 	mux.HandleFunc("GET /api/categories", h.auth(h.listCategories))
 	mux.HandleFunc("POST /api/categories", h.auth(h.createCategory))
 	mux.HandleFunc("PATCH /api/categories/{id}", h.auth(h.updateCategory))
@@ -124,6 +123,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("POST /api/import/preview", h.auth(h.previewImport))
 	mux.HandleFunc("POST /api/import/file", h.auth(h.previewImportFile))
 	mux.HandleFunc("POST /api/import/commit", h.auth(h.commitImport))
+	mux.HandleFunc("POST /api/import/undo", h.auth(h.undoImport))
 	mux.HandleFunc("GET /api/accounts/{id}/wallets", h.auth(h.listWallets))
 	mux.HandleFunc("POST /api/accounts/{id}/wallets", h.auth(h.addWallet))
 	mux.HandleFunc("DELETE /api/wallets/{id}", h.auth(h.removeWallet))
@@ -283,6 +283,10 @@ func (h *handler) archiveAccount(w http.ResponseWriter, r *http.Request, u model
 
 func budgetDTO(b models.Budget) apidto.BudgetDTO {
 	dto := apidto.BudgetDTO{ID: b.ID, Name: b.Name, EnvelopesEnabled: b.EnvelopesEnabled}
+	if b.InterfaceMode != "" {
+		m := string(b.InterfaceMode)
+		dto.InterfaceMode = &m
+	}
 	if b.BaseCurrency != nil {
 		c := string(*b.BaseCurrency)
 		dto.BaseCurrency = &c
@@ -400,6 +404,20 @@ func (h *handler) setEnvelopes(w http.ResponseWriter, r *http.Request, u models.
 		return
 	}
 	b, err := h.svc.SetEnvelopes(r.Context(), u, req.Enabled)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusOK, budgetDTO(b))
+}
+
+// setInterfaceMode выбирает простой или полный режим интерфейса; ответ это бюджет с новым режимом.
+func (h *handler) setInterfaceMode(w http.ResponseWriter, r *http.Request, u models.User) {
+	var req apidto.SetInterfaceModeRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	b, err := h.svc.SetInterfaceMode(r.Context(), u, req.Mode)
 	if err != nil {
 		h.fail(w, err)
 		return
