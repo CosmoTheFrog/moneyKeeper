@@ -46,7 +46,7 @@ type View = 'spending' | 'envelopes'
 const EMPTY_ROW: BudgetRow ={ category_id: 0, budgeted_minor: 0, spent_minor: 0, balance_minor: 0 }
 
 // Бюджет месяца: сколько осталось распределить и по каждой категории заложено, потрачено, остаток.
-// Здесь же создаются и правятся категории и группы.
+// Здесь же создаются и правятся категории.
 export function BudgetScreen({ categories, accounts, baseCurrency, today, envelopesEnabled, ledger, onChanged, onOpenCategory, onOpenSchedules }: Props) {
   const [month, setMonth] = useState(today.slice(0, 7))
   const [view, setView] = useState<View>(envelopesEnabled ? 'envelopes' : 'spending')

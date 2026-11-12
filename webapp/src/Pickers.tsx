@@ -16,7 +16,7 @@ type ChipProps<T> = {
   disabled?: boolean
 }
 
-// ChipPicker показывает все варианты рядом, подходит для коротких списков: тип счёта, валюта, группа.
+// ChipPicker показывает все варианты рядом, подходит для коротких списков: тип счёта, валюта.
 export function ChipPicker<T extends string | number>({ label, value, options, onChange, disabled = false }: ChipProps<T>) {
   return (
     <div className="field">

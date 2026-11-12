@@ -242,3 +242,8 @@ func (s *Service) SetInterfaceMode(ctx context.Context, u models.User, mode stri
 	}
 	return s.budgets.Get(ctx, u.ActiveBudgetID)
 }
+
+// FindUser находит пользователя по Telegram-аккаунту, не создавая его. Нет такого: ErrNotFound.
+func (s *Service) FindUser(ctx context.Context, telegramID int64) (models.User, error) {
+	return s.users.GetByTelegramID(ctx, telegramID)
+}

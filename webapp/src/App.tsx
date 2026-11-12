@@ -207,7 +207,7 @@ export function App() {
       const shownTab: Tab = simple && tab === 'accounts' ? 'operations' : tab
 
       const openEntry = (entry: Entry, returnTo: Screen) => go({ kind: 'edit', entry, returnTo })
-      // Запись меняет только счета (остатки) и список записей; профиль, группы и категории при этом не трогаются.
+      // Запись меняет только счета (остатки) и список записей; профиль и категории при этом не трогаются.
       const refreshLedger = async () => {
         try {
           const target = me.currencies.includes(displayChoice) ? displayChoice : ''

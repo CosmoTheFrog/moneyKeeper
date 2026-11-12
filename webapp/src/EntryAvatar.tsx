@@ -12,7 +12,7 @@ const PATHS = {
 type Props = {
   entry: Entry
   categoryName: string | undefined
-  // Цвет категории (оттенок её группы); у доходов и переводов свой.
+  // Цвет категории (оттенок по месту в списке); у доходов и переводов свой.
   color: string | undefined
 }
 
