@@ -55,15 +55,8 @@ export type Account = {
   balances: Balance[]
 }
 
-// Группа категорий приходит в порядке показа, название уже на языке пользователя.
-export type CategoryGroup = {
-  id: number
-  name: string
-}
-
 export type Category = {
   id: number
-  group_id: number
   name: string
   description: string
   hidden: boolean
@@ -206,11 +199,9 @@ export const createPiggy = (name: string, currency: string, targetMinor: number 
 
 export const fetchCategories = async () => (await request<{ categories: Category[] }>('GET', '/api/categories')).categories
 
-export const fetchCategoryGroups = async () => (await request<{ groups: CategoryGroup[] }>('GET', '/api/category-groups')).groups
 
-export const createCategoryGroup = (name: string) => request<CategoryGroup>('POST', '/api/category-groups', { name })
 
-export const createCategory = (name: string, groupId: number) => request<Category>('POST', '/api/categories', { name, group_id: groupId })
+export const createCategory = (name: string) => request<Category>('POST', '/api/categories', { name })
 
 // Бюджет месяца в базовой валюте. to_budget_minor накопительное: нераспределённое переходит в следующий месяц само.
 // missing_rates число сумм без курса, в итоги они не вошли.

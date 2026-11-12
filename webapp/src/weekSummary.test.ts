@@ -4,8 +4,8 @@ import type { Entry } from './ledger'
 import { weekSummary } from './weekSummary'
 
 const categories: Category[] = [
-  { id: 1, group_id: 3, name: 'Продукты', description: '', hidden: false, rollover: false },
-  { id: 2, group_id: 3, name: 'Кафе', description: '', hidden: false, rollover: false },
+  { id: 1, name: 'Продукты', description: '', hidden: false, rollover: false },
+  { id: 2, name: 'Кафе', description: '', hidden: false, rollover: false },
 ]
 
 let id = 0

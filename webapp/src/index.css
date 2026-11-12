@@ -987,19 +987,6 @@ h1 {
   font-weight: 600;
 }
 
-.sheet-group {
-  margin: 14px 0 6px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.sheet-group:first-child {
-  margin-top: 0;
-}
-
 .sheet-row {
   display: flex;
   align-items: center;
@@ -1804,10 +1791,6 @@ h1 {
   transform: rotate(90deg);
 }
 
-.list-folded {
-  display: none;
-}
-
 .empty-rows {
   width: 100%;
   padding: 12px 16px;
@@ -2006,42 +1989,6 @@ span.money {
 .attn-noplan,
 .attn-warn {
   background: var(--warn);
-}
-
-.b2-gh {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 20px 4px 8px;
-  cursor: pointer;
-}
-
-.b2-gh i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--gc);
-}
-
-.b2-gh .gn {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.b2-gh .gs {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.b2-gh .gs .money {
-  font-size: inherit;
-  color: inherit;
-}
-
-.b2-gh .gs .money:first-child {
-  color: var(--ink);
 }
 
 .chev {

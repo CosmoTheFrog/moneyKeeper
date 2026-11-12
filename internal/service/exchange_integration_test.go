@@ -354,7 +354,7 @@ func TestPiggyBank(t *testing.T) {
 			envelope = c
 		}
 	}
-	if envelope.Name != "Новая машина" || envelope.GroupID != l.group(t, models.GroupGoal) || !envelope.Rollover {
+	if envelope.Name != "Новая машина" || !envelope.Rollover {
 		t.Errorf("envelope = %+v", envelope)
 	}
 	// Основным счётом копилка не становится.

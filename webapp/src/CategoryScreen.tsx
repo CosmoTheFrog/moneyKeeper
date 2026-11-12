@@ -5,7 +5,6 @@ import type { Entry } from './ledger'
 
 type Props = {
   category: Category
-  groupName: string
   entries: Entry[]
   accounts: Account[]
   categories: Category[]
@@ -16,7 +15,7 @@ type Props = {
 }
 
 // Траты по одной категории, новые сверху. «+» добавляет трату сразу в эту категорию.
-export function CategoryScreen({ category, groupName, entries, accounts, categories, today, onBack, onAdd, onOpen }: Props) {
+export function CategoryScreen({ category, entries, accounts, categories, today, onBack, onAdd, onOpen }: Props) {
   return (
     <main className="screen">
       <header className="row">
@@ -31,9 +30,7 @@ export function CategoryScreen({ category, groupName, entries, accounts, categor
       </header>
 
       <h1>{category.name}</h1>
-      <p className="hint">
-        {groupName} ·{t.categories.spendHere}
-      </p>
+      <p className="hint">{t.categories.spendHere}</p>
 
       {entries.length === 0 && <p className="hint">{t.categories.noSpend}</p>}
       <EntryList entries={entries} accounts={accounts} categories={categories} today={today} onOpen={onOpen} noteFirst="plain" />

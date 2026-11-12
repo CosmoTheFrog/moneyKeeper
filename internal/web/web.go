@@ -42,9 +42,7 @@ type Service interface {
 	CreatePiggy(ctx context.Context, u models.User, name, currency string, targetMinor *int64, targetDate *apptime.Day) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
-	CreateCategory(ctx context.Context, u models.User, name string, groupID int64) (models.Category, error)
-	ListCategoryGroups(ctx context.Context, u models.User) ([]models.CategoryGroup, error)
-	CreateCategoryGroup(ctx context.Context, u models.User, name string) (models.CategoryGroup, error)
+	CreateCategory(ctx context.Context, u models.User, name string) (models.Category, error)
 	UpdateCategory(ctx context.Context, u models.User, id int64, p models.CategoryPatch) (models.Category, error)
 
 	ListTransactions(ctx context.Context, u models.User, limit, offset int, in string) ([]models.Transaction, error)
@@ -111,8 +109,6 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("GET /api/accounts", h.auth(h.listAccounts))
 	mux.HandleFunc("POST /api/accounts", h.auth(h.createAccount))
 	mux.HandleFunc("POST /api/accounts/{id}/archive", h.auth(h.archiveAccount))
-	mux.HandleFunc("GET /api/category-groups", h.auth(h.listCategoryGroups))
-	mux.HandleFunc("POST /api/category-groups", h.auth(h.createCategoryGroup))
 	mux.HandleFunc("GET /api/categories", h.auth(h.listCategories))
 	mux.HandleFunc("POST /api/categories", h.auth(h.createCategory))
 	mux.HandleFunc("PATCH /api/categories/{id}", h.auth(h.updateCategory))

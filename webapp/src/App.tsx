@@ -4,19 +4,17 @@ import {
   deleteTransaction,
   fetchAccounts,
   fetchCategories,
-  fetchCategoryGroups,
   fetchMe,
   fetchTransactions,
   type Account,
   type Category,
-  type CategoryGroup,
   type Me,
   type Transaction,
 } from './api'
 import { BudgetScreen } from './BudgetScreen'
 import { CategoryScreen } from './CategoryScreen'
 import { DayScreen } from './DayScreen'
-import { CategoryColorContext, categoryColors } from './groupColor'
+import { CategoryColorContext, categoryColors } from './categoryColor'
 import { CurrencyScreen } from './CurrencyScreen'
 import { TourScreen } from './TourScreen'
 import { EntryForm } from './EntryForm'
@@ -43,7 +41,6 @@ const SavingsScreen = lazy(() => import('./SavingsScreen').then((m) => ({ defaul
 type Data = {
   me: Me
   accounts: Account[]
-  groups: CategoryGroup[]
   categories: Category[]
   transactions: Transaction[]
 }
@@ -128,19 +125,19 @@ export function App() {
 
   const load = useCallback(async () => {
     try {
-      // Группы и категории от профиля не зависят, их запрос идёт параллельно с ним.
-      const structure = Promise.all([fetchCategoryGroups(), fetchCategories()])
+      // Категории от профиля не зависят, их запрос идёт параллельно с ним.
+      const structure = fetchCategories()
       structure.catch(() => {}) // ошибку разберёт await ниже; без этого при раннем выходе она осталась бы необработанной
       const me = await fetchMe()
       registerCurrencies(me.currency_info)
       if (me.budget.base_currency === null) {
-        setState({ kind: 'ready', data: { me, accounts: [], groups: [], categories: [], transactions: [] } })
+        setState({ kind: 'ready', data: { me, accounts: [], categories: [], transactions: [] } })
         return
       }
       // Сохранённая валюта могла пропасть из списка: тогда считаем в базовой.
       const target = me.currencies.includes(displayChoice) ? displayChoice : ''
-      const [[groups, categories], accounts, transactions] = await Promise.all([structure, fetchAccounts(target), fetchTransactions(target)])
-      setState({ kind: 'ready', data: { me, accounts, groups, categories, transactions } })
+      const [categories, accounts, transactions] = await Promise.all([structure, fetchAccounts(target), fetchTransactions(target)])
+      setState({ kind: 'ready', data: { me, accounts, categories, transactions } })
     } catch {
       setState({ kind: 'error' })
     }
@@ -174,7 +171,7 @@ export function App() {
     case 'error':
       return <ErrorState onRetry={() => void load()} />
     case 'ready': {
-      const { me, accounts: everyAccount, groups, categories } = state.data
+      const { me, accounts: everyAccount, categories } = state.data
       // Закрытые счета не показываются в списках и выборе, но остаются в названиях старых записей.
       const accounts = everyAccount.filter((a) => !a.archived)
       const base = me.budget.base_currency
@@ -195,7 +192,7 @@ export function App() {
       }
 
       const today = dayIn(me.timezone)
-      const colors = categoryColors(groups, categories)
+      const colors = categoryColors(categories)
       const reload = () => void load()
       const go = (to: Screen) => setScreen(to)
       const home: Screen = { kind: 'tabs' }
@@ -238,7 +235,6 @@ export function App() {
           <EntryForm
             accounts={accounts}
             allAccounts={everyAccount}
-            groups={groups}
             categories={categories}
             allCurrencies={me.currencies}
             presetCategoryId={screen.categoryId}
@@ -252,7 +248,6 @@ export function App() {
           <EntryForm
             accounts={accounts}
             allAccounts={everyAccount}
-            groups={groups}
             categories={categories}
             allCurrencies={me.currencies}
             entry={screen.entry}
@@ -274,7 +269,6 @@ export function App() {
           body = (
             <CategoryScreen
               category={category}
-              groupName={groups.find((g) => g.id === category.group_id)?.name ?? ''}
               entries={entries.filter((e) => e.categoryId === category.id)}
               accounts={everyAccount}
               categories={categories}
@@ -331,8 +325,7 @@ export function App() {
               account={account}
               entries={entries}
               accounts={everyAccount}
-              groups={groups}
-              categories={categories}
+                categories={categories}
               baseCurrency={display}
               currencies={me.currencies}
               onDisplay={changeDisplay}
@@ -349,8 +342,7 @@ export function App() {
         case 'schedules':
           body = (
             <SchedulesScreen
-              groups={groups}
-              categories={categories}
+                categories={categories}
               accounts={accounts}
               baseCurrency={base}
               currencies={me.currencies}
@@ -400,8 +392,7 @@ export function App() {
               {tab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
               {tab === 'budget' && (
                 <BudgetScreen
-                  groups={groups}
-                  categories={categories}
+                        categories={categories}
                   accounts={accounts}
                   baseCurrency={base}
                   today={today}
@@ -416,8 +407,7 @@ export function App() {
                 <ReportsScreen
                   entries={entries}
                   accounts={everyAccount}
-                  groups={groups}
-                  categories={categories}
+                        categories={categories}
                   baseCurrency={display}
                   currencies={me.currencies}
                   onDisplay={changeDisplay}

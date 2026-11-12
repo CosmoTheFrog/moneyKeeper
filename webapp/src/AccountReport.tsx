@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { Account, Category, CategoryGroup } from './api'
+import type { Account, Category } from './api'
 import { daysInRange } from './calendar'
 import { DisplayCurrency } from './DisplayCurrency'
 import { EntryList } from './EntryList'
@@ -18,7 +18,6 @@ type Props = {
   // Все записи бюджета: здесь берутся только расходы этого счёта.
   entries: Entry[]
   accounts: Account[]
-  groups: CategoryGroup[]
   categories: Category[]
   baseCurrency: string
   currencies: string[]
@@ -30,9 +29,9 @@ type Props = {
 
 const BASE = 'base'
 
-// Куда и когда ушли деньги со счёта: траты по группам и категориям, по дням или месяцам и списком.
+// Куда и когда ушли деньги со счёта: траты по категориям, по дням или месяцам и списком.
 // Нажатие на столбик «когда» сужает и кольцо, и список до этого дня или месяца.
-export function AccountReport({ account, entries, accounts, groups, categories, baseCurrency, currencies, onDisplay, today, onBack, onOpen }: Props) {
+export function AccountReport({ account, entries, accounts, categories, baseCurrency, currencies, onDisplay, today, onBack, onOpen }: Props) {
   const [period, setPeriod] = useState<Period>('month')
   const [offset, setOffset] = useState(0)
   const [view, setView] = useState(BASE)
@@ -124,7 +123,6 @@ export function AccountReport({ account, entries, accounts, groups, categories, 
           <SpendBreakdown
             key={`${chosen}-${picked?.key ?? ''}`}
             slices={spendByCategory(own, categories, shown, measure)}
-            groups={groups}
             categories={categories}
             accounts={accounts}
             entries={own}

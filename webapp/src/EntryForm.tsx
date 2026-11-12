@@ -8,7 +8,6 @@ import {
   updateTransaction,
   type Account,
   type Category,
-  type CategoryGroup,
   type TransactionPatch,
   type TxEvent,
 } from './api'
@@ -28,7 +27,6 @@ type Props = {
   // Счета для выбора (без закрытых) и все счета для названий в старых записях.
   accounts: Account[]
   allAccounts: Account[]
-  groups: CategoryGroup[]
   categories: Category[]
   // Без entry форма создаёт запись, с entry правит её.
   entry?: Entry
@@ -59,7 +57,7 @@ function kindLabel(kind: FormKind): string {
   return kind === 'opening' ? t.ledger.opening : t.kinds[kind]
 }
 
-export function EntryForm({ accounts, allAccounts, groups, categories, entry, allCurrencies, presetCategoryId, presetDate, onDone, onCancel }: Props) {
+export function EntryForm({ accounts, allAccounts, categories, entry, allCurrencies, presetCategoryId, presetDate, onDone, onCancel }: Props) {
   const editing = entry !== undefined
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
@@ -98,12 +96,7 @@ export function EntryForm({ accounts, allAccounts, groups, categories, entry, al
   const lockedAmounts = editing && kind === 'exchange'
   const showExchange = !editing && kind === 'exchange'
 
-  const categoryGroups = groups
-    .map((g) => ({
-      title: g.name,
-      options: categories.filter((c) => c.group_id === g.id &&(!c.hidden || c.id === entry?.categoryId)).map((c) => ({ value: c.id, label: c.name })),
-    }))
-    .filter((g) => g.options.length > 0)
+  const categoryOptions = categories.filter((c) => !c.hidden || c.id === entry?.categoryId).map((c) => ({ value: c.id, label: c.name }))
 
   // Смена валюты оставляет счёт, если он её допускает (многовалютный), иначе переключает на основной счёт этой валюты.
   // Если подходящего счёта нет, счёт сбрасывается.
@@ -239,12 +232,12 @@ export function EntryForm({ accounts, allAccounts, groups, categories, entry, al
       )}
       {ticket}
 
-      {showExchange && <ExchangeFields accounts={accounts} groups={groups} categories={categories} allCurrencies={allCurrencies} onDone={onDone} />}
+      {showExchange && <ExchangeFields accounts={accounts} categories={categories} allCurrencies={allCurrencies} onDone={onDone} />}
       {!showExchange && (
         <form className="stack" onSubmit={submit}>
           {kind === 'expense' && (
             <div className="card">
-              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
+              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
             </div>
           )}
 
@@ -322,7 +315,7 @@ export function EntryForm({ accounts, allAccounts, groups, categories, entry, al
           {crossing && (
             <div className="card">
               <p className="hint tight">{t.networkFee.leavesBudget}</p>
-              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} groups={categoryGroups} onChange={setCategoryId} />
+              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
             </div>
           )}
 

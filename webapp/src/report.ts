@@ -1,4 +1,4 @@
-import type { Category, CategoryGroup } from './api'
+import type { Category } from './api'
 import type { Entry } from './ledger'
 
 // Диапазон дат включительно, обе границы в виде YYYY-MM-DD. Строки этого вида сравниваются как даты.
@@ -56,7 +56,6 @@ export type Slice = {
   key: string
   label: string
   totalMinor: number
-  groupId: number
 }
 
 export type CurrencyTotal = {
@@ -95,35 +94,17 @@ export function spendByCategory(entries: Entry[], categories: Category[], range:
   const out: Slice[] = []
   for (const [id, totalMinor] of totals) {
     const c = byId.get(id)
-    if (c !== undefined) out.push({ key: String(id), label: c.name, totalMinor, groupId: c.group_id })
+    if (c !== undefined) out.push({ key: String(id), label: c.name, totalMinor })
   }
   return out.sort((a, b) => b.totalMinor - a.totalMinor || a.label.localeCompare(b.label, 'ru'))
 }
 
-export function spendByGroup(slices: Slice[], groups: CategoryGroup[]): Slice[] {
-  const totals = new Map<number, number>()
-  for (const s of slices) totals.set(s.groupId, (totals.get(s.groupId) ?? 0) + s.totalMinor)
-  return groups
-    .filter((g) => totals.has(g.id))
-    .map((g) => ({ key: String(g.id), label: g.name, totalMinor: totals.get(g.id) ?? 0, groupId: g.id }))
-    .sort((a, b) => b.totalMinor - a.totalMinor)
-}
-
-// spendEntries возвращает траты, из которых сложен кусок кольца: целой группы или одной категории.
+// spendEntries возвращает траты, из которых сложен кусок кольца (одна категория).
 // Берутся те же записи, что вошли в сумму (период, мера), новые сверху.
-export function spendEntries(entries: Entry[], categories: Category[], range: Range, measure: Measure, slice: Slice, whole: 'group' | 'category'): Entry[] {
-  const groupOf = new Map(categories.map((c) => [c.id, c.group_id]))
+export function spendEntries(entries: Entry[], range: Range, measure: Measure, slice: Slice): Entry[] {
   return entries
-    .filter((e) => {
-      if (e.categoryId === null || !inRange(e, range) || spendOf(e, measure) === null) return false
-      return whole === 'group' ? groupOf.get(e.categoryId) === slice.groupId : String(e.categoryId) === slice.key
-    })
+    .filter((e) => e.categoryId !== null && inRange(e, range) && spendOf(e, measure) !== null && String(e.categoryId) === slice.key)
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id))
-}
-
-// inGroup оставляет категории одной группы, порядок (от большей суммы к меньшей) сохраняется.
-export function inGroup(slices: Slice[], groupId: number): Slice[] {
-  return slices.filter((s) => s.groupId === groupId)
 }
 
 // Корзина графика «когда»: день или месяц с суммой трат. from и to обрезаны по периоду.

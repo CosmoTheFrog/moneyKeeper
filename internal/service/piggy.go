@@ -12,7 +12,7 @@ import (
 	"moneykeeper/pkg/money"
 )
 
-// CreatePiggy заводит копилку: счёт вне бюджета с целью и конвертом в группе «Цели накопления». Если в бюджете уже есть
+// CreatePiggy заводит копилку: счёт вне бюджета с целью и конвертом с переносом остатка. Если в бюджете уже есть
 // категория с таким названием, копилка использует её, иначе категория создаётся. Копилка пополняется переводом со счёта
 // бюджета в категорию этого конверта: деньги сразу уходят из конверта и появляются в копилке.
 func (s *Service) CreatePiggy(ctx context.Context, u models.User, name, currency string, targetMinor *int64, targetDate *apptime.Day) (models.Account, error) {
@@ -30,19 +30,6 @@ func (s *Service) CreatePiggy(ctx context.Context, u models.User, name, currency
 
 	var acc models.Account
 	err = s.db.InTx(ctx, func(ctx context.Context) error {
-		groups, err := s.categories.ListGroups(ctx, u.ActiveBudgetID)
-		if err != nil {
-			return err
-		}
-		var goal int64
-		for _, g := range groups {
-			if g.Key == models.GroupGoal {
-				goal = g.ID
-			}
-		}
-		if goal == 0 {
-			return fmt.Errorf("goal group: %w", models.ErrNotFound)
-		}
 		cats, err := s.categories.List(ctx, u.ActiveBudgetID)
 		if err != nil {
 			return err
@@ -55,7 +42,7 @@ func (s *Service) CreatePiggy(ctx context.Context, u models.User, name, currency
 			}
 		}
 		if category == nil {
-			cat, err := s.categories.Create(ctx, u.ActiveBudgetID, models.NewCategory{GroupID: goal, Name: name})
+			cat, err := s.categories.Create(ctx, u.ActiveBudgetID, models.NewCategory{Name: name, Rollover: true})
 			if err != nil {
 				return err
 			}
