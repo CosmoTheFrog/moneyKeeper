@@ -13,7 +13,7 @@ import {
 } from './api'
 import { allows, pickAccount, usableCurrencies } from './accounts'
 import { errorText, t } from './i18n'
-import type { Entry } from './ledger'
+import { frequentCategories, guessCategory, type Entry } from './ledger'
 import { DateField } from './DateField'
 import { ExchangeFields } from './ExchangeForm'
 import { Modal } from './Modal'
@@ -34,6 +34,10 @@ type Props = {
   allCurrencies: string[]
   // Простой режим: только расход и доход на основной счёт, без выбора счёта, переводов и обмена.
   simple?: boolean
+  // Последние записи (новые первыми): из них берутся частые категории и подсказка категории по заметке.
+  recentEntries?: Entry[]
+  // Запись сохранена без закрытия формы («Сохранить и ещё»): список за формой нужно перечитать.
+  onSaved?: () => void
   // Категория, которую нужно выбрать заранее (кнопка «+» у категории).
   presetCategoryId?: number
   // Дата, которую нужно выбрать заранее (запись на открытый день).
@@ -60,7 +64,7 @@ function kindLabel(kind: FormKind): string {
   return kind === 'opening' ? t.ledger.opening : t.kinds[kind]
 }
 
-export function EntryForm({ accounts, allAccounts, categories, entry, allCurrencies, simple = false, presetCategoryId, presetDate, onDone, onCancel }: Props) {
+export function EntryForm({ accounts, allAccounts, categories, entry, allCurrencies, simple = false, recentEntries = [], onSaved, presetCategoryId, presetDate, onDone, onCancel }: Props) {
   const editing = entry !== undefined
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
@@ -79,6 +83,7 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [events, setEvents] = useState<TxEvent[] | null>(null)
+  const [savedCount, setSavedCount] = useState(0)
 
   const currencies = usableCurrencies(accounts, allCurrencies)
   const accountsInCurrency = accounts.filter((a) => allows(a, currency))
@@ -100,6 +105,17 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
   const showExchange = !editing && kind === 'exchange'
 
   const categoryOptions = categories.filter((c) => !c.hidden || c.id === entry?.categoryId).map((c) => ({ value: c.id, label: c.name }))
+
+  // Частые категории лежат под рукой плитками: большинство трат вносится одним касанием.
+  const categoryLabel = new Map(categoryOptions.map((o) => [o.value, o.label]))
+  const frequent = frequentCategories(recentEntries, 8).filter((id) => categoryLabel.has(id))
+
+  // По заметке подсказывается категория прошлой траты, пока категория не выбрана.
+  function suggestCategory(text: string) {
+    if (editing || kind !== 'expense' || categoryId !== 0) return
+    const guess = guessCategory(recentEntries, text)
+    if (guess !== null && categoryLabel.has(guess)) setCategoryId(guess)
+  }
 
   // Смена валюты оставляет счёт, если он её допускает (многовалютный), иначе переключает на основной счёт этой валюты.
   // Если подходящего счёта нет, счёт сбрасывается.
@@ -127,7 +143,10 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
     try {
       const p = await parseQuick(text, currency)
       setAmount(formatInput(p.amount_minor, p.currency !== '' ? p.currency : currency))
-      if (p.note !== '') setNote(p.note)
+      if (p.note !== '') {
+        setNote(p.note)
+        suggestCategory(p.note)
+      }
       let cur = currency
       if (p.currency !== '' && p.currency !== currency) {
         if (currencies.includes(p.currency)) chooseCurrency(p.currency)
@@ -141,8 +160,7 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
     }
   }
 
-  async function submit(e: FormEvent) {
-    e.preventDefault()
+  async function save(again: boolean) {
     setError(null)
     const minor = lockedAmounts && entry !== undefined ? Math.abs(entry.amountMinor) : parseAmount(amount, currency)
     if (minor === null) return setError(errorText('invalid_amount'))
@@ -177,6 +195,17 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
         if (canPickAccount && currency !== entry.currency) patch.currency = currency
         if (kind === 'expense' && categoryId !== 0 && categoryId !== entry.categoryId) patch.category_id = categoryId
         if (Object.keys(patch).length > 0) await updateTransaction(entry.id, patch)
+      }
+      if (again) {
+        onSaved?.()
+        setAmount('')
+        setNote('')
+        setQuick('')
+        setUnderstood(null)
+        setCategoryId(0)
+        setSavedCount((n) => n + 1)
+        setBusy(false)
+        return
       }
       onDone()
     } catch (err) {
@@ -237,9 +266,24 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
 
       {showExchange && <ExchangeFields accounts={accounts} categories={categories} allCurrencies={allCurrencies} onDone={onDone} />}
       {!showExchange && (
-        <form className="stack" onSubmit={submit}>
+        <form
+          className="stack"
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault()
+            void save(false)
+          }}
+        >
           {kind === 'expense' && (
             <div className="card">
+              {!editing && frequent.length > 0 && (
+                <div className="chips" role="radiogroup" aria-label={t.add.frequent}>
+                  {frequent.map((id) => (
+                    <button key={id} type="button" role="radio" aria-checked={id === categoryId} className={id === categoryId ? 'pill pill-on' : 'pill'} onClick={() => setCategoryId(id)}>
+                      {categoryLabel.get(id)}
+                    </button>
+                  ))}
+                </div>
+              )}
               <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
             </div>
           )}
@@ -276,7 +320,7 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
               <label className="field">
                 <span className="label">{t.add.amount}</span>
                 <span className="amount-row">
-                  <input inputMode="decimal" value={amount} placeholder="0,00" onChange={(e) => setAmount(e.target.value)} />
+                  <input key={savedCount} inputMode="decimal" autoFocus={!editing} value={amount} placeholder="0,00" onChange={(e) => setAmount(e.target.value)} />
                   {!currencyEditable && <span className="amount-suffix">{currencySign(currency)}</span>}
                 </span>
               </label>
@@ -336,14 +380,20 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
             <DateField label={t.add.date} value={date} onChange={setDate} placeholder={t.add.dateToday} clearable={!editing} />
             <label className="field">
               <span className="label">{t.add.note}</span>
-              <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
+              <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} onBlur={() => suggestCategory(note)} />
             </label>
           </div>
 
           {error !== null && <p className="error">{error}</p>}
+          {savedCount > 0 && <p className="hint tight">{t.add.savedAgain}: {savedCount}</p>}
           <button type="submit" className="primary" disabled={busy}>
             {t.save}
           </button>
+          {!editing && (kind === 'expense' || kind === 'income') && (
+            <button type="button" className="chip" disabled={busy} onClick={() => void save(true)}>
+              {t.add.saveAndNext}
+            </button>
+          )}
         </form>
       )}
       {editing && (

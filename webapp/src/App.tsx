@@ -247,6 +247,8 @@ export function App() {
             categories={categories}
             allCurrencies={me.currencies}
             simple={simple}
+            recentEntries={entries}
+            onSaved={() => void refreshLedger()}
             presetCategoryId={screen.categoryId}
             presetDate={screen.presetDate}
             onDone={() => finish(screen.returnTo)}
