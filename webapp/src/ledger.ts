@@ -98,20 +98,6 @@ export function dayNet(entries: Entry[]): number | null {
   return any ? sum : null
 }
 
-export type DaySpend = { date: string; spentMinor: number }
-
-// lastDays: траты за последние n дней по дням, старые первыми, в валюте пересчёта. Расход без курса не входит.
-export function lastDays(entries: Entry[], today: string, n: number): DaySpend[] {
-  const days: DaySpend[] = Array.from({ length: n }, (_, i) => ({ date: shiftDay(today, i - (n - 1)), spentMinor: 0 }))
-  const at = new Map(days.map((d) => [d.date, d]))
-  for (const e of entries) {
-    if (e.kind !== 'expense' || e.baseMinor === null) continue
-    const day = at.get(e.date)
-    if (day !== undefined) day.spentMinor += -e.baseMinor
-  }
-  return days
-}
-
 export type DayPart = { categoryId: number | null; totalMinor: number }
 
 // dayParts: расходы дня по категориям, больше первыми, в валюте пересчёта. Расход без курса не входит.

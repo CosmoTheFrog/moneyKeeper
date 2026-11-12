@@ -1,48 +1,48 @@
 :root {
-  --bg: #f3f5f7;
+  --bg: #f6f7f8;
   --card: #fff;
-  --ink: #12202b;
-  --muted: #6b7a88;
-  --line: #e3e8ec;
-  --accent: #0e7c7b;
-  --accent-soft: #e1f2f1;
+  --ink: #14201c;
+  --muted: #6c7873;
+  --line: #e8ecea;
+  --accent: #0f6e56;
+  --accent-soft: #e1f5ee;
   --danger: #c8372d;
-  --pos: #1f8a4c;
-  --accent-2: #0a5360;
+  --pos: #1d7a55;
+  --accent-2: #0f6e56;
   --warn: #9c6508;
-  --hero: #e4f3f2;
-  --shadow: 0 1px 2px rgb(18 32 43 / 6%), 0 10px 28px -14px rgb(18 32 43 / 22%);
+  --hero: #fff;
+  --shadow: none;
 
-  /* Оттенки групп: у группы по кругу свой, он идёт в иконки, кольца и разбивки. */
-  --g1: #0e7c7b;
-  --g2: #4a5fd0;
-  --g3: #9a4fb0;
-  --g4: #3a86a8;
-  --g5: #c0508a;
-  --g6: #5b8a2f;
+  /* Оттенки категорий: у категории по кругу свой, он идёт в значки, кольца и разбивки. */
+  --g1: #1d9e75;
+  --g2: #7f77dd;
+  --g3: #d85a30;
+  --g4: #378add;
+  --g5: #d4537e;
+  --g6: #ba7517;
 }
 
-/* Тёмная тема: те же переменные, другие значения. Акцент чуть светлее, чтобы читался на тёмном. */
+/* Тёмная тема: те же переменные, другие значения. Оттенки светлее, чтобы читались на тёмном. */
 :root[data-theme='dark'] {
-  --bg: #0f1720;
-  --card: #17222d;
-  --ink: #e8eef3;
-  --muted: #8fa0af;
-  --line: #263544;
-  --accent: #1fa3a1;
-  --accent-soft: #123f3e;
+  --bg: #0e1412;
+  --card: #161d1a;
+  --ink: #e8efec;
+  --muted: #8a9893;
+  --line: #243029;
+  --accent: #2bb58b;
+  --accent-soft: #123a2e;
   --danger: #f0675c;
   --pos: #4cc27e;
-  --accent-2: #137a86;
+  --accent-2: #2bb58b;
   --warn: #e0a93b;
-  --hero: #12343a;
-  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 28px -14px rgb(0 0 0 / 70%);
-  --g1: #1fa3a1;
-  --g2: #8093f0;
-  --g3: #c48ad6;
-  --g4: #6cb5d4;
-  --g5: #e58ab8;
-  --g6: #93c25f;
+  --hero: #161d1a;
+  --shadow: none;
+  --g1: #3ec79b;
+  --g2: #a09aea;
+  --g3: #ee8460;
+  --g4: #67aef0;
+  --g5: #e57fa4;
+  --g6: #dfa23f;
 
   color-scheme: dark;
 }
@@ -2373,46 +2373,6 @@ span.money {
   font-weight: 800;
 }
 
-.week-label {
-  display: block;
-  margin-top: 14px;
-}
-
-.week {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  height: 66px;
-  margin-top: 6px;
-}
-
-.week > div {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  height: 100%;
-}
-
-.week i {
-  display: block;
-  width: 100%;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--accent) 28%, transparent);
-}
-
-.week .today i {
-  background: var(--accent);
-}
-
-.week small {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
 .search-field {
   display: block;
   margin-bottom: 10px;
@@ -2879,4 +2839,180 @@ span.money {
 
 .imp-sub select {
   max-width: 60%;
+}
+
+/* Оформление «Спокойная сводка»: плоские карточки с тонкой линией, крупные цифры, один акцент, без теней и градиентов. */
+h1 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.money {
+  font-weight: 700;
+}
+
+.day {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.label {
+  font-weight: 500;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.primary {
+  border-radius: 14px;
+  background: var(--accent);
+  font-weight: 700;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chip-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.plus {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.plus-solid {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.ops-hero {
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.ops-hero > .money {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.tabbar {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
+  padding: 0 8px env(safe-area-inset-bottom, 0px);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: 0 -1px 0 var(--line);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.tab {
+  font-weight: 600;
+}
+
+.tab .ti {
+  height: 26px;
+  border-radius: 13px;
+}
+
+.tab-add {
+  width: 48px;
+  height: 48px;
+  margin: -20px 6px 0;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--card);
+}
+
+.screen {
+  padding-bottom: 104px;
+}
+
+/* Герой «Операций»: потрачено за месяц, сравнение, линия по дням, самые большие категории. */
+.hero {
+  padding: 18px;
+}
+
+.hero > .money {
+  display: block;
+  margin: 2px 0 0;
+  font-size: 34px;
+  letter-spacing: -0.5px;
+}
+
+.hero-delta {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hero-delta .money {
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.hero-good .money {
+  color: var(--pos);
+}
+
+.hero-line {
+  display: block;
+  width: 100%;
+  height: 56px;
+  margin: 14px 0 6px;
+}
+
+.hero-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.hero-row:last-child {
+  padding-bottom: 0;
+}
+
+.hero-av {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.hero-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hero-balance {
+  margin: 10px 4px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hero-balance .money {
+  font-weight: 600;
+  color: var(--ink);
 }

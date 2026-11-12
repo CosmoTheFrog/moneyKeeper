@@ -1,12 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { fetchBudgetMonth, type Account, type BudgetMonth, type Category } from './api'
 import { totalBalance } from './accounts'
+import { shiftMonth } from './calendar'
 import { EntryList } from './EntryList'
 import { t } from './i18n'
-import { dayNet, entryMatches, lastDays, type Entry } from './ledger'
+import { dayNet, entryMatches, type Entry } from './ledger'
+import { MonthHero } from './MonthHero'
 import { Money } from './MoneyText'
-import { EmptyState, Skeleton } from './States'
-import { WeekCard } from './WeekCard'
+import { monthLine } from './report'
+import { EmptyState } from './States'
 
 type Props = {
   entries: Entry[]
@@ -20,16 +22,14 @@ type Props = {
   onAdd: () => void
   onOpenDay?: (date: string) => void
   onOpenMore: () => void
+  // Простой режим: остатка по счетам нет, показывать его не нужно.
+  simple?: boolean
   wrapRow?: (entry: Entry, row: ReactNode) => ReactNode
 }
 
-function weekday(date: string): string {
-  const [y, m, d] = date.split('-').map(Number)
-  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1).toLocaleDateString('ru-RU', { weekday: 'short' })
-}
-
-export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, wrapRow }: Props) {
+export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, simple = false, wrapRow }: Props) {
   const [month, setMonth] = useState<BudgetMonth | null>(null)
+  const [previous, setPrevious] = useState<BudgetMonth | null>(null)
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
   const [accountId, setAccountId] = useState<number | null>(null)
@@ -40,6 +40,9 @@ export function OperationsScreen({ entries, accounts, categories, today, display
     fetchBudgetMonth(today.slice(0, 7))
       .then((b) => alive && setMonth(b))
       .catch(() => {})
+    fetchBudgetMonth(shiftMonth(today.slice(0, 7), -1))
+      .then((b) => alive && setPrevious(b))
+      .catch(() => {})
     return () => {
       alive = false
     }
@@ -48,9 +51,6 @@ export function OperationsScreen({ entries, accounts, categories, today, display
   const accountName = new Map(accounts.map((a) => [a.id, a.name]))
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
   const balance = totalBalance(accounts)
-  const spent = month === null ? 0 : month.categories.reduce((sum, r) => sum + Math.max(r.spent_minor, 0), 0)
-  const week = lastDays(entries, today, 7)
-  const weekMax = Math.max(...week.map((d) => d.spentMinor), 0)
 
   const filtering = query.trim() !== '' || accountId !== null
   const shown = entries.filter((e) => (accountId === null || e.accountId === accountId || e.toAccountId === accountId) && entryMatches(e, query, accountName, categoryName))
@@ -101,36 +101,15 @@ export function OperationsScreen({ entries, accounts, categories, today, display
       )}
 
       {!filtering && entries.length > 0 && (
-        <div className="card ops-hero">
-          <span className="label">{t.ledger.balance}</span>
-          {balance === null ? <Skeleton w={160} h={34} /> : <Money minor={balance} currency={display} />}
-          <div className="duo">
-            <div>
-              <span className="label">{t.ledger.spentMonth}</span>
-              {month === null ? <Skeleton w={90} h={18} /> : <Money minor={-spent} currency={base} />}
-            </div>
-            <div>
-              <span className="label">{t.ledger.incomeMonth}</span>
-              {month === null ? <Skeleton w={90} h={18} /> : <Money minor={month.income_minor} currency={base} signed />}
-            </div>
-          </div>
-          {weekMax > 0 && (
-            <>
-              <span className="label week-label">{t.ledger.week}</span>
-              <div className="week" role="img" aria-label={t.ledger.week}>
-                {week.map((d) => (
-                  <div key={d.date} className={d.date === today ? 'today' : ''}>
-                    <i style={{ height: Math.max(4, Math.round((d.spentMinor / weekMax) * 44)) }} />
-                    <small>{weekday(d.date)}</small>
-                  </div>
-                ))}
-              </div>
-            </>
+        <>
+          <MonthHero month={month} previous={previous} categories={categories} line={monthLine(entries, today)} currency={base} />
+          {!simple && balance !== null && (
+            <p className="hero-balance">
+              {t.ledger.balance} <Money minor={balance} currency={display} />
+            </p>
           )}
-        </div>
+        </>
       )}
-
-      {!filtering && <WeekCard entries={entries} categories={categories} currency={display} today={today} />}
 
       {filtering && (
         <p className="found">

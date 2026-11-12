@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Transaction } from './api'
-import { dayIn, dayNet, frequentCategories, guessCategory, dayParts, daySummary, entryMatches, groupByDay, lastDays, shiftDay, toEntries, type Entry } from './ledger'
+import { dayIn, dayNet, frequentCategories, guessCategory, dayParts, daySummary, entryMatches, groupByDay, shiftDay, toEntries, type Entry } from './ledger'
 
 function tx(over: Partial<Transaction> & Pick<Transaction, 'id'>): Transaction {
   return {
@@ -172,26 +172,6 @@ describe('dayNet', () => {
     ['пусто', [], null],
   ])('%s', (_name, entries, want) => {
     expect(dayNet(entries)).toBe(want)
-  })
-})
-
-describe('lastDays', () => {
-  it('раскладывает расходы по дням, старые первыми, пустые дни с нулём', () => {
-    const out = lastDays(
-      [entry({ id: 1, date: '2026-11-03', baseMinor: -400 }), entry({ id: 2, date: '2026-11-03', baseMinor: -100 }), entry({ id: 3, date: '2026-11-01', baseMinor: -250 }), entry({ id: 4, date: '2026-10-01', baseMinor: -999 })],
-      '2026-11-03',
-      3,
-    )
-    expect(out).toEqual([
-      { date: '2026-11-01', spentMinor: 250 },
-      { date: '2026-11-02', spentMinor: 0 },
-      { date: '2026-11-03', spentMinor: 500 },
-    ])
-  })
-
-  it('доходы и расходы без курса не считаются', () => {
-    const out = lastDays([entry({ id: 1, kind: 'income', baseMinor: 5000 }), entry({ id: 2, baseMinor: null })], '2026-11-03', 1)
-    expect(out).toEqual([{ date: '2026-11-03', spentMinor: 0 }])
   })
 })
 

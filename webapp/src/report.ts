@@ -172,3 +172,19 @@ export function arcs(values: number[]): Arc[] {
     return arc
   })
 }
+
+// monthLine: траты месяца нарастающим итогом по дням, с первого числа до today, в базовой валюте. Расход без курса не входит.
+// Из записей, которые есть на экране: для итога месяца берётся ответ сервера, линия показывает форму месяца.
+export function monthLine(entries: Entry[], today: string): number[] {
+  const days = Number(today.slice(8, 10))
+  const month = today.slice(0, 7)
+  const perDay = new Array<number>(days).fill(0)
+  for (const e of entries) {
+    if (e.date.slice(0, 7) !== month) continue
+    const spend = spendOf(e, { kind: 'base' })
+    const day = Number(e.date.slice(8, 10))
+    if (spend !== null && day >= 1 && day <= days) perDay[day - 1] = (perDay[day - 1] ?? 0) + spend
+  }
+  let total = 0
+  return perDay.map((v) => (total += v))
+}

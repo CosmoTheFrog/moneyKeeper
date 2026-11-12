@@ -7,6 +7,7 @@ import {
   arcs,
   diffDays,
   missingRates,
+  monthLine,
   percent,
   rangeFor,
   spendBuckets,
@@ -228,5 +229,16 @@ describe('percent and arcs', () => {
   it('returns nothing for zero total', () => {
     expect(arcs([])).toEqual([])
     expect(arcs([0, 0])).toEqual([])
+  })
+})
+
+describe('monthLine', () => {
+  it('accumulates month spending day by day up to today and ignores other months', () => {
+    const entries = [exp(1, 2, -500, '2026-10-02'), exp(2, 2, -300, '2026-10-02'), exp(3, 2, -100, '2026-10-04'), exp(4, 2, -9000, '2026-09-30')]
+    expect(monthLine(entries, '2026-10-05')).toEqual([0, 800, 800, 900, 900])
+  })
+
+  it('is flat without spending', () => {
+    expect(monthLine([], '2026-10-03')).toEqual([0, 0, 0])
   })
 })
