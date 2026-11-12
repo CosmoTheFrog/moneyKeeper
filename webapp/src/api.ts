@@ -199,7 +199,7 @@ export const fetchRates = (inCurrency: string) => request<RateTable>('GET', `/ap
 export const createAccount = (name: string, kind: AccountKind, currency: string, multiCurrency: boolean, openingBalanceMinor: number) =>
   request<Account>('POST', '/api/accounts', { name, kind, currency, multi_currency: multiCurrency, opening_balance_minor: openingBalanceMinor })
 
-// Копилка заводится вместе с конвертом в группе «Цели накопления»; цель необязательна.
+// Копилка заводится вместе с конвертом-категорией; цель необязательна.
 export const createPiggy = (name: string, currency: string, targetMinor: number | null, targetDate: string | null) =>
   request<Account>('POST', '/api/accounts', { name, kind: 'piggy', currency, target_minor: targetMinor ?? undefined, target_date: targetDate ?? undefined })
 
@@ -358,7 +358,7 @@ export const previewImportText = (accountId: number, text: string, consent: bool
 export const commitImport = (accountId: number, rows: ImportRow[]) =>
   request<{ saved: number; ids: number[] }>('POST', '/api/import/commit', { account_id: accountId, rows })
 
-export const undoImport = (ids: number[]) => request<void>('POST', '/api/import/undo', { ids })
+export const undoImport = (ids: number[]) => send('POST', '/api/import/undo', { ids }).then(() => undefined)
 
 // Публичный адрес кошелька, привязанный к счёту. consent это явное согласие отправить адрес в источник данных о сети.
 export type Wallet = { id: number; chain: string; address: string }
