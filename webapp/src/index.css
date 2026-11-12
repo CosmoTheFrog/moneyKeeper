@@ -2784,6 +2784,8 @@ span.money {
 .more-sub {
   font-size: 12px;
   color: var(--muted);
+}
+
 .tour-points {
   margin: 0 0 20px;
   padding-left: 20px;
@@ -3015,4 +3017,17 @@ h1 {
 .hero-balance .money {
   font-weight: 600;
   color: var(--ink);
+}
+
+.hero > .money.neg {
+  color: var(--ink);
+}
+
+.budget-head .hint .money {
+  display: inline;
+  font-size: inherit;
+}
+
+.card .chips + .field {
+  margin-top: 12px;
 }
