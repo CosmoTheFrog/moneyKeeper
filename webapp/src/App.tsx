@@ -195,7 +195,7 @@ export function App() {
         return <ModeScreen onDone={() => void load()} />
       }
       if (!me.tour_seen) {
-        return <TourScreen onDone={() => void load()} />
+        return <TourScreen simple={me.budget.interface_mode === 'simple'} onDone={() => void load()} />
       }
 
       const today = dayIn(me.timezone)

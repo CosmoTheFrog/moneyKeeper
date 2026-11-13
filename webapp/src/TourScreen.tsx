@@ -3,15 +3,17 @@ import { ApiError, setTourSeen } from './api'
 import { errorText, t } from './i18n'
 
 type Props = {
+  // Простой режим: в обучении нет счетов, копилок и портфеля.
+  simple?: boolean
   onDone: () => void
 }
 
 // TourScreen: обучение при первом входе, по карточке на каждую часть приложения. Показывается, пока флаг не сохранён.
-export function TourScreen({ onDone }: Props) {
+export function TourScreen({ simple = false, onDone }: Props) {
   const [index, setIndex] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const cards = t.tour.cards
+  const cards = simple ? t.tour.simpleCards : t.tour.cards
   const card = cards[index]
   const last = index === cards.length - 1
 
@@ -40,6 +42,9 @@ export function TourScreen({ onDone }: Props) {
           </button>
         )}
       </header>
+      <div className={`tour-tile tour-tile-${index % 4}`} aria-hidden="true">
+        {index + 1}
+      </div>
       <h1>{card.title}</h1>
       <p className="hint">{card.text}</p>
       <ul className="tour-points">

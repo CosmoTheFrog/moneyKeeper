@@ -3462,3 +3462,167 @@ h1 {
 .key:active {
   background: var(--accent-soft);
 }
+
+/* Обучение и выбор режима: карточки-плитки. */
+.option {
+  background: var(--card);
+}
+
+.option-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.option-name .hint {
+  margin: 0;
+}
+
+.tour-tile {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 120px;
+  margin: 16px 0 12px;
+  border-radius: 30px;
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: -2px;
+}
+
+.tour-tile-0 {
+  background: var(--accent);
+  color: #fff;
+}
+
+.tour-tile-1 {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.tour-tile-2 {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.tour-tile-3 {
+  background: var(--lilac);
+  color: var(--ink);
+}
+
+.tour-points {
+  padding: 14px 18px 14px 34px;
+  border-radius: 24px;
+  background: var(--card);
+}
+
+/* Кнопка «Добавить на этот день» не шире экрана. */
+.day-cta {
+  width: auto;
+  box-shadow: none;
+}
+
+/* Карточка счёта на переднем плане: те же цвета, что в списке. */
+.flip-face {
+  border-radius: 32px;
+  box-shadow: none;
+}
+
+.flip-face.account-debit {
+  background: #14141f;
+  color: #fff;
+}
+
+:root[data-theme='dark'] .flip-face.account-debit {
+  background: #2a2d3a;
+}
+
+.flip-face.account-credit {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.flip-face.account-cash {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.flip-face.account-wallet,
+.flip-face.account-piggy {
+  background: var(--lilac);
+  color: var(--ink);
+}
+
+.flip-face .card-action {
+  border-color: currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+.flip-face.account-debit .badge {
+  background: rgb(255 255 255 / 18%);
+}
+
+.flip-face:not(.account-debit) .badge {
+  background: rgb(20 20 31 / 10%);
+}
+
+.piggy-hero {
+  background: var(--lilac);
+}
+
+.option-name .hint {
+  font-weight: 500;
+}
+
+/* Поля выбора и файла в окнах: не шире окна, в общем стиле. */
+.field input[type='file'] {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 12px;
+  font-size: 14px;
+}
+
+.field select,
+.imp-sub select,
+.card select {
+  width: 100%;
+  padding: 13px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+
+.imp-sub select {
+  width: auto;
+  padding: 8px 10px;
+}
+
+/* Скрытый флажок переключателя не должен растягивать страницу: правило .card input давало ему ширину экрана. */
+.switch {
+  position: relative;
+}
+
+.switch input,
+.card .switch input {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+}
+
+.field input[type='file']::file-selector-button {
+  margin-right: 10px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
