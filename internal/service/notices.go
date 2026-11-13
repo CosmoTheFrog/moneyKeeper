@@ -49,7 +49,8 @@ func (s *Service) DueDailyReminders(ctx context.Context) ([]models.DailyReminder
 		if err != nil {
 			return nil, err
 		}
-		if !entered {
+		// Пользователь без Telegram (вход через Apple) напоминаний в чат не получает.
+		if !entered && u.TelegramID != 0 {
 			out = append(out, models.DailyReminder{UserID: u.ID, TelegramID: u.TelegramID, Day: today})
 		}
 	}
@@ -124,6 +125,9 @@ func (s *Service) DueLimitAlerts(ctx context.Context) ([]models.LimitAlert, erro
 				continue
 			}
 			for _, m := range members {
+				if m.TelegramID == 0 {
+					continue
+				}
 				out = append(out, models.LimitAlert{
 					TelegramID: m.TelegramID, CategoryID: row.CategoryID, CategoryName: names[row.CategoryID], Month: month,
 					Threshold: level, SpentMinor: row.SpentMinor, BudgetedMinor: row.BudgetedMinor, Currency: bm.Currency,

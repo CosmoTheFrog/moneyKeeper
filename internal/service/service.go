@@ -39,6 +39,7 @@ type Service struct {
 	fx           RateSource
 	statementLLM StatementLLM
 	importRules  *repo.ImportRules
+	sessions     *repo.Sessions
 	log          *slog.Logger
 	now          func() time.Time
 	live         livePrices
@@ -75,23 +76,29 @@ func (s *Service) Resolve(ctx context.Context, tg models.TelegramUser, timezone 
 		if err != nil {
 			return err
 		}
-		// Имя личного бюджета пустое: подпись для него подставляет интерфейс через i18n.
-		b, err := s.budgets.Create(ctx, "")
-		if err != nil {
-			return err
-		}
-		if err := s.budgets.AddMember(ctx, b.ID, created.ID); err != nil {
-			return err
-		}
-		if err := s.categories.SeedDefaults(ctx, b.ID, i18n.DefaultCategories()); err != nil {
-			return err
-		}
-		return s.users.SetActiveBudget(ctx, created.ID, b.ID)
+		return s.provision(ctx, created.ID)
 	})
 	if err != nil {
 		return models.User{}, err
 	}
 	return s.users.GetByTelegramID(ctx, tg.ID)
+}
+
+// provision заводит новому пользователю личный бюджет со стартовыми категориями и делает его активным. Вызывается
+// внутри транзакции создания пользователя.
+func (s *Service) provision(ctx context.Context, userID int64) error {
+	// Имя личного бюджета пустое: подпись для него подставляет интерфейс через i18n.
+	b, err := s.budgets.Create(ctx, "")
+	if err != nil {
+		return err
+	}
+	if err := s.budgets.AddMember(ctx, b.ID, userID); err != nil {
+		return err
+	}
+	if err := s.categories.SeedDefaults(ctx, b.ID, i18n.DefaultCategories()); err != nil {
+		return err
+	}
+	return s.users.SetActiveBudget(ctx, userID, b.ID)
 }
 
 func (s *Service) Budget(ctx context.Context, u models.User) (models.Budget, error) {

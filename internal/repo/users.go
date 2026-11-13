@@ -13,7 +13,7 @@ type Users struct{ db *pgclient.Client }
 
 func NewUsers(db *pgclient.Client) *Users { return &Users{db: db} }
 
-const userColumns = `id, telegram_id, first_name, timezone, COALESCE(active_budget_id, 0), reminder_hour, tour_seen`
+const userColumns = `id, COALESCE(telegram_id, 0), first_name, timezone, COALESCE(active_budget_id, 0), reminder_hour, tour_seen`
 
 func (r *Users) GetByTelegramID(ctx context.Context, telegramID int64) (models.User, error) {
 	var u models.User
@@ -22,6 +22,32 @@ func (r *Users) GetByTelegramID(ctx context.Context, telegramID int64) (models.U
 	).Scan(&u.ID, &u.TelegramID, &u.FirstName, &u.Timezone, &u.ActiveBudgetID, &u.ReminderHour, &u.TourSeen)
 	if err != nil {
 		return models.User{}, fmt.Errorf("get user by telegram id: %w", mapErr(err))
+	}
+	return u, nil
+}
+
+func (r *Users) GetByAppleSub(ctx context.Context, sub string) (models.User, error) {
+	var u models.User
+	err := r.db.Q(ctx).QueryRow(ctx,
+		`SELECT `+userColumns+` FROM users WHERE apple_sub = $1`, sub,
+	).Scan(&u.ID, &u.TelegramID, &u.FirstName, &u.Timezone, &u.ActiveBudgetID, &u.ReminderHour, &u.TourSeen)
+	if err != nil {
+		return models.User{}, fmt.Errorf("get user by apple sub: %w", mapErr(err))
+	}
+	return u, nil
+}
+
+// CreateAppleIfAbsent создаёт пользователя без Telegram. Возвращает ErrNotFound, если пользователь с таким apple_sub
+// уже есть (его создал параллельный запрос).
+func (r *Users) CreateAppleIfAbsent(ctx context.Context, sub, firstName, timezone string) (models.User, error) {
+	u := models.User{FirstName: firstName, Timezone: timezone}
+	err := r.db.Q(ctx).QueryRow(ctx,
+		`INSERT INTO users (apple_sub, first_name, timezone) VALUES ($1, $2, $3)
+		 ON CONFLICT (apple_sub) DO NOTHING RETURNING id`,
+		sub, firstName, timezone,
+	).Scan(&u.ID)
+	if err != nil {
+		return models.User{}, fmt.Errorf("create apple user: %w", mapErr(err))
 	}
 	return u, nil
 }
@@ -55,7 +81,7 @@ func (r *Users) SetActiveBudget(ctx context.Context, userID, budgetID int64) err
 // Members возвращает участников бюджета: им уходят напоминания.
 func (r *Users) Members(ctx context.Context, budgetID int64) ([]models.User, error) {
 	rows, err := r.db.Q(ctx).Query(ctx,
-		`SELECT u.id, u.telegram_id, u.first_name, u.timezone, COALESCE(u.active_budget_id, 0), u.reminder_hour, u.tour_seen
+		`SELECT u.id, COALESCE(u.telegram_id, 0), u.first_name, u.timezone, COALESCE(u.active_budget_id, 0), u.reminder_hour, u.tour_seen
 		 FROM users u JOIN budget_members m ON m.user_id = u.id WHERE m.budget_id = $1 ORDER BY u.id`, budgetID)
 	if err != nil {
 		return nil, fmt.Errorf("budget members: %w", err)

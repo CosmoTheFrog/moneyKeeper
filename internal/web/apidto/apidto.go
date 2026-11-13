@@ -3,6 +3,7 @@ package apidto
 
 const (
 	CodeUnauthorized       = "unauthorized"
+	CodeAuthUnavailable    = "auth_unavailable"
 	CodeInvalidRequest     = "invalid_request"
 	CodeInvalidCurrency    = "invalid_currency"
 	CodeBaseCurrencySet    = "base_currency_set"
@@ -26,6 +27,21 @@ const (
 
 type ErrorResponse struct {
 	Code string `json:"code"`
+}
+
+// AppleSignInRequest: identity token из «Входа через Apple», исходный nonce (в токене лежит его SHA-256), имя (Apple
+// отдаёт его только при первом входе) и часовой пояс устройства.
+type AppleSignInRequest struct {
+	IdentityToken string `json:"identity_token"`
+	Nonce         string `json:"nonce"`
+	FirstName     string `json:"first_name"`
+	Timezone      string `json:"timezone"`
+}
+
+// SessionResponse: token отправляется в заголовке Authorization: Bearer; expires_at в формате RFC 3339.
+type SessionResponse struct {
+	Token     string `json:"token"`
+	ExpiresAt string `json:"expires_at"`
 }
 
 type BudgetDTO struct {
