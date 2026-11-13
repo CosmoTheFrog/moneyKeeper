@@ -17,12 +17,12 @@
   --lilac: #ebe0ff;
 
   /* Оттенки категорий: у категории по кругу свой, он идёт в значки, кольца и разбивки. */
-  --g1: #2f4bff;
-  --g2: #ff7a45;
-  --g3: #8a6cff;
-  --g4: #0fa3a3;
-  --g5: #e0457b;
-  --g6: #8fa800;
+  --g1: #ff7a45;
+  --g2: #8a6cff;
+  --g3: #0fa3a3;
+  --g4: #e0457b;
+  --g5: #8fa800;
+  --g6: #2f4bff;
 }
 
 /* Тёмная тема: те же переменные, другие значения. Основная тема светлая. */
@@ -43,12 +43,12 @@
   --lime: #b9d23d;
   --peach: #e8a98d;
   --lilac: #3a3360;
-  --g1: #6f86ff;
-  --g2: #ff9a6e;
-  --g3: #a994ff;
-  --g4: #3ec9c9;
-  --g5: #ee7aa3;
-  --g6: #b9d23d;
+  --g1: #ff9a6e;
+  --g2: #a994ff;
+  --g3: #3ec9c9;
+  --g4: #ee7aa3;
+  --g5: #b9d23d;
+  --g6: #6f86ff;
 
   color-scheme: dark;
 }
@@ -3293,4 +3293,88 @@ h1 {
 
 .ops-hero > .money {
   color: #fff;
+}
+
+/* Бюджет и отчёты в стиле «Бенто». */
+.budget-hero:not(.budget-tap) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.budget-hero:not(.budget-tap) .label,
+.budget-hero:not(.budget-tap) .hint,
+.budget-hero:not(.budget-tap) .split-legend {
+  color: rgb(255 255 255 / 88%);
+}
+
+.budget-hero:not(.budget-tap) .money,
+.budget-hero:not(.budget-tap) .hint .money,
+.budget-hero:not(.budget-tap) .split-legend .money {
+  color: #fff;
+}
+
+.budget-hero:not(.budget-tap) .split {
+  background: rgb(255 255 255 / 25%);
+}
+
+.b2-sub {
+  gap: 0 8px;
+}
+
+.bt-compare {
+  margin-top: 10px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.bt-compare .bt-cap {
+  color: rgb(255 255 255 / 88%);
+}
+
+.cmp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cmp-row > span:first-child {
+  flex: none;
+  width: 52px;
+}
+
+.cmp-row > i {
+  flex: 1;
+  height: 14px;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 25%);
+}
+
+.cmp-row > i b {
+  display: block;
+  height: 14px;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.cmp-prev > i b {
+  background: rgb(255 255 255 / 55%);
+}
+
+.cmp-row .money {
+  flex: none;
+  min-width: 70px;
+  text-align: right;
+  color: #fff;
+}
+
+.budget-hero:not(.budget-tap) .split-part {
+  margin-right: 2px;
+}
+
+.budget-hero .budget-sub .money {
+  display: inline;
+  font-size: 16px;
+  letter-spacing: 0;
 }

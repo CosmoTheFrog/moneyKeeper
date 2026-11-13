@@ -340,10 +340,10 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
                       ) : (
                         r.spent_minor > 0 && (
                           <span className="b2-sub">
-                            {share}% {t.budget.ofTotal}
+                            {share}%
                             {previous !== null && r.spent_minor !== was && (
-                              <span>
-                                <Money minor={r.spent_minor - was} currency={baseCurrency} signed /> {t.budget.toPrevious}
+                              <span title={t.budget.toPrevious}>
+                                <Money minor={r.spent_minor - was} currency={baseCurrency} signed />
                               </span>
                             )}
                           </span>

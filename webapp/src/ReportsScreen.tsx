@@ -6,6 +6,7 @@ import type { Entry } from './ledger'
 import { currencySign } from './money'
 import { ChipPicker } from './Pickers'
 import { PeriodPicker } from './PeriodPicker'
+import { ReportCompare } from './ReportCompare'
 import { missingRates, rangeFor, spendByCategory, spendTotals, type Measure, type Period } from './report'
 import { SpendBreakdown } from './SpendBreakdown'
 
@@ -38,6 +39,9 @@ export function ReportsScreen({ entries, accounts, onOpen, categories, baseCurre
   const currency = chosen === BASE ? baseCurrency : chosen
 
   const slices = useMemo(() => spendByCategory(entries, categories, range, measure), [entries, categories, range, measure])
+  // Тот же отрезок на период раньше: для сравнения под кольцом.
+  const previousSlices = useMemo(() => spendByCategory(entries, categories, rangeFor(period, today, offset - 1), measure), [entries, categories, period, today, offset, measure])
+  const sum = (list: { totalMinor: number }[]) => list.reduce((s, x) => s + x.totalMinor, 0)
   const missing = chosen === BASE ? missingRates(entries, range) : 0
 
   return (
@@ -82,6 +86,8 @@ export function ReportsScreen({ entries, accounts, onOpen, categories, baseCurre
         today={today}
         onOpen={onOpen}
       />
+
+      <ReportCompare currentMinor={sum(slices)} previousMinor={sum(previousSlices)} currency={currency} />
 
       {missing > 0 && (
         <p className="hint tight">
