@@ -203,8 +203,8 @@ export function App() {
       const reload = () => void load()
       const go = (to: Screen) => setScreen(to)
       const home: Screen = { kind: 'tabs' }
-      // Вкладки счетов в простом режиме нет: если пользователь был на ней, показываем операции.
-      const shownTab: Tab = simple && tab === 'accounts' ? 'operations' : tab
+      // Вкладки «Счета» в простом режиме нет, «Платежи» в полном: если пользователь был на ней, показываем операции.
+      const shownTab: Tab = (simple && tab === 'accounts') || (!simple && tab === 'schedules') ? 'operations' : tab
 
       const openEntry = (entry: Entry, returnTo: Screen) => go({ kind: 'edit', entry, returnTo })
       // Запись меняет только счета (остатки) и список записей; профиль и категории при этом не трогаются.
@@ -427,6 +427,17 @@ export function App() {
                   onDisplay={changeDisplay}
                   today={today}
                   onOpen={(entry) => openEntry(entry, home)}
+                />
+              )}
+              {shownTab === 'schedules' && (
+                <SchedulesScreen
+                  categories={categories}
+                  accounts={accounts}
+                  baseCurrency={base}
+                  currencies={me.currencies}
+                  today={today}
+                  ledger={state.data.transactions}
+                  onAddExpense={(categoryId) => go({ kind: 'add', categoryId, returnTo: home })}
                 />
               )}
               {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}

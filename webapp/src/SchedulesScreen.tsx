@@ -30,7 +30,8 @@ type Props = {
   today: string
   // Записи бюджета: после новой траты статусы платежей пересчитываются.
   ledger: Transaction[]
-  onBack: () => void
+  // Без onBack экран стоит вкладкой (простой режим): заголовок в шапке, кнопки «Назад» нет.
+  onBack?: () => void
   onAddExpense: (categoryId: number) => void
 }
 
@@ -77,14 +78,18 @@ export function SchedulesScreen({ categories, accounts, baseCurrency, currencies
   return (
     <main className="screen">
       <header className="row">
-        <button type="button" className="chip" onClick={onBack}>
-          {t.back}
-        </button>
+        {onBack !== undefined ? (
+          <button type="button" className="chip" onClick={onBack}>
+            {t.back}
+          </button>
+        ) : (
+          <h1>{t.schedules.title}</h1>
+        )}
         <button type="button" className="chip" onClick={() => setForm('new')}>
           {t.schedules.add}
         </button>
       </header>
-      <h1>{t.schedules.title}</h1>
+      {onBack !== undefined && <h1>{t.schedules.title}</h1>}
 
       {failed && <p className="error">{t.errors.internal}</p>}
       {list !== null && list.length === 0 && <p className="hint">{t.schedules.empty}</p>}

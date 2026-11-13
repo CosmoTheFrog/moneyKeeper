@@ -14,6 +14,7 @@ export const t = {
     budget: 'Категории',
     reports: 'Отчёты',
     accounts: 'Счета',
+    schedules: 'Платежи',
     add: 'Добавить запись',
   },
   privacy: {
