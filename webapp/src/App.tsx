@@ -400,6 +400,11 @@ export function App() {
         case 'tabs':
           body = (
             <>
+              {cameFrom !== null && shownTab !== cameFrom && (
+                <button type="button" className="chip back-float" onClick={() => { setTab(cameFrom); setCameFrom(null) }}>
+                  {t.back}
+                </button>
+              )}
               {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} onOpenTab={(next) => {
                 setCameFrom('operations')
                 setTab(next)
@@ -441,11 +446,6 @@ export function App() {
                 />
               )}
               {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
-              {cameFrom !== null && shownTab !== cameFrom && (
-                <button type="button" className="chip back-float" onClick={() => { setTab(cameFrom); setCameFrom(null) }}>
-                  {t.back}
-                </button>
-              )}
               <TabBar tab={shownTab} onTab={(next) => { setCameFrom(null); setTab(next) }} onAdd={onAdd} simple={simple} />
             </>
           )
