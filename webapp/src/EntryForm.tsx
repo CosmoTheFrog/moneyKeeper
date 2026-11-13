@@ -82,6 +82,8 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [events, setEvents] = useState<TxEvent[] | null>(null)
   const [savedCount, setSavedCount] = useState(0)
+  // Шаг 1: сумма и категория, шаг 2: счёт. Два шага только у новой траты или дохода, когда есть из чего выбирать.
+  const [step, setStep] = useState<1 | 2>(1)
 
   const currencies = usableCurrencies(accounts, allCurrencies)
   const accountsInCurrency = accounts.filter((a) => allows(a, currency))
@@ -93,6 +95,8 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
 
   const canPickAccount = !simple && (editing ? kind === 'expense' || kind === 'income' : true)
   const canPickTarget = !editing && kind === 'transfer'
+  const twoStep = canPickAccount && !editing && (kind === 'expense' || kind === 'income') && accountsInCurrency.length > 1
+  const pickStep = twoStep && step === 2
   const targets = accountsInCurrency.filter((a) => a.id !== accountId)
   const fromAccount = accounts.find((a) => a.id === accountId)
   const toAccount = accounts.find((a) => a.id === toAccountId)
@@ -131,6 +135,14 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
   function chooseTarget(a: Account) {
     setToAccountId(a.id)
     if (a.kind === 'piggy' && a.category_id !== null) setCategoryId(a.category_id)
+  }
+
+  // Шаг 1 → шаг 2: проверяем сумму и категорию, пока они на экране.
+  function next() {
+    setError(null)
+    if (parseAmount(amount, currency) === null) return setError(errorText('invalid_amount'))
+    if (kind === 'expense' && categoryId === 0) return setError(t.add.pickCategory)
+    setStep(2)
   }
 
   async function save(again: boolean) {
@@ -174,6 +186,7 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
         setAmount('')
         setNote('')
         setCategoryId(0)
+        setStep(1)
         setSavedCount((n) => n + 1)
         setBusy(false)
         return
@@ -230,7 +243,10 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
     <Modal title={editing ? t.edit.title : t.add.title} onClose={onCancel}>
       {!editing && (
         <div className="top-gap">
-          <ChipPicker value={kind === 'opening' ? 'expense' : kind} options={simple ? simpleKindOptions : kindOptions} onChange={setKind} />
+          <ChipPicker value={kind === 'opening' ? 'expense' : kind} options={simple ? simpleKindOptions : kindOptions} onChange={(k) => {
+              setKind(k)
+              setStep(1)
+            }} />
         </div>
       )}
       {ticket}
@@ -241,10 +257,21 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
           className="stack"
           onSubmit={(e: FormEvent) => {
             e.preventDefault()
-            void save(false)
+            if (twoStep && step === 1) next()
+            else void save(false)
           }}
         >
-          {lockedAmounts ? (
+          {pickStep && (
+            <div className="ticket">
+              <span className="ticket-kind">{kindLabel(kind)}</span>
+              <span className="ticket-amount">
+                <Money minor={kind === 'expense' ? -(parseAmount(amount, currency) ?? 0) : (parseAmount(amount, currency) ?? 0)} currency={currency} signed />
+              </span>
+              {kind === 'expense' && <span className="ticket-route">{categoryName.get(categoryId) ?? ''}</span>}
+            </div>
+          )}
+
+          {!pickStep && (lockedAmounts ? (
             <p className="hint tight">{t.exchange.locked}</p>
           ) : (
             <div className="amount-hero">
@@ -263,19 +290,19 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
               </span>
               {currencyEditable && currencies.length > (simple ? 1 : 0) && <CurrencyPicker value={currency} options={currencies} onChange={chooseCurrency} />}
             </div>
-          )}
+          ))}
 
-          {kind === 'expense' && (
+          {!pickStep && kind === 'expense' && (
             <div className="card">
               <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
             </div>
           )}
 
-          {!lockedAmounts && <KeyPad value={amount} units={unitsOf(currency)} onChange={setAmount} />}
+          {!pickStep && !lockedAmounts && <KeyPad value={amount} units={unitsOf(currency)} onChange={setAmount} />}
 
-          {canPickAccount && (
+          {canPickAccount && (!twoStep || pickStep) && (
             <div className="card">
-              <span className="label">{canPickTarget ? t.add.fromAccount : t.add.account}</span>
+              <span className="label">{canPickTarget ? t.add.fromAccount : kind === 'income' ? t.add.toCard : t.add.fromCard}</span>
               <div className="choices">
                 {accountsInCurrency.map((a) => (
                   <button key={a.id} type="button" className={a.id === accountId ? 'choice choice-on' : 'choice'} onClick={() => selectAccount(a.id)}>
@@ -321,20 +348,27 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
             </div>
           )}
 
-          <div className="card">
-            <DateField label={t.add.date} value={date} onChange={setDate} placeholder={t.add.dateToday} clearable={!editing} />
-            <label className="field">
-              <span className="label">{t.add.note}</span>
-              <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} onBlur={() => suggestCategory(note)} />
-            </label>
-          </div>
+          {!pickStep && (
+            <div className="card">
+              <DateField label={t.add.date} value={date} onChange={setDate} placeholder={t.add.dateToday} clearable={!editing} />
+              <label className="field">
+                <span className="label">{t.add.note}</span>
+                <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} onBlur={() => suggestCategory(note)} />
+              </label>
+            </div>
+          )}
 
           {error !== null && <p className="error">{error}</p>}
           {savedCount > 0 && <p className="hint tight">{t.add.savedAgain}: {savedCount}</p>}
           <button type="submit" className="primary" disabled={busy}>
-            {t.save}
+            {twoStep && step === 1 ? t.add.next : t.save}
           </button>
-          {!editing && (kind === 'expense' || kind === 'income') && (
+          {pickStep && (
+            <button type="button" className="chip" disabled={busy} onClick={() => setStep(1)}>
+              {t.back}
+            </button>
+          )}
+          {!editing && (kind === 'expense' || kind === 'income') && (!twoStep || pickStep) && (
             <button type="button" className="chip" disabled={busy} onClick={() => void save(true)}>
               {t.add.saveAndNext}
             </button>
