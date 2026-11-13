@@ -1,6 +1,8 @@
-import { t } from './i18n'
+import { useState, type FormEvent } from 'react'
+import { addCurrency, ApiError } from './api'
+import { errorText, t } from './i18n'
 import { Modal } from './Modal'
-import { currencySign, isCoin, isStock } from './money'
+import { currencySign, isCoin, isStock, registerCurrency } from './money'
 
 type Props = {
   registry: string[]
@@ -8,11 +10,35 @@ type Props = {
   // Используются базой, показом или счетами: выключить нельзя.
   pinned: string[]
   onChange: (list: string[]) => void
+  // Добавлена новая валюта: списки в приложении нужно перечитать.
+  onAdded: () => void
   onClose: () => void
 }
 
 // Мои валюты: какие валюты предлагать в формах и курсах. Выбор хранится на устройстве.
-export function MyCurrencies({ registry, enabled, pinned, onChange, onClose }: Props) {
+export function MyCurrencies({ registry, enabled, pinned, onChange, onAdded, onClose }: Props) {
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function add(e: FormEvent) {
+    e.preventDefault()
+    if (code.trim() === '') return
+    setError(null)
+    setBusy(true)
+    try {
+      const info = await addCurrency(code.trim())
+      registerCurrency(info)
+      if (!enabled.includes(info.code)) onChange([...enabled, info.code])
+      setCode('')
+      onAdded()
+    } catch (err) {
+      const apiCode = err instanceof ApiError ? err.code : 'internal'
+      setError(apiCode === 'asset_not_found' ? t.myCurrencies.notFound : errorText(apiCode))
+    }
+    setBusy(false)
+  }
+
   function toggle(code: string) {
     onChange(enabled.includes(code) ? enabled.filter((c) => c !== code) : [...enabled, code])
   }
@@ -25,6 +51,17 @@ export function MyCurrencies({ registry, enabled, pinned, onChange, onClose }: P
   return (
     <Modal title={t.myCurrencies.title} sheet onClose={onClose}>
       <p className="hint tight">{t.myCurrencies.hint}</p>
+      <form className="card" onSubmit={(e) => void add(e)}>
+        <label className="field">
+          <span className="label">{t.myCurrencies.add}</span>
+          <input value={code} maxLength={3} autoCapitalize="characters" placeholder={t.myCurrencies.codePlaceholder} onChange={(e) => setCode(e.target.value.toUpperCase())} />
+        </label>
+        <p className="hint tight">{t.myCurrencies.addHint}</p>
+        {error !== null && <p className="error">{error}</p>}
+        <button type="submit" className="primary" disabled={busy || code.trim().length !== 3}>
+          {t.myCurrencies.addButton}
+        </button>
+      </form>
       {groups.map((g) => (
         <div key={g.title} className="field">
           <span className="label">{g.title}</span>

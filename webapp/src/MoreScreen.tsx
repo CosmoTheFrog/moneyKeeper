@@ -169,7 +169,7 @@ export function MoreScreen({ name, baseCurrency, accounts, interfaceMode, curren
           />
         </Modal>
       )}
-      {choosing && <MyCurrencies registry={registry} enabled={enabled ?? currencies} pinned={pinned} onChange={onEnabled} onClose={() => setChoosing(false)} />}
+      {choosing && <MyCurrencies registry={registry} enabled={enabled ?? currencies} pinned={pinned} onChange={onEnabled} onAdded={onChanged} onClose={() => setChoosing(false)} />}
       {theme && <ThemeSettings onClose={() => setTheme(false)} />}
       {exporting && <ExportScreen onClose={() => setExporting(false)} />}
       {reminding && <ReminderSettings hour={reminderHour} onChanged={onChanged} onClose={() => setReminding(false)} />}

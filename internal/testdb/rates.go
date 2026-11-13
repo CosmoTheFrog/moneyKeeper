@@ -26,6 +26,9 @@ var Fixed = map[money.Currency]string{
 	money.EUR:  "3.1594",
 	money.RUB:  "0.0299",
 	money.USDT: "2.73",
+	// Обычные валюты, которые тесты добавляют через AddCurrency: Нацбанк в тестах отдаёт их всегда.
+	"CAD": "1.98",
+	"JPY": "0.018",
 }
 
 // FixedCoins это курсы монет, которые отдаёт Rates по запросу.
@@ -53,6 +56,20 @@ func (r *Rates) GelPerUnit(_ context.Context, _ apptime.Day, coins []money.Curre
 		}
 	}
 	return out, nil
+}
+
+// FiatCodes это обычные валюты, которые знает Нацбанк в тестах.
+var FiatCodes = map[money.Currency]bool{"CAD": true, "CNY": true, "JPY": true}
+
+// FiatAvailable подменяет проверку Нацбанка: известный код проходит, остальные нет.
+func (r *Rates) FiatAvailable(_ context.Context, code money.Currency) error {
+	if r.Err != nil {
+		return r.Err
+	}
+	if FiatCodes[code] {
+		return nil
+	}
+	return errors.New("unknown fiat")
 }
 
 // AssetPrices это цены активов в долларах, которые знает Rates; остальные коды источник не находит.

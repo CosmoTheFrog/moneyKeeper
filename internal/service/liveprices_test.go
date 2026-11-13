@@ -22,6 +22,8 @@ func (p *priceStub) GelPerUnit(context.Context, apptime.Day, []money.Currency) (
 	return nil, nil
 }
 
+func (p *priceStub) FiatAvailable(context.Context, money.Currency) error { return nil }
+
 func (p *priceStub) AssetPrice(context.Context, money.Currency, bool) (*big.Rat, error) {
 	p.calls++
 	return big.NewRat(100, 1), p.err

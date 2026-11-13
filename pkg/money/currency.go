@@ -85,8 +85,12 @@ var registry = []Info{
 // Base — валюты, которые можно выбрать базовой при старте.
 var Base = []Currency{GEL, EUR, USD, RUB}
 
-// Core — валюты, курсы которых тянутся всегда: всё, кроме лари (он опорный) и монет.
-var Core = codes(slices.DeleteFunc(slices.Clone(registry), func(i Info) bool { return i.Code == GEL || i.Coin }))
+// Core — валюты, курсы которых тянутся всегда: всё, кроме лари (он опорный) и монет. Добавленный пользователем фиат тоже здесь.
+func Core() []Currency {
+	mu.RLock()
+	defer mu.RUnlock()
+	return codes(slices.DeleteFunc(slices.Clone(registry), func(i Info) bool { return i.Code == GEL || i.Coin }))
+}
 
 // All — все поддерживаемые валюты счетов в порядке показа: встроенные, затем добавленные пользователями.
 func All() []Currency {
@@ -112,12 +116,35 @@ func CheckAsset(i Info) error {
 	return nil
 }
 
+var fiatCode = regexp.MustCompile(`^[A-Z]{3}$`)
+
+// MaxFiatUnits — потолок точности обычной валюты: у динара Кувейта три знака, больше не бывает.
+const MaxFiatUnits = 3
+
+// CheckFiat проверяет описание обычной валюты: код из трёх заглавных латинских букв, точность до трёх знаков.
+func CheckFiat(i Info) error {
+	if !fiatCode.MatchString(string(i.Code)) || i.Coin || i.Stock || i.Units < 0 || i.Units > MaxFiatUnits {
+		return fmt.Errorf("%q: %w", i.Code, ErrBadCode)
+	}
+	return nil
+}
+
+// IsFiat: обычная валюта, курс которой берётся у Нацбанка. Лари опорный, USDT выводится из Binance.
+func IsFiat(c Currency) bool {
+	i, ok := lookup(c)
+	return ok && !i.Coin && c != GEL && c != USDT
+}
+
 // Lookup возвращает описание валюты из реестра.
 func Lookup(c Currency) (Info, bool) { return lookup(c) }
 
-// Register добавляет актив (монету или акцию) в реестр. Встроенные и уже добавленные коды не заменяются.
+// Register добавляет в реестр актив (монету, акцию) или обычную валюту. Встроенные и уже добавленные коды не заменяются.
 func Register(i Info) error {
-	if err := CheckAsset(i); err != nil {
+	check := CheckFiat
+	if i.Coin {
+		check = CheckAsset
+	}
+	if err := check(i); err != nil {
 		return err
 	}
 	mu.Lock()

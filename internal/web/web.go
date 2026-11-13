@@ -45,6 +45,7 @@ type Service interface {
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
 	ArchiveAccount(ctx context.Context, u models.User, id int64) error
 	AddAsset(ctx context.Context, code string, stock bool) (money.Info, error)
+	AddCurrency(ctx context.Context, code string) (money.Info, error)
 	CreatePiggy(ctx context.Context, u models.User, name, currency string, targetMinor *int64, targetDate *apptime.Day) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
@@ -113,6 +114,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("PUT /api/me/reminder", h.auth(h.setReminder))
 	mux.HandleFunc("PUT /api/me/tour", h.auth(h.setTour))
 	mux.HandleFunc("POST /api/assets", h.auth(h.addAsset))
+	mux.HandleFunc("POST /api/currencies", h.auth(h.addCurrency))
 	mux.HandleFunc("GET /api/rates", h.auth(h.rates))
 	mux.HandleFunc("GET /api/portfolio", h.auth(h.portfolio))
 	mux.HandleFunc("GET /api/schedules", h.auth(h.listSchedules))
@@ -268,6 +270,20 @@ func (h *handler) addAsset(w http.ResponseWriter, r *http.Request, _ models.User
 		return
 	}
 	i, err := h.svc.AddAsset(r.Context(), req.Code, req.Stock)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusCreated, apidto.CurrencyInfoDTO{Code: string(i.Code), Units: i.Units, Coin: i.Coin, Stock: i.Stock})
+}
+
+// addCurrency добавляет обычную валюту по коду ISO, курс должен публиковать Нацбанк. Ответ это описание валюты.
+func (h *handler) addCurrency(w http.ResponseWriter, r *http.Request, _ models.User) {
+	var req apidto.AddCurrencyRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	i, err := h.svc.AddCurrency(r.Context(), req.Code)
 	if err != nil {
 		h.fail(w, err)
 		return

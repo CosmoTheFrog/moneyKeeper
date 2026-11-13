@@ -188,6 +188,9 @@ export type RateTable = { day: string; in: string; rates: { currency: string; ra
 // Добавить монету (цена на Binance) или акцию (Yahoo Finance) по коду. Сервер проверяет цену и подбирает точность.
 export const addAsset = (code: string, stock: boolean) => request<CurrencyInfo>('POST', '/api/assets', { code, stock })
 
+// Добавить обычную валюту по коду ISO (CAD, CNY): сервер проверяет, что Нацбанк публикует её курс.
+export const addCurrency = (code: string) => request<CurrencyInfo>('POST', '/api/currencies', { code })
+
 export const fetchRates = (inCurrency: string) => request<RateTable>('GET', `/api/rates?in=${inCurrency}`)
 
 export const createAccount = (name: string, kind: AccountKind, currency: string, multiCurrency: boolean, openingBalanceMinor: number) =>

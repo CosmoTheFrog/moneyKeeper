@@ -97,6 +97,11 @@ type AddAssetRequest struct {
 	Stock bool   `json:"stock"`
 }
 
+// AddCurrencyRequest: код обычной валюты по ISO 4217, например CAD.
+type AddCurrencyRequest struct {
+	Code string `json:"code"`
+}
+
 type SetCurrencyRequest struct {
 	Currency string `json:"currency"`
 }
