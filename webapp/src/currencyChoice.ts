@@ -1,4 +1,26 @@
+import { createContext } from 'react'
+
 const KEY = 'mk.currencies'
+const COINS_KEY = 'mk.coinsInRates'
+
+// Монеты и акции в окне «Валюта и курсы» включаются в «Ещё»; по умолчанию там только обычные валюты.
+export const CoinsInRatesContext = createContext(false)
+
+export function readCoinsInRates(): boolean {
+  try {
+    return localStorage.getItem(COINS_KEY) === '1'
+  } catch {
+    return false // хранилище может быть недоступно
+  }
+}
+
+export function saveCoinsInRates(on: boolean): void {
+  try {
+    localStorage.setItem(COINS_KEY, on ? '1' : '0')
+  } catch {
+    // не сохранилось, выбор живёт до закрытия
+  }
+}
 
 // readEnabled: валюты, которые пользователь включил в «Ещё → Мои валюты»; null, пока не выбирал.
 export function readEnabled(): string[] | null {

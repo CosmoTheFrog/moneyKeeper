@@ -30,7 +30,7 @@ import { haptic } from './haptic'
 import { ErrorState, ScreenSkeleton } from './States'
 import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
-import { readEnabled, saveEnabled, visibleCurrencies } from './currencyChoice'
+import { CoinsInRatesContext, readCoinsInRates, readEnabled, saveCoinsInRates, saveEnabled, visibleCurrencies } from './currencyChoice'
 import { applyTheme, readTheme, saveTheme, type Theme } from './theme'
 import { ThemeContext } from './ThemeSettings'
 
@@ -89,6 +89,7 @@ export function App() {
   const [themeName, setThemeName] = useState<Theme>(readTheme)
   const [displayChoice, setDisplayChoice] = useState(readDisplay)
   const [enabledCurrencies, setEnabledCurrencies] = useState(readEnabled)
+  const [coinsInRates, setCoinsInRates] = useState(readCoinsInRates)
 
   const theme = useMemo(
     () => ({
@@ -309,6 +310,11 @@ export function App() {
               enabled={enabledCurrencies}
               pinned={inUse}
               onEnabled={changeEnabled}
+              coinsInRates={coinsInRates}
+              onCoinsInRates={(on) => {
+                saveCoinsInRates(on)
+                setCoinsInRates(on)
+              }}
               display={display}
               reminderHour={me.reminder_hour}
               onDisplay={changeDisplay}
@@ -466,6 +472,7 @@ export function App() {
       // Режим скрытия сумм работает только на вкладках «Операции» и «Счета».
       const hidesSums = layer.kind === 'tabs' && (shownTab === 'operations' || shownTab === 'accounts')
       return (
+        <CoinsInRatesContext.Provider value={coinsInRates}>
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>
             <CategoryColorContext.Provider value={colors}>
@@ -476,6 +483,7 @@ export function App() {
             </CategoryColorContext.Provider>
           </PrivacyContext.Provider>
         </ThemeContext.Provider>
+        </CoinsInRatesContext.Provider>
       )
     }
   }

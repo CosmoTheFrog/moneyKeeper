@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useContext, useState } from 'react'
+import { CoinsInRatesContext } from './currencyChoice'
 import { fetchRates } from './api'
 import { t } from './i18n'
 import { Modal } from './Modal'
-import { currencySign, formatRate } from './money'
+import { currencySign, formatRate, isCoin, isStock } from './money'
 import { CurrencyPicker } from './Pickers'
 
 type Props = {
@@ -12,8 +13,11 @@ type Props = {
 }
 
 // Плашка «₾»: показывает, в какой валюте считаются суммы, и по нажатию открывает выбор валюты с курсами.
-export function DisplayCurrency({ display, currencies, onChange }: Props) {
+export function DisplayCurrency({ display, currencies: all, onChange }: Props) {
   const [open, setOpen] = useState(false)
+  const coinsOn = useContext(CoinsInRatesContext)
+  // Монеты и акции в окне только по включённому в «Ещё» переключателю; выбранная сейчас валюта остаётся в любом случае.
+  const currencies = coinsOn ? all : all.filter((c) => c === display || (!isCoin(c) && !isStock(c)))
 
   return (
     <>

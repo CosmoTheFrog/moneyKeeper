@@ -312,6 +312,8 @@ export const t = {
     data: 'Данные',
     displayCurrency: 'Валюта показа',
     myCurrencies: 'Мои валюты',
+    coinsInRates: 'Монеты в курсах',
+    coinsInRatesHint: 'Показывать монеты и акции в окне «Валюта и курсы»',
     hideSums: 'Скрывать суммы',
     hideSumsHint: 'Заменять цифры звёздочками на «Операциях» и «Счетах»',
     importHint: 'Выписка TBC или отчёт прежнего бота',
