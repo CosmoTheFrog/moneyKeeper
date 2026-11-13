@@ -3626,3 +3626,20 @@ h1 {
   font-weight: 700;
   cursor: pointer;
 }
+
+/* Иконки вкладок ровно по центру кружков: подпись скрыта размером шрифта, но остаётся элементом сетки и сдвигала значок вверх. */
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.tab .ti {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  margin: 0;
+}
