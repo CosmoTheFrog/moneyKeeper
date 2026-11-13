@@ -22,6 +22,7 @@ import (
 	"moneykeeper/internal/service"
 	"moneykeeper/internal/telegram"
 	"moneykeeper/internal/web"
+	"moneykeeper/internal/web/appleauth"
 )
 
 const (
@@ -63,6 +64,7 @@ func run(log *slog.Logger) error {
 		svc.WithStatementLLM(llm.NewGroq(key))
 	}
 	svc.WithImportRules(repo.NewImportRules(db))
+	svc.WithSessions(repo.NewSessions(db))
 	svc.WithWallets(repo.NewWallets(db), chain.NewClient())
 	if err := svc.LoadAssets(ctx); err != nil {
 		return fmt.Errorf("load assets: %w", err)
@@ -73,9 +75,15 @@ func run(log *slog.Logger) error {
 	// Бот принимает сообщения в личном чате и записывает из них траты.
 	go bot.New(svc, tg, log).Run(ctx)
 
+	// Вход через Apple для нативного приложения: без APPLE_CLIENT_ID (bundle id) он отвечает «недоступен».
+	var apple web.AppleVerifier
+	if id := os.Getenv("APPLE_CLIENT_ID"); id != "" {
+		apple = appleauth.New(id)
+	}
+
 	srv := &http.Server{
 		Addr:              httpAddr,
-		Handler:           web.NewHandler(svc, token, log),
+		Handler:           web.NewHandler(svc, token, log, apple),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

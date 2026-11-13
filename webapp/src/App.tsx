@@ -22,7 +22,7 @@ import { EntryForm } from './EntryForm'
 import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
 import { NoPrivacy, PrivacyContext } from './MoneyText'
-import { registerCurrencies } from './money'
+import { isCoin, isStock, registerCurrencies } from './money'
 import { MoreScreen } from './MoreScreen'
 import { OperationsScreen } from './OperationsScreen'
 import { SwipeRow } from './SwipeRow'
@@ -30,7 +30,8 @@ import { haptic } from './haptic'
 import { ErrorState, ScreenSkeleton } from './States'
 import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
-import { applyTheme, readMode, resolveTheme, saveMode, type ThemeMode } from './theme'
+import { CoinsInRatesContext, readCoinsInRates, readEnabled, saveCoinsInRates, saveEnabled, visibleCurrencies } from './currencyChoice'
+import { applyTheme, readTheme, saveTheme, type Theme } from './theme'
 import { ThemeContext } from './ThemeSettings'
 
 // Экраны, которые открывают редко, грузятся отдельными кусками при первом открытии.
@@ -56,9 +57,9 @@ type Screen =
   | { kind: 'day'; date: string }
   | { kind: 'more' }
   | { kind: 'account'; accountId: number }
-  | { kind: 'savings' }
-  | { kind: 'schedules' }
-  | { kind: 'portfolio' }
+  | { kind: 'savings'; back?: Tab }
+  | { kind: 'schedules'; back?: Tab }
+  | { kind: 'portfolio'; back?: Tab }
 
 const HIDDEN_KEY = 'mk.hidden'
 const DISPLAY_KEY = 'mk.display'
@@ -85,28 +86,24 @@ export function App() {
   const [tab, setTab] = useState<Tab>('operations')
   const [screen, setScreen] = useState<Screen>({ kind: 'tabs' })
   const [hidden, setHidden] = useState(readHidden)
-  const [themeMode, setThemeMode] = useState<ThemeMode>(readMode)
+  const [themeName, setThemeName] = useState<Theme>(readTheme)
   const [displayChoice, setDisplayChoice] = useState(readDisplay)
+  const [enabledCurrencies, setEnabledCurrencies] = useState(readEnabled)
+  const [coinsInRates, setCoinsInRates] = useState(readCoinsInRates)
 
   const theme = useMemo(
     () => ({
-      mode: themeMode,
-      setMode: (mode: ThemeMode) => {
-        saveMode(mode)
-        setThemeMode(mode)
+      theme: themeName,
+      setTheme: (next: Theme) => {
+        saveTheme(next)
+        setThemeName(next)
       },
     }),
-    [themeMode],
+    [themeName],
   )
 
-  // Тема применяется к странице целиком; «как в Telegram» берёт схему мессенджера, без него системную.
-  useEffect(() => {
-    const dark = window.matchMedia('(prefers-color-scheme: dark)')
-    const apply = () => applyTheme(resolveTheme(themeMode, window.Telegram?.WebApp.colorScheme, dark.matches))
-    apply()
-    dark.addEventListener('change', apply)
-    return () => dark.removeEventListener('change', apply)
-  }, [themeMode])
+  // Оформление применяется к странице целиком.
+  useEffect(() => applyTheme(themeName), [themeName])
 
   const privacy = useMemo(
     () => ({
@@ -180,6 +177,13 @@ export function App() {
       const accounts = simple ? openAccounts.filter((a) => a.is_default) : openAccounts
       const base = me.budget.base_currency
       const display = me.currencies.includes(displayChoice) ? displayChoice : (base ?? '')
+      // Валюты для выбора: включённые в «Ещё → Мои валюты» плюс те, что уже нужны (база, показ, счета).
+      const inUse = [base ?? '', display, ...everyAccount.flatMap((a) => [a.currency, ...a.balances.map((b) => b.currency)])]
+      const shown = visibleCurrencies(me.currencies, enabledCurrencies, inUse, (c) => !isCoin(c) && !isStock(c))
+      const changeEnabled = (list: string[]) => {
+        saveEnabled(list)
+        setEnabledCurrencies(list)
+      }
       const changeDisplay = (code: string) => {
         try {
           localStorage.setItem(DISPLAY_KEY, code)
@@ -195,7 +199,7 @@ export function App() {
         return <ModeScreen onDone={() => void load()} />
       }
       if (!me.tour_seen) {
-        return <TourScreen onDone={() => void load()} />
+        return <TourScreen simple={me.budget.interface_mode === 'simple'} onDone={() => void load()} />
       }
 
       const today = dayIn(me.timezone)
@@ -203,8 +207,8 @@ export function App() {
       const reload = () => void load()
       const go = (to: Screen) => setScreen(to)
       const home: Screen = { kind: 'tabs' }
-      // Вкладки счетов в простом режиме нет: если пользователь был на ней, показываем операции.
-      const shownTab: Tab = simple && tab === 'accounts' ? 'operations' : tab
+      // Вкладки «Счета» в простом режиме нет, «Платежи» в полном: если пользователь был на ней, показываем операции.
+      const shownTab: Tab = (simple && tab === 'accounts') || (!simple && tab === 'schedules') ? 'operations' : tab
 
       const openEntry = (entry: Entry, returnTo: Screen) => go({ kind: 'edit', entry, returnTo })
       // Запись меняет только счета (остатки) и список записей; профиль и категории при этом не трогаются.
@@ -286,6 +290,7 @@ export function App() {
               accounts={everyAccount}
               categories={categories}
               today={today}
+              currency={display}
               onBack={() => go(home)}
               onAdd={() => go({ kind: 'add', categoryId: category.id, returnTo: here })}
               onOpen={(entry) => openEntry(entry, here)}
@@ -300,7 +305,16 @@ export function App() {
               baseCurrency={base}
               accounts={accounts.filter((a) => a.kind !== 'piggy')}
               interfaceMode={me.budget.interface_mode}
-              currencies={me.currencies}
+              currencies={shown}
+              registry={me.currencies}
+              enabled={enabledCurrencies}
+              pinned={inUse}
+              onEnabled={changeEnabled}
+              coinsInRates={coinsInRates}
+              onCoinsInRates={(on) => {
+                saveCoinsInRates(on)
+                setCoinsInRates(on)
+              }}
               display={display}
               reminderHour={me.reminder_hour}
               onDisplay={changeDisplay}
@@ -341,7 +355,7 @@ export function App() {
               accounts={everyAccount}
                 categories={categories}
               baseCurrency={display}
-              currencies={me.currencies}
+              currencies={shown}
               onDisplay={changeDisplay}
               today={today}
               onBack={() => {
@@ -359,14 +373,14 @@ export function App() {
                 categories={categories}
               accounts={accounts}
               baseCurrency={base}
-              currencies={me.currencies}
+              currencies={shown}
               today={today}
               ledger={state.data.transactions}
               onBack={() => {
-                setTab('budget')
+                setTab(layer.back ?? 'budget')
                 go(home)
               }}
-              onAddExpense={(categoryId) => go({ kind: 'add', categoryId, returnTo: { kind: 'schedules' } })}
+              onAddExpense={(categoryId) => go({ kind: 'add', categoryId, returnTo: layer })}
             />
           )
           break
@@ -388,7 +402,7 @@ export function App() {
           body = (
             <PortfolioScreen
               display={display}
-              currencies={me.currencies}
+              currencies={shown}
               wallets={accounts.filter((a) => a.kind === 'wallet')}
               today={today}
               onChanged={reload}
@@ -403,12 +417,18 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
+              {shownTab !== 'operations' && (
+                <button type="button" className="chip back-float" onClick={() => setTab('operations')}>
+                  {t.back}
+                </button>
+              )}
+              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} currencies={shown} onDisplay={changeDisplay} onOpenTab={setTab} onOpenCategory={(id) => go({ kind: 'category', categoryId: id })} onOpenSchedules={() => go({ kind: 'schedules', back: 'operations' })} onOpenSavings={() => go({ kind: 'savings', back: 'operations' })} name={me.first_name} simple={simple} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
               {shownTab === 'budget' && (
                 <BudgetScreen
                         categories={categories}
                   accounts={accounts}
                   baseCurrency={base}
+                  display={display}
                   today={today}
                   envelopesEnabled={me.budget.envelopes_enabled}
                   ledger={state.data.transactions}
@@ -423,13 +443,24 @@ export function App() {
                   accounts={everyAccount}
                         categories={categories}
                   baseCurrency={display}
-                  currencies={me.currencies}
+                  currencies={shown}
                   onDisplay={changeDisplay}
                   today={today}
                   onOpen={(entry) => openEntry(entry, home)}
                 />
               )}
-              {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
+              {shownTab === 'schedules' && (
+                <SchedulesScreen
+                  categories={categories}
+                  accounts={accounts}
+                  baseCurrency={base}
+                  currencies={shown}
+                  today={today}
+                  ledger={state.data.transactions}
+                  onAddExpense={(categoryId) => go({ kind: 'add', categoryId, returnTo: home })}
+                />
+              )}
+              {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={shown} baseCurrency={base} displayCurrency={display} onDisplay={changeDisplay} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
               <TabBar tab={shownTab} onTab={setTab} onAdd={onAdd} simple={simple} />
             </>
           )
@@ -441,6 +472,7 @@ export function App() {
       // Режим скрытия сумм работает только на вкладках «Операции» и «Счета».
       const hidesSums = layer.kind === 'tabs' && (shownTab === 'operations' || shownTab === 'accounts')
       return (
+        <CoinsInRatesContext.Provider value={coinsInRates}>
         <ThemeContext.Provider value={theme}>
           <PrivacyContext.Provider value={privacy}>
             <CategoryColorContext.Provider value={colors}>
@@ -451,6 +483,7 @@ export function App() {
             </CategoryColorContext.Provider>
           </PrivacyContext.Provider>
         </ThemeContext.Provider>
+        </CoinsInRatesContext.Provider>
       )
     }
   }

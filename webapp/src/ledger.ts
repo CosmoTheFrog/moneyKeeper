@@ -98,20 +98,6 @@ export function dayNet(entries: Entry[]): number | null {
   return any ? sum : null
 }
 
-export type DaySpend = { date: string; spentMinor: number }
-
-// lastDays: траты за последние n дней по дням, старые первыми, в валюте пересчёта. Расход без курса не входит.
-export function lastDays(entries: Entry[], today: string, n: number): DaySpend[] {
-  const days: DaySpend[] = Array.from({ length: n }, (_, i) => ({ date: shiftDay(today, i - (n - 1)), spentMinor: 0 }))
-  const at = new Map(days.map((d) => [d.date, d]))
-  for (const e of entries) {
-    if (e.kind !== 'expense' || e.baseMinor === null) continue
-    const day = at.get(e.date)
-    if (day !== undefined) day.spentMinor += -e.baseMinor
-  }
-  return days
-}
-
 export type DayPart = { categoryId: number | null; totalMinor: number }
 
 // dayParts: расходы дня по категориям, больше первыми, в валюте пересчёта. Расход без курса не входит.
@@ -149,26 +135,6 @@ export function daySummary(entries: Entry[]): DaySummary {
   return out
 }
 
-const RECENT_EXPENSES = 300
-
-// frequentCategories: категории последних расходов, чаще используемые первыми, при равенстве выше та, что была недавно.
-// entries идут от новых к старым, как их отдаёт сервер.
-export function frequentCategories(entries: Entry[], limit: number): number[] {
-  const seen = new Map<number, { count: number; first: number }>()
-  let index = 0
-  for (const e of entries) {
-    if (e.kind !== 'expense' || e.categoryId === null) continue
-    if (index++ >= RECENT_EXPENSES) break
-    const s = seen.get(e.categoryId)
-    if (s === undefined) seen.set(e.categoryId, { count: 1, first: index })
-    else s.count++
-  }
-  return [...seen]
-    .sort((a, b) => b[1].count - a[1].count || a[1].first - b[1].first)
-    .slice(0, limit)
-    .map(([id]) => id)
-}
-
 // guessCategory: категория последнего расхода с такой же заметкой (без учёта регистра и лишних пробелов), иначе null.
 export function guessCategory(entries: Entry[], note: string): number | null {
   const key = note.trim().toLowerCase()
@@ -177,4 +143,32 @@ export function guessCategory(entries: Entry[], note: string): number | null {
     if (e.kind === 'expense' && e.categoryId !== null && e.note.trim().toLowerCase() === key) return e.categoryId
   }
   return null
+}
+
+// recordStreak: сколько дней подряд до today включительно есть хоть одна запись. Если сегодня записей нет, считается
+// от вчера: день ещё не закончился, и серия не должна обнуляться с утра.
+export function recordStreak(entries: Entry[], today: string): number {
+  // Остаток при открытии счёта и переводы это не записи о деньгах дня: считаются только расходы и доходы.
+  const days = new Set(entries.filter((e) => e.kind === 'expense' || e.kind === 'income').map((e) => e.date))
+  let day = days.has(today) ? today : shiftDay(today, -1)
+  let n = 0
+  while (days.has(day)) {
+    n++
+    day = shiftDay(day, -1)
+  }
+  return n
+}
+
+// categoryTotals: траты записей одной категории за текущий месяц и за всё время, в валюте пересчёта. Запись без курса
+// не входит ни в одну сумму.
+export function categoryTotals(entries: Entry[], today: string): { month: number; all: number } {
+  const month = today.slice(0, 7)
+  let all = 0
+  let inMonth = 0
+  for (const e of entries) {
+    if (e.kind !== 'expense' || e.baseMinor === null) continue
+    all -= e.baseMinor
+    if (e.date.slice(0, 7) === month) inMonth -= e.baseMinor
+  }
+  return { month: inMonth, all }
 }

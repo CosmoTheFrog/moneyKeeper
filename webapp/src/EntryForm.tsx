@@ -4,7 +4,6 @@ import {
   createTransaction,
   deleteTransaction,
   fetchEvents,
-  parseQuick,
   updateTransaction,
   type Account,
   type Category,
@@ -13,12 +12,13 @@ import {
 } from './api'
 import { allows, pickAccount, usableCurrencies } from './accounts'
 import { errorText, t } from './i18n'
-import { frequentCategories, guessCategory, type Entry } from './ledger'
+import { guessCategory, type Entry } from './ledger'
 import { DateField } from './DateField'
 import { ExchangeFields } from './ExchangeForm'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
-import { currencySign, formatInput, formatMinor, parseAmount } from './money'
+import { currencySign, formatInput, formatMinor, parseAmount, unitsOf } from './money'
+import { KeyPad } from './KeyPad'
 import { ChipPicker, CurrencyPicker, SheetPicker } from './Pickers'
 
 type FormKind = 'expense' | 'income' | 'transfer' | 'opening' | 'exchange'
@@ -69,8 +69,6 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
   const [kind, setKind] = useState<FormKind>(entry === undefined || entry.kind === 'fee' ? 'expense' : entry.kind)
-  const [quick, setQuick] = useState('')
-  const [understood, setUnderstood] = useState<string | null>(null)
   const [amount, setAmount] = useState(entry === undefined ? '' : formatInput(entry.amountMinor, entry.currency))
   const [currency, setCurrency] = useState(entry?.currency ?? defaultAccount?.currency ?? '')
   const [accountId, setAccountId] = useState(entry?.accountId ?? defaultAccount?.id ?? 0)
@@ -84,6 +82,8 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [events, setEvents] = useState<TxEvent[] | null>(null)
   const [savedCount, setSavedCount] = useState(0)
+  // Шаг 1: сумма и категория, шаг 2: счёт. Два шага только у новой траты или дохода, когда есть из чего выбирать.
+  const [step, setStep] = useState<1 | 2>(1)
 
   const currencies = usableCurrencies(accounts, allCurrencies)
   const accountsInCurrency = accounts.filter((a) => allows(a, currency))
@@ -95,6 +95,8 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
 
   const canPickAccount = !simple && (editing ? kind === 'expense' || kind === 'income' : true)
   const canPickTarget = !editing && kind === 'transfer'
+  const twoStep = canPickAccount && !editing && (kind === 'expense' || kind === 'income') && accountsInCurrency.length > 1
+  const pickStep = twoStep && step === 2
   const targets = accountsInCurrency.filter((a) => a.id !== accountId)
   const fromAccount = accounts.find((a) => a.id === accountId)
   const toAccount = accounts.find((a) => a.id === toAccountId)
@@ -108,7 +110,6 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
 
   // Частые категории лежат под рукой плитками: большинство трат вносится одним касанием.
   const categoryLabel = new Map(categoryOptions.map((o) => [o.value, o.label]))
-  const frequent = frequentCategories(recentEntries, 8).filter((id) => categoryLabel.has(id))
 
   // По заметке подсказывается категория прошлой траты, пока категория не выбрана.
   function suggestCategory(text: string) {
@@ -136,28 +137,12 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
     if (a.kind === 'piggy' && a.category_id !== null) setCategoryId(a.category_id)
   }
 
-  async function understand() {
-    const text = quick.trim()
-    if (text === '') return
+  // Шаг 1 → шаг 2: проверяем сумму и категорию, пока они на экране.
+  function next() {
     setError(null)
-    try {
-      const p = await parseQuick(text, currency)
-      setAmount(formatInput(p.amount_minor, p.currency !== '' ? p.currency : currency))
-      if (p.note !== '') {
-        setNote(p.note)
-        suggestCategory(p.note)
-      }
-      let cur = currency
-      if (p.currency !== '' && p.currency !== currency) {
-        if (currencies.includes(p.currency)) chooseCurrency(p.currency)
-        else setError(t.add.noAccountInCurrency)
-        cur = p.currency
-      }
-      setUnderstood(`${formatMinor(p.amount_minor, cur)}${p.note !== '' ? ` · ${p.note}` : ''}`)
-    } catch (e) {
-      setUnderstood(null)
-      setError(errorText(e instanceof ApiError ? e.code : 'internal'))
-    }
+    if (parseAmount(amount, currency) === null) return setError(errorText('invalid_amount'))
+    if (kind === 'expense' && categoryId === 0) return setError(t.add.pickCategory)
+    setStep(2)
   }
 
   async function save(again: boolean) {
@@ -200,9 +185,8 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
         onSaved?.()
         setAmount('')
         setNote('')
-        setQuick('')
-        setUnderstood(null)
         setCategoryId(0)
+        setStep(1)
         setSavedCount((n) => n + 1)
         setBusy(false)
         return
@@ -259,7 +243,10 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
     <Modal title={editing ? t.edit.title : t.add.title} onClose={onCancel}>
       {!editing && (
         <div className="top-gap">
-          <ChipPicker value={kind === 'opening' ? 'expense' : kind} options={simple ? simpleKindOptions : kindOptions} onChange={setKind} />
+          <ChipPicker value={kind === 'opening' ? 'expense' : kind} options={simple ? simpleKindOptions : kindOptions} onChange={(k) => {
+              setKind(k)
+              setStep(1)
+            }} />
         </div>
       )}
       {ticket}
@@ -270,67 +257,52 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
           className="stack"
           onSubmit={(e: FormEvent) => {
             e.preventDefault()
-            void save(false)
+            if (twoStep && step === 1) next()
+            else void save(false)
           }}
         >
-          {kind === 'expense' && (
+          {pickStep && (
+            <div className="ticket">
+              <span className="ticket-kind">{kindLabel(kind)}</span>
+              <span className="ticket-amount">
+                <Money minor={kind === 'expense' ? -(parseAmount(amount, currency) ?? 0) : (parseAmount(amount, currency) ?? 0)} currency={currency} signed />
+              </span>
+              {kind === 'expense' && <span className="ticket-route">{categoryName.get(categoryId) ?? ''}</span>}
+            </div>
+          )}
+
+          {!pickStep && (lockedAmounts ? (
+            <p className="hint tight">{t.exchange.locked}</p>
+          ) : (
+            <div className="amount-hero">
+              <span className="amount-row">
+                <input
+                  className="amount-big"
+                  key={savedCount}
+                  inputMode="none"
+                  aria-label={t.add.amount}
+                  autoFocus={!editing}
+                  value={amount}
+                  placeholder="0"
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+                <span className="amount-suffix">{currencySign(currency)}</span>
+              </span>
+              {currencyEditable && currencies.length > (simple ? 1 : 0) && <CurrencyPicker value={currency} options={currencies} onChange={chooseCurrency} />}
+            </div>
+          ))}
+
+          {!pickStep && kind === 'expense' && (
             <div className="card">
-              {!editing && frequent.length > 0 && (
-                <div className="chips" role="radiogroup" aria-label={t.add.frequent}>
-                  {frequent.map((id) => (
-                    <button key={id} type="button" role="radio" aria-checked={id === categoryId} className={id === categoryId ? 'pill pill-on' : 'pill'} onClick={() => setCategoryId(id)}>
-                      {categoryLabel.get(id)}
-                    </button>
-                  ))}
-                </div>
-              )}
               <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
             </div>
           )}
 
-          {!editing && (
-            <div className="card">
-              <label className="field">
-                <span className="label">{t.add.quick}</span>
-                <input
-                  value={quick}
-                  placeholder={t.add.quickPlaceholder}
-                  onChange={(e) => setQuick(e.target.value)}
-                  onBlur={() => void understand()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void understand()
-                    }
-                  }}
-                />
-              </label>
-              {understood !== null && (
-                <p className="hint tight">
-                  {t.add.understood}: {understood}
-                </p>
-              )}
-            </div>
-          )}
+          {!pickStep && !lockedAmounts && <KeyPad value={amount} units={unitsOf(currency)} onChange={setAmount} />}
 
-          {lockedAmounts ? (
-            <p className="hint tight">{t.exchange.locked}</p>
-          ) : (
+          {canPickAccount && (!twoStep || pickStep) && (
             <div className="card">
-              <label className="field">
-                <span className="label">{t.add.amount}</span>
-                <span className="amount-row">
-                  <input key={savedCount} inputMode="decimal" autoFocus={!editing} value={amount} placeholder="0,00" onChange={(e) => setAmount(e.target.value)} />
-                  {!currencyEditable && <span className="amount-suffix">{currencySign(currency)}</span>}
-                </span>
-              </label>
-              {currencyEditable && currencies.length > (simple ? 1 : 0) && <CurrencyPicker label={t.add.currency} value={currency} options={currencies} onChange={chooseCurrency} />}
-            </div>
-          )}
-
-          {canPickAccount && (
-            <div className="card">
-              <span className="label">{canPickTarget ? t.add.fromAccount : t.add.account}</span>
+              <span className="label">{canPickTarget ? t.add.fromAccount : kind === 'income' ? t.add.toCard : t.add.fromCard}</span>
               <div className="choices">
                 {accountsInCurrency.map((a) => (
                   <button key={a.id} type="button" className={a.id === accountId ? 'choice choice-on' : 'choice'} onClick={() => selectAccount(a.id)}>
@@ -376,20 +348,27 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
             </div>
           )}
 
-          <div className="card">
-            <DateField label={t.add.date} value={date} onChange={setDate} placeholder={t.add.dateToday} clearable={!editing} />
-            <label className="field">
-              <span className="label">{t.add.note}</span>
-              <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} onBlur={() => suggestCategory(note)} />
-            </label>
-          </div>
+          {!pickStep && (
+            <div className="card">
+              <DateField label={t.add.date} value={date} onChange={setDate} placeholder={t.add.dateToday} clearable={!editing} />
+              <label className="field">
+                <span className="label">{t.add.note}</span>
+                <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} onBlur={() => suggestCategory(note)} />
+              </label>
+            </div>
+          )}
 
           {error !== null && <p className="error">{error}</p>}
           {savedCount > 0 && <p className="hint tight">{t.add.savedAgain}: {savedCount}</p>}
           <button type="submit" className="primary" disabled={busy}>
-            {t.save}
+            {twoStep && step === 1 ? t.add.next : t.save}
           </button>
-          {!editing && (kind === 'expense' || kind === 'income') && (
+          {pickStep && (
+            <button type="button" className="chip" disabled={busy} onClick={() => setStep(1)}>
+              {t.back}
+            </button>
+          )}
+          {!editing && (kind === 'expense' || kind === 'income') && (!twoStep || pickStep) && (
             <button type="button" className="chip" disabled={busy} onClick={() => void save(true)}>
               {t.add.saveAndNext}
             </button>

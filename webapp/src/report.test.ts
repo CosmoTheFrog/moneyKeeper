@@ -7,6 +7,8 @@ import {
   arcs,
   diffDays,
   missingRates,
+  monthLine,
+  previousRange,
   percent,
   rangeFor,
   spendBuckets,
@@ -228,5 +230,28 @@ describe('percent and arcs', () => {
   it('returns nothing for zero total', () => {
     expect(arcs([])).toEqual([])
     expect(arcs([0, 0])).toEqual([])
+  })
+})
+
+describe('monthLine', () => {
+  it('accumulates month spending day by day up to today and ignores other months', () => {
+    const entries = [exp(1, 2, -500, '2026-10-02'), exp(2, 2, -300, '2026-10-02'), exp(3, 2, -100, '2026-10-04'), exp(4, 2, -9000, '2026-09-30')]
+    expect(monthLine(entries, '2026-10-05')).toEqual([0, 800, 800, 900, 900])
+  })
+
+  it('is flat without spending', () => {
+    expect(monthLine([], '2026-10-03')).toEqual([0, 0, 0])
+  })
+})
+
+describe('previousRange', () => {
+  it('cuts the previous month at the same day of month', () => {
+    expect(previousRange('month', '2026-10-13')).toEqual({ from: '2026-09-01', to: '2026-09-13' })
+    expect(previousRange('month', '2026-03-31')).toEqual({ from: '2026-02-01', to: '2026-02-28' })
+  })
+
+  it('takes whole months further back and whole weeks', () => {
+    expect(previousRange('month', '2026-10-13', -1)).toEqual({ from: '2026-08-01', to: '2026-08-31' })
+    expect(previousRange('week', '2026-10-13')).toEqual({ from: '2026-09-30', to: '2026-10-06' })
   })
 })

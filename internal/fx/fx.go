@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -27,7 +26,7 @@ const (
 	maxParallel = 5
 )
 
-// fiat — валюты, которые берём у НБГ.
+// fiat — встроенные валюты, которые НБГ обязан отдать: без них день считается неполным. Добавленный фиат необязателен.
 var fiat = []money.Currency{money.USD, money.EUR, money.RUB}
 
 type Provider struct {
@@ -122,7 +121,7 @@ func (p *Provider) fiatRates(ctx context.Context, day apptime.Day) (map[money.Cu
 	for _, d := range days {
 		for _, c := range d.Currencies {
 			cur := money.Currency(c.Code)
-			if !isFiat(cur) || c.Quantity <= 0 {
+			if !money.IsFiat(cur) || c.Quantity <= 0 {
 				continue
 			}
 			rate, ok := new(big.Rat).SetString(c.Rate.String())
@@ -241,6 +240,19 @@ func (p *Provider) getJSON(ctx context.Context, rawURL string, dst any) error {
 	return json.NewDecoder(resp.Body).Decode(dst)
 }
 
-func isFiat(c money.Currency) bool {
-	return slices.Contains(fiat, c)
+// FiatAvailable проверяет, что НБГ публикует курс валюты: нужно при добавлении, чтобы в реестр не попал код без курса.
+func (p *Provider) FiatAvailable(ctx context.Context, code money.Currency) error {
+	var days []nbgDay
+	q := url.Values{"date": {apptime.FromDate(time.Now().UTC()).String()}}
+	if err := p.getJSON(ctx, p.nbg+"/gw/api/ct/monetarypolicy/currencies/en/json/?"+q.Encode(), &days); err != nil {
+		return fmt.Errorf("nbg: %w", err)
+	}
+	for _, d := range days {
+		for _, c := range d.Currencies {
+			if c.Code == string(code) && c.Quantity > 0 {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("nbg: no rate for %s", code)
 }

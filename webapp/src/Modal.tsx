@@ -41,7 +41,7 @@ export function Backdrop({ onClose, children, sheet = false }: BackdropProps) {
     >
       {children}
     </div>,
-    document.body,
+    document.querySelector('[data-modal-root]') ?? document.body,
   )
 }
 

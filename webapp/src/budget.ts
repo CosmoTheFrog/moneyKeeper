@@ -1,5 +1,7 @@
-import type { BudgetMonth, BudgetRow } from './api'
+import type { BudgetMonth, BudgetRow, Category } from './api'
+import type { Entry } from './ledger'
 import { parseAmount } from './money'
+import { previousRange, spendByCategory } from './report'
 
 export type Tone = 'open' | 'done' | 'over'
 
@@ -121,4 +123,12 @@ export function spendingOf(now: BudgetMonth, then: BudgetMonth | null): Spending
     totalMinor: rows.reduce((s, r) => s + r.spentMinor, 0),
     previousTotalMinor: [...before.values()].reduce((s, v) => s + v, 0),
   }
+}
+
+// monthToDate подменяет траты прошлого месяца тратами до того же числа: так неполный текущий месяц сравнивается с
+// таким же отрезком прошлого, а не с целым месяцем. Траты берутся из записей в базовой валюте по курсу дня.
+export function monthToDate(then: BudgetMonth, entries: Entry[], categories: Category[], today: string): BudgetMonth {
+  const range = previousRange('month', today)
+  const spent = new Map(spendByCategory(entries, categories, range, { kind: 'base' }).map((s) => [Number(s.key), s.totalMinor]))
+  return { ...then, categories: then.categories.map((r) => ({ ...r, spent_minor: spent.get(r.category_id) ?? 0 })) }
 }

@@ -14,7 +14,7 @@ func NewAssets(db *pgclient.Client) *Assets { return &Assets{db: db} }
 
 // List возвращает добавленные пользователями активы в порядке добавления.
 func (a *Assets) List(ctx context.Context) ([]money.Info, error) {
-	rows, err := a.db.Q(ctx).Query(ctx, `SELECT code, stock, units FROM assets ORDER BY created_at, code`)
+	rows, err := a.db.Q(ctx).Query(ctx, `SELECT code, stock, units, fiat FROM assets ORDER BY created_at, code`)
 	if err != nil {
 		return nil, fmt.Errorf("list assets: %w", err)
 	}
@@ -26,11 +26,12 @@ func (a *Assets) List(ctx context.Context) ([]money.Info, error) {
 			code  string
 			stock bool
 			units int
+			fiat  bool
 		)
-		if err := rows.Scan(&code, &stock, &units); err != nil {
+		if err := rows.Scan(&code, &stock, &units, &fiat); err != nil {
 			return nil, fmt.Errorf("scan asset: %w", err)
 		}
-		out = append(out, money.Info{Code: money.Currency(code), Units: units, Coin: true, Stock: stock})
+		out = append(out, money.Info{Code: money.Currency(code), Units: units, Coin: !fiat, Stock: stock})
 	}
 	return out, rows.Err()
 }
@@ -38,8 +39,8 @@ func (a *Assets) List(ctx context.Context) ([]money.Info, error) {
 // Create сохраняет актив. Уже существующий код не меняется: точность нельзя менять после первых записей.
 func (a *Assets) Create(ctx context.Context, i money.Info) error {
 	_, err := a.db.Q(ctx).Exec(ctx,
-		`INSERT INTO assets (code, stock, units) VALUES ($1, $2, $3) ON CONFLICT (code) DO NOTHING`,
-		string(i.Code), i.Stock, i.Units)
+		`INSERT INTO assets (code, stock, units, fiat) VALUES ($1, $2, $3, $4) ON CONFLICT (code) DO NOTHING`,
+		string(i.Code), i.Stock, i.Units, !i.Coin)
 	if err != nil {
 		return fmt.Errorf("create asset %s: %w", i.Code, err)
 	}

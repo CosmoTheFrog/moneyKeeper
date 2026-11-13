@@ -25,8 +25,8 @@ func (h *handler) previewImport(w http.ResponseWriter, r *http.Request, u models
 	h.writeJSON(w, http.StatusOK, previewResponse(p))
 }
 
-// previewImportFile читает xlsx-отчёт прежнего бота или PDF-выписку TBC (multipart: account_id и file) и возвращает
-// строки для подтверждения.
+// previewImportFile читает xlsx-отчёт прежнего бота или PDF-выписку (multipart: account_id, file, consent) и возвращает
+// строки для подтверждения. PDF не от TBC уходит на разбор модели и требует consent=true.
 func (h *handler) previewImportFile(w http.ResponseWriter, r *http.Request, u models.User) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportFileBytes)
 	if err := r.ParseMultipartForm(maxImportFileBytes); err != nil {
@@ -45,7 +45,7 @@ func (h *handler) previewImportFile(w http.ResponseWriter, r *http.Request, u mo
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidRequest)
 		return
 	}
-	p, err := h.svc.PreviewFile(r.Context(), u, accountID, data)
+	p, err := h.svc.PreviewFile(r.Context(), u, accountID, data, r.FormValue("consent") == "true")
 	if err != nil {
 		h.fail(w, err)
 		return

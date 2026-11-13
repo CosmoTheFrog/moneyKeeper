@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     // Туннель ngrok отдаёт запросы с чужим Host, без этого Vite их отклоняет.
-    allowedHosts: ['.ngrok-free.dev'],
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app'],
     proxy: { '/api': 'http://localhost:8090' },
   },
 })

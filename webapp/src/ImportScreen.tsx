@@ -22,6 +22,8 @@ export function ImportScreen({ accounts, onClose, onDone }: Props) {
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? 0)
   const [file, setFile] = useState<File | null>(null)
   const [consent, setConsent] = useState(false)
+  // PDF не от TBC разбирает нейросеть: сервер просит согласие, и переключатель появляется после первой попытки.
+  const [pdfNeedsConsent, setPdfNeedsConsent] = useState(false)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   // Категория и отметка «записать» для каждой строки превью по её номеру; 0 значит категория ещё не выбрана.
@@ -39,20 +41,23 @@ export function ImportScreen({ accounts, onClose, onDone }: Props) {
   }, [])
 
   const fail = (e: unknown) => setError(errorText(e instanceof ApiError ? e.code : 'internal'))
-  const needsConsent = file !== null && isText(file)
+  const needsConsent = file !== null && (isText(file) || pdfNeedsConsent)
 
   async function read() {
     if (file === null) return
     setBusy(true)
     setError(null)
     try {
-      const p = isText(file) ? await previewImportText(accountId, await file.text(), consent) : await previewImportFile(accountId, file)
+      const p = isText(file) ? await previewImportText(accountId, await file.text(), consent) : await previewImportFile(accountId, file, consent)
       setPreview(p)
       setChoice(p.rows.map((r) => r.category_id ?? 0))
       // Уже внесённые строки не отмечены, но их можно отметить: так выглядит «это другая покупка».
       setIncluded(p.rows.map((r) => !r.duplicate))
     } catch (e) {
-      fail(e)
+      if (e instanceof ApiError && e.code === 'import_consent_required' && !isText(file)) {
+        setPdfNeedsConsent(true)
+        setError(t.importFile.pdfConsent)
+      } else fail(e)
     } finally {
       setBusy(false)
     }
@@ -130,7 +135,10 @@ export function ImportScreen({ accounts, onClose, onDone }: Props) {
           )}
           <label className="field">
             <span className="label">{t.importFile.file}</span>
-            <input type="file" accept=".xlsx,.pdf,.csv,.txt" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            <input type="file" accept=".xlsx,.pdf,.csv,.txt" onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null)
+                setPdfNeedsConsent(false)
+              }} />
           </label>
           {needsConsent && (
             <label className="switch">

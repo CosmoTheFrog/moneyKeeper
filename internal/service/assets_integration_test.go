@@ -54,3 +54,40 @@ func TestAddAsset(t *testing.T) {
 		t.Errorf("load twice must be harmless: %v", err)
 	}
 }
+func TestAddCurrency(t *testing.T) {
+	ctx := context.Background()
+	s, db := newService(t)
+
+	tests := []struct {
+		name    string
+		code    string
+		want    money.Info
+		wantErr error
+	}{
+		{"new fiat", " cad ", money.Info{Code: "CAD", Units: 2}, nil},
+		{"zero decimals by ISO", "JPY", money.Info{Code: "JPY", Units: 0}, nil},
+		{"known code comes back as is", "usd", money.Info{Code: "USD", Units: 2}, nil},
+		{"not published by the bank", "XYZ", money.Info{}, models.ErrAssetNotFound},
+		{"not a currency code", "a b;", money.Info{}, money.ErrBadCode},
+		{"four letters", "CADD", money.Info{}, money.ErrBadCode},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := s.AddCurrency(ctx, tt.code)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+			if err == nil && got != tt.want {
+				t.Errorf("got %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+
+	saved, err := repo.NewAssets(db).List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved) != 2 || saved[0].Code != "CAD" || saved[0].Coin || saved[1].Units != 0 {
+		t.Errorf("saved = %+v", saved)
+	}
+}

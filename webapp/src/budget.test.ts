@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareMonths, fillPercent, monthPace, parseBudgeted, rowStatus, spendingOf, suggestBudget, toBudgetTone } from './budget'
+import { compareMonths, fillPercent, monthPace, monthToDate, parseBudgeted, rowStatus, spendingOf, suggestBudget, toBudgetTone } from './budget'
 import type { BudgetMonth } from './api'
 
 describe('toBudgetTone', () => {
@@ -140,5 +140,28 @@ describe('spendingOf', () => {
 
   it('заложенная сумма без трат и возврат средств в список не попадают', () => {
     expect(spendingOf(month([[1, 5000, 0], [2, 0, -200]]), null).rows).toEqual([])
+  })
+})
+
+describe('monthToDate', () => {
+  const row = (category_id: number, spent_minor: number) => ({ category_id, budgeted_minor: 0, spent_minor, balance_minor: 0 })
+  const then: BudgetMonth = { month: '2026-09', currency: 'GEL', income_minor: 0, budgeted_minor: 0, to_budget_minor: 0, missing_rates: 0, categories: [row(1, 90000), row(2, 5000)] }
+  const spend = (id: number, categoryId: number, minor: number, date: string) => ({
+    id, kind: 'expense' as const, date, amountMinor: -minor, currency: 'GEL', baseMinor: -minor, accountId: 1, toAccountId: null, categoryId, note: '', inMinor: null, inCurrency: null, feeMinor: 0,
+  })
+  const cats = [
+    { id: 1, name: 'Аренда', description: '', hidden: false, rollover: false },
+    { id: 2, name: 'Кафе', description: '', hidden: false, rollover: false },
+  ]
+
+  it('replaces last month with the spending up to the same day', () => {
+    // Сегодня 13 октября: из сентября берутся траты по 13-е включительно, поздние и чужие месяцы не входят.
+    const entries = [spend(1, 1, 90000, '2026-09-02'), spend(2, 2, 1200, '2026-09-13'), spend(3, 2, 3800, '2026-09-20'), spend(4, 2, 700, '2026-10-05')]
+    const out = monthToDate(then, entries, cats, '2026-10-13')
+    expect(out.categories.map((r) => [r.category_id, r.spent_minor])).toEqual([[1, 90000], [2, 1200]])
+  })
+
+  it('zeroes categories without spending up to that day', () => {
+    expect(monthToDate(then, [], cats, '2026-10-13').categories.map((r) => r.spent_minor)).toEqual([0, 0])
   })
 })

@@ -2,6 +2,7 @@ package fx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -232,5 +233,47 @@ func TestGelPerUnitStocks(t *testing.T) {
 	}
 	if !strings.Contains(path, "/v8/finance/chart/") {
 		t.Errorf("unexpected yahoo path %q", path)
+	}
+}
+
+func TestFiatAvailable(t *testing.T) {
+	body := `[{"currencies":[{"code":"CAD","quantity":1,"rate":1.98},{"code":"JPY","quantity":100,"rate":1.8},{"code":"ZZZ","quantity":0,"rate":0}]}]`
+	p := newProvider(t, ok(body), fail(http.StatusServiceUnavailable))
+	tests := []struct {
+		code    money.Currency
+		wantErr bool
+	}{
+		{"CAD", false},
+		{"JPY", false},
+		{"CNY", true}, // нет в ответе
+		{"ZZZ", true}, // есть, но без количества
+	}
+	for _, tt := range tests {
+		if err := p.FiatAvailable(context.Background(), tt.code); (err != nil) != tt.wantErr {
+			t.Errorf("%s: err = %v, wantErr %v", tt.code, err, tt.wantErr)
+		}
+	}
+	down := newProvider(t, fail(http.StatusBadGateway), fail(http.StatusServiceUnavailable))
+	if err := down.FiatAvailable(context.Background(), "CAD"); err == nil {
+		t.Error("nbg down must be an error")
+	}
+}
+
+func TestGelPerUnitAddedFiat(t *testing.T) {
+	if err := money.Register(money.Info{Code: "CAD", Units: 2}); err != nil && !errors.Is(err, money.ErrAssetExists) {
+		t.Fatal(err)
+	}
+	body := `[{"currencies":[{"code":"USD","quantity":1,"rate":2.7},{"code":"EUR","quantity":1,"rate":3.1},{"code":"RUB","quantity":100,"rate":3},{"code":"CAD","quantity":1,"rate":1.98},{"code":"CNY","quantity":10,"rate":3.8}]}]`
+	p := newProvider(t, ok(body), ok(klineBody))
+	day, _ := apptime.ParseDay("2026-10-12")
+	got, err := p.GelPerUnit(context.Background(), day, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["CAD"] == nil || got["CAD"].FloatString(2) != "1.98" {
+		t.Errorf("registered CAD must be taken, got %v", got["CAD"])
+	}
+	if got["CNY"] != nil {
+		t.Error("unregistered CNY must be ignored")
 	}
 }

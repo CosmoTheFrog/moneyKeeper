@@ -33,7 +33,7 @@ func TestAuthRejected(t *testing.T) {
 		authHeader string
 	}{
 		{"no header", ""},
-		{"other scheme", "Bearer " + valid},
+		{"other scheme", "Basic " + valid},
 		{"signed with another token", "tma " + signedInitData("999:other", 42, "Igor", testNow)},
 		{"expired", "tma " + signedInitData(testToken, 42, "Igor", testNow.Add(-25*time.Hour))},
 	}

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useContext, useState } from 'react'
+import { CoinsInRatesContext } from './currencyChoice'
 import { fetchRates } from './api'
 import { t } from './i18n'
 import { Modal } from './Modal'
-import { currencySign, formatRate } from './money'
+import { currencySign, formatRate, isCoin, isStock } from './money'
 import { CurrencyPicker } from './Pickers'
 
 type Props = {
@@ -11,14 +12,17 @@ type Props = {
   onChange: (code: string) => void
 }
 
-// Плашка «В ₾»: показывает, в какой валюте считаются суммы, и по нажатию открывает выбор валюты с курсами.
-export function DisplayCurrency({ display, currencies, onChange }: Props) {
+// Плашка «₾»: показывает, в какой валюте считаются суммы, и по нажатию открывает выбор валюты с курсами.
+export function DisplayCurrency({ display, currencies: all, onChange }: Props) {
   const [open, setOpen] = useState(false)
+  const coinsOn = useContext(CoinsInRatesContext)
+  // Монеты и акции в окне только по включённому в «Ещё» переключателю; выбранная сейчас валюта остаётся в любом случае.
+  const currencies = coinsOn ? all : all.filter((c) => c === display || (!isCoin(c) && !isStock(c)))
 
   return (
     <>
-      <button type="button" className="chip chip-display" onClick={() => setOpen(true)}>
-        {t.rates.chip} {currencySign(display)}
+      <button type="button" className="chip chip-display" aria-label={`${t.rates.countIn} ${display}`} onClick={() => setOpen(true)}>
+        {currencySign(display)}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M6 9l6 6 6-6" />
         </svg>

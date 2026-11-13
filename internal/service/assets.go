@@ -74,3 +74,38 @@ func (s *Service) AddAsset(ctx context.Context, code string, stock bool) (money.
 	}
 	return probe, nil
 }
+
+// fiatUnits: знаков после запятой по ISO 4217. Остальные валюты с двумя.
+var fiatUnits = map[money.Currency]int{
+	"JPY": 0, "KRW": 0, "VND": 0, "CLP": 0, "ISK": 0, "UGX": 0, "PYG": 0, "XOF": 0, "XAF": 0, "RWF": 0, "KMF": 0, "DJF": 0, "GNF": 0, "VUV": 0,
+	"KWD": 3, "BHD": 3, "OMR": 3, "JOD": 3, "TND": 3, "LYD": 3, "IQD": 3,
+}
+
+// AddCurrency добавляет обычную валюту по коду ISO (CAD, CNY...): курс должен публиковать Нацбанк Грузии, точность берётся
+// по ISO 4217, потому что хранимые суммы потом менять нельзя. Уже известный код возвращается как есть.
+func (s *Service) AddCurrency(ctx context.Context, code string) (money.Info, error) {
+	c := money.Currency(strings.ToUpper(strings.TrimSpace(code)))
+	if known, ok := money.Lookup(c); ok {
+		return known, nil
+	}
+	units, ok := fiatUnits[c]
+	if !ok {
+		units = 2
+	}
+	probe := money.Info{Code: c, Units: units}
+	// Код проверяется до обращения к Нацбанку: в запрос уходит только то, что похоже на код валюты.
+	if err := money.CheckFiat(probe); err != nil {
+		return money.Info{}, err
+	}
+	if err := s.fx.FiatAvailable(ctx, c); err != nil {
+		s.log.Info("currency not found", "currency", string(c), "err", err)
+		return money.Info{}, fmt.Errorf("%s: %w", c, models.ErrAssetNotFound)
+	}
+	if err := s.assets.Create(ctx, probe); err != nil {
+		return money.Info{}, err
+	}
+	if err := money.Register(probe); err != nil && !errors.Is(err, money.ErrAssetExists) {
+		return money.Info{}, err
+	}
+	return probe, nil
+}

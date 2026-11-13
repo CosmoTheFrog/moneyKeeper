@@ -19,6 +19,7 @@ import (
 
 const (
 	authScheme     = "tma "
+	bearerScheme   = "Bearer "
 	timezoneHeader = "X-Timezone"
 	defaultTZ      = "UTC"
 	initDataTTL    = 24 * time.Hour
@@ -30,6 +31,10 @@ const (
 
 type Service interface {
 	Resolve(ctx context.Context, tg models.TelegramUser, timezone string) (models.User, error)
+	ResolveApple(ctx context.Context, sub, firstName, timezone string) (models.User, error)
+	StartSession(ctx context.Context, u models.User) (string, time.Time, error)
+	UserBySession(ctx context.Context, token string) (models.User, error)
+	EndSession(ctx context.Context, token string) error
 	Budget(ctx context.Context, u models.User) (models.Budget, error)
 	SetReminderHour(ctx context.Context, u models.User, hour *int) error
 	SetTourSeen(ctx context.Context, u models.User, seen bool) error
@@ -40,6 +45,7 @@ type Service interface {
 	CreateAccount(ctx context.Context, u models.User, name, kind, currency string, multiCurrency bool, openingMinor int64) (models.Account, error)
 	ArchiveAccount(ctx context.Context, u models.User, id int64) error
 	AddAsset(ctx context.Context, code string, stock bool) (money.Info, error)
+	AddCurrency(ctx context.Context, code string) (money.Info, error)
 	CreatePiggy(ctx context.Context, u models.User, name, currency string, targetMinor *int64, targetDate *apptime.Day) (models.Account, error)
 
 	ListCategories(ctx context.Context, u models.User) ([]models.Category, error)
@@ -67,7 +73,7 @@ type Service interface {
 	TransactionEvents(ctx context.Context, u models.User, id int64) ([]models.TransactionEvent, error)
 
 	PreviewImport(ctx context.Context, u models.User, accountID int64, text string, consent bool) (models.ImportPreview, error)
-	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte) (models.ImportPreview, error)
+	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte, consent bool) (models.ImportPreview, error)
 	CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) ([]int64, error)
 	UndoImport(ctx context.Context, u models.User, ids []int64) error
 
@@ -77,21 +83,30 @@ type Service interface {
 	PreviewWallet(ctx context.Context, u models.User, walletID int64) (models.ImportPreview, error)
 }
 
+// AppleVerifier проверяет identity token «Входа через Apple» и возвращает идентификатор пользователя Apple.
+type AppleVerifier interface {
+	Verify(ctx context.Context, identityToken, nonce string) (string, error)
+}
+
 type handler struct {
 	svc      Service
+	apple    AppleVerifier
 	botToken string
 	log      *slog.Logger
 	now      func() time.Time
 }
 
-func NewHandler(svc Service, botToken string, log *slog.Logger) http.Handler {
-	h := &handler{svc: svc, botToken: botToken, log: log, now: time.Now}
+// NewHandler собирает API. apple может быть nil: тогда вход через Apple отвечает «недоступен».
+func NewHandler(svc Service, botToken string, log *slog.Logger, apple AppleVerifier) http.Handler {
+	h := &handler{svc: svc, apple: apple, botToken: botToken, log: log, now: time.Now}
 	return h.routes()
 }
 
 func (h *handler) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", h.healthz)
+	mux.HandleFunc("POST /api/auth/apple", h.signInWithApple)
+	mux.HandleFunc("DELETE /api/auth/session", h.signOut)
 	mux.HandleFunc("GET /api/me", h.auth(h.me))
 	mux.HandleFunc("PUT /api/budget/currency", h.auth(h.setBaseCurrency))
 	mux.HandleFunc("PUT /api/budget/envelopes", h.auth(h.setEnvelopes))
@@ -99,6 +114,7 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("PUT /api/me/reminder", h.auth(h.setReminder))
 	mux.HandleFunc("PUT /api/me/tour", h.auth(h.setTour))
 	mux.HandleFunc("POST /api/assets", h.auth(h.addAsset))
+	mux.HandleFunc("POST /api/currencies", h.auth(h.addCurrency))
 	mux.HandleFunc("GET /api/rates", h.auth(h.rates))
 	mux.HandleFunc("GET /api/portfolio", h.auth(h.portfolio))
 	mux.HandleFunc("GET /api/schedules", h.auth(h.listSchedules))
@@ -141,9 +157,23 @@ func (h *handler) healthz(w http.ResponseWriter, _ *http.Request) {
 type userHandler func(w http.ResponseWriter, r *http.Request, u models.User)
 
 // auth проверяет подпись initData и находит (или создаёт при первом входе) пользователя.
+// auth принимает два способа входа: подпись Telegram Mini App («tma …») и токен сессии нативного приложения («Bearer …»).
 func (h *handler) auth(next userHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		initData, ok := strings.CutPrefix(r.Header.Get("Authorization"), authScheme)
+		header := r.Header.Get("Authorization")
+		if token, ok := strings.CutPrefix(header, bearerScheme); ok {
+			u, err := h.svc.UserBySession(r.Context(), token)
+			if err != nil {
+				if !errors.Is(err, models.ErrNotFound) {
+					h.log.Error("session lookup", "err", err)
+				}
+				h.writeError(w, http.StatusUnauthorized, apidto.CodeUnauthorized)
+				return
+			}
+			next(w, r, u)
+			return
+		}
+		initData, ok := strings.CutPrefix(header, authScheme)
 		if !ok {
 			h.writeError(w, http.StatusUnauthorized, apidto.CodeUnauthorized)
 			return
@@ -165,6 +195,53 @@ func (h *handler) auth(next userHandler) http.HandlerFunc {
 		}
 		next(w, r, u)
 	}
+}
+
+// signInWithApple меняет identity token Apple на токен сессии. Пользователь создаётся при первом входе.
+func (h *handler) signInWithApple(w http.ResponseWriter, r *http.Request) {
+	if h.apple == nil {
+		h.writeError(w, http.StatusServiceUnavailable, apidto.CodeAuthUnavailable)
+		return
+	}
+	var req apidto.AppleSignInRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	sub, err := h.apple.Verify(r.Context(), req.IdentityToken, req.Nonce)
+	if err != nil {
+		h.log.Info("apple token rejected", "err", err)
+		h.writeError(w, http.StatusUnauthorized, apidto.CodeUnauthorized)
+		return
+	}
+	tz := req.Timezone
+	if tz == "" {
+		tz = defaultTZ
+	}
+	u, err := h.svc.ResolveApple(r.Context(), sub, req.FirstName, tz)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	token, expires, err := h.svc.StartSession(r.Context(), u)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusOK, apidto.SessionResponse{Token: token, ExpiresAt: expires.UTC().Format(time.RFC3339)})
+}
+
+// signOut завершает сессию, токен которой пришёл в заголовке. Без токена сессии (вход через Telegram) делать нечего.
+func (h *handler) signOut(w http.ResponseWriter, r *http.Request) {
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), bearerScheme)
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, apidto.CodeUnauthorized)
+		return
+	}
+	if err := h.svc.EndSession(r.Context(), token); err != nil {
+		h.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *handler) me(w http.ResponseWriter, r *http.Request, u models.User) {
@@ -193,6 +270,20 @@ func (h *handler) addAsset(w http.ResponseWriter, r *http.Request, _ models.User
 		return
 	}
 	i, err := h.svc.AddAsset(r.Context(), req.Code, req.Stock)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusCreated, apidto.CurrencyInfoDTO{Code: string(i.Code), Units: i.Units, Coin: i.Coin, Stock: i.Stock})
+}
+
+// addCurrency добавляет обычную валюту по коду ISO, курс должен публиковать Нацбанк. Ответ это описание валюты.
+func (h *handler) addCurrency(w http.ResponseWriter, r *http.Request, _ models.User) {
+	var req apidto.AddCurrencyRequest
+	if !h.decode(w, r, &req) {
+		return
+	}
+	i, err := h.svc.AddCurrency(r.Context(), req.Code)
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -355,6 +446,8 @@ func (h *handler) fail(w http.ResponseWriter, err error) {
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidImport)
 	case errors.Is(err, models.ErrImportConsent):
 		h.writeError(w, http.StatusBadRequest, apidto.CodeImportConsent)
+	case errors.Is(err, models.ErrAuthUnavailable):
+		h.writeError(w, http.StatusServiceUnavailable, apidto.CodeAuthUnavailable)
 	case errors.Is(err, models.ErrImportUnavailable):
 		h.log.Warn("statement import unavailable", "err", err)
 		h.writeError(w, http.StatusServiceUnavailable, apidto.CodeImportUnavailable)

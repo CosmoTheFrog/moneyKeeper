@@ -139,12 +139,6 @@ export type TransactionPatch = {
   note?: string
 }
 
-export type ParsedInput = {
-  amount_minor: number
-  currency: string
-  note: string
-}
-
 export class ApiError extends Error {
   readonly code: string
   readonly status: number
@@ -193,6 +187,9 @@ export type RateTable = { day: string; in: string; rates: { currency: string; ra
 
 // Добавить монету (цена на Binance) или акцию (Yahoo Finance) по коду. Сервер проверяет цену и подбирает точность.
 export const addAsset = (code: string, stock: boolean) => request<CurrencyInfo>('POST', '/api/assets', { code, stock })
+
+// Добавить обычную валюту по коду ISO (CAD, CNY): сервер проверяет, что Нацбанк публикует её курс.
+export const addCurrency = (code: string) => request<CurrencyInfo>('POST', '/api/currencies', { code })
 
 export const fetchRates = (inCurrency: string) => request<RateTable>('GET', `/api/rates?in=${inCurrency}`)
 
@@ -323,7 +320,6 @@ export const skipOccurrence = async (id: number, dueOn: string): Promise<void> =
   await send('POST', `/api/schedules/${id}/skip`, { due_on: dueOn })
 }
 
-export const parseQuick = (text: string, currency: string) => request<ParsedInput>('POST', '/api/transactions/parse', { text, currency })
 
 // Строка импорта: amount_minor со знаком, расход отрицательный. source_category заполнено, если категорию
 // из файла не удалось найти по названию и её выбирает пользователь.
@@ -343,10 +339,12 @@ export type ImportRow = {
 export type ImportPreview = { rows: ImportRow[]; skipped: number }
 
 // Отчёт прежнего бота в xlsx: разбирается на сервере, ничего не сохраняет до commitImport.
-export const previewImportFile = (accountId: number, file: File) => {
+// Выписка TBC и xlsx разбираются на сервере, PDF других банков уходит на разбор нейросети и требует consent.
+export const previewImportFile = (accountId: number, file: File, consent: boolean) => {
   const form = new FormData()
   form.append('account_id', String(accountId))
   form.append('file', file)
+  form.append('consent', String(consent))
   return request<ImportPreview>('POST', '/api/import/file', form)
 }
 

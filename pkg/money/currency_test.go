@@ -10,8 +10,8 @@ func TestRegistry(t *testing.T) {
 	if all := All(); len(all) != 35 || all[0] != GEL || all[5] != "BTC" {
 		t.Fatalf("All = %v", All())
 	}
-	if !slices.Equal(Core, []Currency{EUR, USD, RUB, USDT}) {
-		t.Errorf("Core = %v", Core)
+	if !slices.Equal(Core(), []Currency{EUR, USD, RUB, USDT}) {
+		t.Errorf("Core = %v", Core())
 	}
 	seen := map[Currency]bool{}
 	for _, c := range All() {
@@ -86,6 +86,24 @@ func TestRegister(t *testing.T) {
 		t.Errorf("built-in must not be replaced: %v", err)
 	}
 	for _, bad := range []Info{{Code: "pepe", Coin: true}, {Code: "A B", Coin: true}, {Code: "", Coin: true}, {Code: "TOOLONGCODE1", Coin: true}, {Code: "ZZZ", Units: 10, Coin: true}, {Code: "FIAT", Units: 2}} {
+		if err := Register(bad); !errors.Is(err, ErrBadCode) {
+			t.Errorf("%+v: %v", bad, err)
+		}
+	}
+}
+
+// Идёт последним: регистрация добавляет валюту в общий реестр и меняет Core.
+func TestRegisterFiat(t *testing.T) {
+	if err := Register(Info{Code: "CAD", Units: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if !IsFiat("CAD") || IsCoin("CAD") || MinorUnits("CAD") != 2 || !slices.Contains(Core(), "CAD") {
+		t.Error("registered fiat is not visible")
+	}
+	if IsFiat("GEL") || IsFiat("USDT") || IsFiat("BTC") || IsFiat("XXX") {
+		t.Error("IsFiat is wrong")
+	}
+	for _, bad := range []Info{{Code: "cad"}, {Code: "CA"}, {Code: "CADD"}, {Code: "KWX", Units: 4}, {Code: "ABC", Units: -1}, {Code: "STK", Stock: true}} {
 		if err := Register(bad); !errors.Is(err, ErrBadCode) {
 			t.Errorf("%+v: %v", bad, err)
 		}

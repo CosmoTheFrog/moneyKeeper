@@ -1,12 +1,12 @@
 import { t } from './i18n'
 
-export type Tab = 'operations' | 'budget' | 'reports' | 'accounts'
+export type Tab = 'operations' | 'budget' | 'reports' | 'accounts' | 'schedules'
 
 type Props = {
   tab: Tab
   onTab: (tab: Tab) => void
   onAdd: () => void
-  // В простом режиме счетов нет, вкладки «Счета» тоже.
+  // В простом режиме счетов нет: вместо вкладки «Счета» стоят «Платежи».
   simple?: boolean
 }
 
@@ -23,9 +23,11 @@ const right: Item[] = [
   { id: 'accounts', label: t.tabs.accounts, icon: 'M3 7a3 3 0 013-3h12a3 3 0 013 3v10a3 3 0 01-3 3H6a3 3 0 01-3-3zM3 10h18M7 15h4' },
 ]
 
+const payments: Item = { id: 'schedules', label: t.tabs.schedules, icon: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4' }
+
 function TabButton({ item, active, onTab }: { item: Item; active: boolean; onTab: (tab: Tab) => void }) {
   return (
-    <button type="button" className={active ? 'tab tab-active' : 'tab'} onClick={() => onTab(item.id)}>
+    <button type="button" className={active ? 'tab tab-active' : 'tab'} aria-label={item.label} aria-current={active ? 'page' : undefined} onClick={() => onTab(item.id)}>
       <span className="ti">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d={item.icon} />
@@ -47,7 +49,7 @@ export function TabBar({ tab, onTab, onAdd, simple = false }: Props) {
           <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
-      {right.filter((x) => !simple || x.id !== 'accounts').map((x) => (
+      {right.map((x) => (x.id === 'accounts' && simple ? payments : x)).map((x) => (
         <TabButton key={x.id} item={x} active={tab === x.id} onTab={onTab} />
       ))}
     </nav>

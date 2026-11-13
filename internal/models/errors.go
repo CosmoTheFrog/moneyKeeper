@@ -18,6 +18,8 @@ var (
 	ErrInvalidSchedule    = errors.New("invalid schedule")
 	ErrAssetNotFound      = errors.New("asset not found at the price source")
 
+	ErrAuthUnavailable = errors.New("sign in is unavailable")
+
 	ErrInvalidImport     = errors.New("invalid statement import")
 	ErrImportConsent     = errors.New("statement import needs the user's consent")
 	ErrImportUnavailable = errors.New("statement import is unavailable")

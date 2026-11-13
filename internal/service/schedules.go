@@ -264,6 +264,9 @@ func (s *Service) remindersFor(ctx context.Context, budgetID int64, m models.Use
 		if sent[mark] {
 			continue
 		}
+		if m.TelegramID == 0 {
+			continue
+		}
 		out = append(out, models.Reminder{TelegramID: m.TelegramID, Schedule: o.Schedule, DueOn: o.DueOn, Lead: lead})
 	}
 	return out, nil

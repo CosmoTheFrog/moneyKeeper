@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Transaction } from './api'
-import { dayIn, dayNet, frequentCategories, guessCategory, dayParts, daySummary, entryMatches, groupByDay, lastDays, shiftDay, toEntries, type Entry } from './ledger'
+import { categoryTotals, dayIn, dayNet, recordStreak, guessCategory, dayParts, daySummary, entryMatches, groupByDay, shiftDay, toEntries, type Entry } from './ledger'
 
 function tx(over: Partial<Transaction> & Pick<Transaction, 'id'>): Transaction {
   return {
@@ -175,26 +175,6 @@ describe('dayNet', () => {
   })
 })
 
-describe('lastDays', () => {
-  it('раскладывает расходы по дням, старые первыми, пустые дни с нулём', () => {
-    const out = lastDays(
-      [entry({ id: 1, date: '2026-11-03', baseMinor: -400 }), entry({ id: 2, date: '2026-11-03', baseMinor: -100 }), entry({ id: 3, date: '2026-11-01', baseMinor: -250 }), entry({ id: 4, date: '2026-10-01', baseMinor: -999 })],
-      '2026-11-03',
-      3,
-    )
-    expect(out).toEqual([
-      { date: '2026-11-01', spentMinor: 250 },
-      { date: '2026-11-02', spentMinor: 0 },
-      { date: '2026-11-03', spentMinor: 500 },
-    ])
-  })
-
-  it('доходы и расходы без курса не считаются', () => {
-    const out = lastDays([entry({ id: 1, kind: 'income', baseMinor: 5000 }), entry({ id: 2, baseMinor: null })], '2026-11-03', 1)
-    expect(out).toEqual([{ date: '2026-11-03', spentMinor: 0 }])
-  })
-})
-
 describe('dayParts', () => {
   it('складывает расходы по категориям, больше первыми', () => {
     const out = dayParts([entry({ id: 1, categoryId: 2, baseMinor: -999 }), entry({ id: 2, categoryId: 1, baseMinor: -3400 }), entry({ id: 3, categoryId: 2, baseMinor: -1 }), entry({ id: 4, kind: 'income', baseMinor: 9000 })])
@@ -237,25 +217,47 @@ describe('daySummary', () => {
   })
 })
 
-describe('frequentCategories and guessCategory', () => {
+describe('guessCategory', () => {
   const spend = (id: number, categoryId: number | null, note = '', kind: Entry['kind'] = 'expense'): Entry => ({
     id, kind, date: '2026-10-12', amountMinor: -100, currency: 'GEL', baseMinor: -100, accountId: 1, toAccountId: null, categoryId, note, inMinor: null, inCurrency: null, feeMinor: 0,
   })
   // Новые первыми: продукты 3 раза, кафе 2, такси 2 (но свежее кафе), доход и запись без категории не считаются.
   const entries = [spend(1, 20), spend(2, 10, 'Кофе '), spend(3, 30), spend(4, null), spend(5, 10), spend(6, 30), spend(7, 20), spend(8, 20), spend(9, 99, '', 'income')]
 
-  it('puts the most used first and breaks ties by recency', () => {
-    expect(frequentCategories(entries, 8)).toEqual([20, 10, 30])
-    expect(frequentCategories(entries, 2)).toEqual([20, 10])
-  })
-
-  it('returns nothing without expenses', () => {
-    expect(frequentCategories([], 8)).toEqual([])
-  })
-
   it('guesses the category from the latest expense with the same note', () => {
     expect(guessCategory(entries, 'кофе')).toBe(10)
     expect(guessCategory(entries, 'такси')).toBeNull()
     expect(guessCategory(entries, '  ')).toBeNull()
+  })
+})
+
+describe('recordStreak', () => {
+  const at = (date: string): Entry => ({ id: 1, kind: 'expense', date, amountMinor: -100, currency: 'GEL', baseMinor: -100, accountId: 1, toAccountId: null, categoryId: 1, note: '', inMinor: null, inCurrency: null, feeMinor: 0 })
+
+  it('counts consecutive days including today', () => {
+    expect(recordStreak([at('2026-10-12'), at('2026-10-11'), at('2026-10-11'), at('2026-10-10'), at('2026-10-08')], '2026-10-12')).toBe(3)
+  })
+
+  it('keeps the streak alive in the morning before the first record', () => {
+    expect(recordStreak([at('2026-10-11'), at('2026-10-10')], '2026-10-12')).toBe(2)
+  })
+
+  it('ignores openings and transfers', () => {
+    const other = (kind: Entry['kind'], date: string): Entry => ({ ...at(date), kind })
+    expect(recordStreak([other('opening', '2026-10-12'), other('transfer', '2026-10-11')], '2026-10-12')).toBe(0)
+  })
+
+  it('is zero after a gap', () => {
+    expect(recordStreak([at('2026-10-09')], '2026-10-12')).toBe(0)
+    expect(recordStreak([], '2026-10-12')).toBe(0)
+  })
+})
+
+describe('categoryTotals', () => {
+  const e = (date: string, baseMinor: number | null, kind: Entry['kind'] = 'expense'): Entry => ({ id: 1, kind, date, amountMinor: baseMinor ?? -1, currency: 'GEL', baseMinor, accountId: 1, toAccountId: null, categoryId: 1, note: '', inMinor: null, inCurrency: null, feeMinor: 0 })
+
+  it('splits spending into this month and all time, skipping entries without a rate', () => {
+    const list = [e('2026-10-05', -9000), e('2026-10-12', -500), e('2026-09-30', -90000), e('2026-10-06', null), e('2026-10-07', 100, 'income')]
+    expect(categoryTotals(list, '2026-10-13')).toEqual({ month: 9500, all: 99500 })
   })
 })

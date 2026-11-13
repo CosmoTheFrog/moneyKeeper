@@ -1,59 +1,38 @@
 :root {
-  --bg: #f3f5f7;
+  --bg: #ecedf3;
   --card: #fff;
-  --ink: #12202b;
-  --muted: #6b7a88;
-  --line: #e3e8ec;
-  --accent: #0e7c7b;
-  --accent-soft: #e1f2f1;
-  --danger: #c8372d;
-  --pos: #1f8a4c;
-  --accent-2: #0a5360;
+  --ink: #14141f;
+  --muted: #5a5b6e;
+  --line: #e3e5ee;
+  --accent: #2f4bff;
+  --accent-soft: #e4e8ff;
+  --danger: #c4301f;
+  --pos: #0e7a4b;
+  --accent-2: #2f4bff;
   --warn: #9c6508;
-  --hero: #e4f3f2;
-  --shadow: 0 1px 2px rgb(18 32 43 / 6%), 0 10px 28px -14px rgb(18 32 43 / 22%);
+  --hero: #fff;
+  --shadow: none;
+  --lime: #d8f25c;
+  --peach: #ffc9b0;
+  --lilac: #ebe0ff;
 
-  /* Оттенки групп: у группы по кругу свой, он идёт в иконки, кольца и разбивки. */
-  --g1: #0e7c7b;
-  --g2: #4a5fd0;
-  --g3: #9a4fb0;
-  --g4: #3a86a8;
-  --g5: #c0508a;
-  --g6: #5b8a2f;
+  /* Оттенки категорий: у категории по кругу свой, он идёт в значки, кольца и разбивки. */
+  --g1: #ff7a45;
+  --g2: #8a6cff;
+  --g3: #0fa3a3;
+  --g4: #e0457b;
+  --g5: #8fa800;
+  --g6: #2f4bff;
 }
 
-/* Тёмная тема: те же переменные, другие значения. Акцент чуть светлее, чтобы читался на тёмном. */
-:root[data-theme='dark'] {
-  --bg: #0f1720;
-  --card: #17222d;
-  --ink: #e8eef3;
-  --muted: #8fa0af;
-  --line: #263544;
-  --accent: #1fa3a1;
-  --accent-soft: #123f3e;
-  --danger: #f0675c;
-  --pos: #4cc27e;
-  --accent-2: #137a86;
-  --warn: #e0a93b;
-  --hero: #12343a;
-  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 28px -14px rgb(0 0 0 / 70%);
-  --g1: #1fa3a1;
-  --g2: #8093f0;
-  --g3: #c48ad6;
-  --g4: #6cb5d4;
-  --g5: #e58ab8;
-  --g6: #93c25f;
-
-  color-scheme: dark;
-}
-
+/* Тёмная тема: те же переменные, другие значения. Основная тема светлая. */
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: Manrope, system-ui, sans-serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
   background: var(--bg);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -2373,46 +2352,6 @@ span.money {
   font-weight: 800;
 }
 
-.week-label {
-  display: block;
-  margin-top: 14px;
-}
-
-.week {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  height: 66px;
-  margin-top: 6px;
-}
-
-.week > div {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  height: 100%;
-}
-
-.week i {
-  display: block;
-  width: 100%;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--accent) 28%, transparent);
-}
-
-.week .today i {
-  background: var(--accent);
-}
-
-.week small {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
 .search-field {
   display: block;
   margin-bottom: 10px;
@@ -2824,6 +2763,8 @@ span.money {
 .more-sub {
   font-size: 12px;
   color: var(--muted);
+}
+
 .tour-points {
   margin: 0 0 20px;
   padding-left: 20px;
@@ -2879,4 +2820,1057 @@ span.money {
 
 .imp-sub select {
   max-width: 60%;
+}
+
+/* Оформление «Спокойная сводка»: плоские карточки с тонкой линией, крупные цифры, один акцент, без теней и градиентов. */
+h1 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.money {
+  font-weight: 700;
+}
+
+.day {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.label {
+  font-weight: 500;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.primary {
+  border-radius: 14px;
+  background: var(--accent);
+  font-weight: 700;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chip-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.plus {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.plus-solid {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.ops-hero {
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.ops-hero > .money {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.tabbar {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
+  padding: 0 8px env(safe-area-inset-bottom, 0px);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: 0 -1px 0 var(--line);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.tab {
+  font-weight: 600;
+}
+
+.tab .ti {
+  height: 26px;
+  border-radius: 13px;
+}
+
+.tab-add {
+  width: 48px;
+  height: 48px;
+  margin: -20px 6px 0;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--card);
+}
+
+.screen {
+  padding-bottom: 104px;
+}
+
+/* Герой «Операций»: потрачено за месяц, сравнение, линия по дням, самые большие категории. */
+.hero-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.hero-row:last-child {
+  padding-bottom: 0;
+}
+
+.hero-av {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.hero-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hero-balance {
+  margin: 10px 4px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hero-balance .money {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.budget-head .hint .money {
+  display: inline;
+  font-size: inherit;
+}
+
+.card .chips + .field {
+  margin-top: 12px;
+}
+
+/* Оформление «Бенто»: светлый фон, плитки с большими скруглениями, один синий акцент, лайм и персик для мелких плиток, тёмная пилюля навигации. */
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+}
+
+.card {
+  border: 0;
+  border-radius: 30px;
+  box-shadow: none;
+}
+
+.primary {
+  padding: 17px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.chip {
+  border: 0;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.chip-on {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.plus {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.plus-solid {
+  background: var(--accent);
+  color: #fff;
+}
+
+.plus-avatar {
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tabbar {
+  right: auto;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  width: auto;
+  height: 64px;
+  padding: 0 8px;
+  gap: 6px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #14141f;
+  box-shadow: none;
+}
+
+.tab {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0;
+}
+
+.tab .ti {
+  width: auto;
+  height: auto;
+  background: transparent;
+}
+
+.tab-active {
+  background: #fff;
+  color: #14141f;
+}
+
+.tab-active .ti {
+  background: transparent;
+}
+
+.tab-add {
+  width: 46px;
+  height: 46px;
+  margin: 0;
+  background: var(--lime);
+  color: #14141f;
+  box-shadow: none;
+}
+
+.screen {
+  padding-bottom: 112px;
+}
+
+/* Плитки главного экрана. */
+.bento {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.bt {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 30px;
+}
+
+.bt-cap {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.bt-hero {
+  grid-column: 1 / span 2;
+  min-height: 176px;
+  padding: 18px 20px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.bt-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.bt-pill {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bt-pill .money {
+  font-size: inherit;
+  color: inherit;
+}
+
+.bt-hero > .money {
+  display: block;
+  font-size: 52px;
+  line-height: 1.05;
+  letter-spacing: -2.4px;
+  color: #fff;
+}
+
+.bt-line {
+  display: block;
+  width: 100%;
+  height: 36px;
+}
+
+.bt-ring {
+  align-items: flex-start;
+  min-height: 168px;
+  background: var(--card);
+}
+
+.bt-donut {
+  width: 104px;
+  height: 104px;
+  align-self: center;
+}
+
+.bt-col {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+}
+
+.bt-lime {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.bt-peach {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.bt-lime .bt-cap,
+.bt-peach .bt-cap {
+  color: #14141f;
+}
+
+.bt-lime .money {
+  font-size: 24px;
+  letter-spacing: -0.8px;
+  color: inherit;
+}
+
+.bt-peach b {
+  font-size: 26px;
+  letter-spacing: -0.8px;
+}
+
+.bt-list {
+  grid-column: 1 / span 2;
+  padding: 4px 18px;
+}
+
+.hero-row:first-child {
+  border-top: 0;
+}
+
+/* Счета: карточки-лица с цветом по виду счёта. */
+.list > .account {
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 30px;
+  background: var(--card);
+  color: var(--ink);
+  opacity: 1;
+}
+
+.list > .account::after {
+  content: none;
+}
+
+.list > .account-debit {
+  background: #14141f;
+  color: #fff;
+}
+
+.list > .account-debit::before {
+  position: absolute;
+  top: 66px;
+  right: 20px;
+  width: 38px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--lime);
+  content: '';
+}
+
+.list > .account-credit {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.list > .account-cash {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.list > .account-wallet,
+.list > .account-piggy {
+  background: var(--lilac);
+  color: var(--ink);
+}
+
+.ops-hero {
+  border-radius: 30px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.ops-hero .label,
+.ops-hero .hint {
+  color: rgb(255 255 255 / 85%);
+}
+
+.ops-hero > .money {
+  color: #fff;
+}
+
+/* Бюджет и отчёты в стиле «Бенто». */
+.budget-hero:not(.budget-tap) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.budget-hero:not(.budget-tap) .label,
+.budget-hero:not(.budget-tap) .hint,
+.budget-hero:not(.budget-tap) .split-legend {
+  color: rgb(255 255 255 / 88%);
+}
+
+.budget-hero:not(.budget-tap) .money,
+.budget-hero:not(.budget-tap) .hint .money,
+.budget-hero:not(.budget-tap) .split-legend .money {
+  color: #fff;
+}
+
+.budget-hero:not(.budget-tap) .split {
+  background: rgb(255 255 255 / 25%);
+}
+
+.b2-sub {
+  gap: 0 8px;
+}
+
+.bt-compare {
+  margin-top: 10px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.bt-compare .bt-cap {
+  color: rgb(255 255 255 / 88%);
+}
+
+.cmp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cmp-row > span:first-child {
+  flex: none;
+  width: 52px;
+}
+
+.cmp-row > i {
+  flex: 1;
+  height: 14px;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 25%);
+}
+
+.cmp-row > i b {
+  display: block;
+  height: 14px;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.cmp-prev > i b {
+  background: rgb(255 255 255 / 55%);
+}
+
+.cmp-row .money {
+  flex: none;
+  min-width: 70px;
+  text-align: right;
+  color: #fff;
+}
+
+.budget-hero:not(.budget-tap) .split-part {
+  margin-right: 2px;
+}
+
+.budget-hero .budget-sub .money {
+  display: inline;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+/* Форма записи в стиле «Бенто»: сумма крупно, цифровая клавиатура под большим пальцем. */
+.amount-hero {
+  padding: 8px 0 0;
+  text-align: center;
+}
+
+.amount-hero .amount-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+}
+
+.amount-big,
+.card .amount-big {
+  width: 70%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: right;
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -2px;
+}
+
+.amount-hero .amount-suffix {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.key {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.key:active {
+  background: var(--accent-soft);
+}
+
+.amount-hero .amount-big {
+  width: 70%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: right;
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -2px;
+}
+
+.amount-hero .amount-big:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.amount-hero .chips {
+  justify-content: center;
+}
+
+.key {
+  background: var(--bg);
+}
+
+.key:active {
+  background: var(--accent-soft);
+}
+
+/* Обучение и выбор режима: карточки-плитки. */
+.option {
+  background: var(--card);
+}
+
+.option-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.option-name .hint {
+  margin: 0;
+}
+
+.tour-tile {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 120px;
+  margin: 16px 0 12px;
+  border-radius: 30px;
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: -2px;
+}
+
+.tour-tile-0 {
+  background: var(--accent);
+  color: #fff;
+}
+
+.tour-tile-1 {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.tour-tile-2 {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.tour-tile-3 {
+  background: var(--lilac);
+  color: var(--ink);
+}
+
+.tour-points {
+  padding: 14px 18px 14px 34px;
+  border-radius: 24px;
+  background: var(--card);
+}
+
+/* Кнопка «Добавить на этот день» не шире экрана. */
+.day-cta {
+  width: auto;
+  box-shadow: none;
+}
+
+/* Карточка счёта на переднем плане: те же цвета, что в списке. */
+.flip-face {
+  border-radius: 32px;
+  box-shadow: none;
+}
+
+.flip-face.account-debit {
+  background: #14141f;
+  color: #fff;
+}
+
+.flip-face.account-credit {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.flip-face.account-cash {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.flip-face.account-wallet,
+.flip-face.account-piggy {
+  background: var(--lilac);
+  color: var(--ink);
+}
+
+.flip-face .card-action {
+  border-color: currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+.flip-face.account-debit .badge {
+  background: rgb(255 255 255 / 18%);
+}
+
+.flip-face:not(.account-debit) .badge {
+  background: rgb(20 20 31 / 10%);
+}
+
+.piggy-hero {
+  background: var(--lilac);
+}
+
+.option-name .hint {
+  font-weight: 500;
+}
+
+/* Поля выбора и файла в окнах: не шире окна, в общем стиле. */
+.field input[type='file'] {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 12px;
+  font-size: 14px;
+}
+
+.field select,
+.imp-sub select,
+.card select {
+  width: 100%;
+  padding: 13px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+
+.imp-sub select {
+  width: auto;
+  padding: 8px 10px;
+}
+
+/* Скрытый флажок переключателя не должен растягивать страницу: правило .card input давало ему ширину экрана. */
+.switch {
+  position: relative;
+}
+
+.switch input,
+.card .switch input {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+}
+
+.field input[type='file']::file-selector-button {
+  margin-right: 10px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Иконки вкладок ровно по центру кружков: подпись скрыта размером шрифта, но остаётся элементом сетки и сдвигала значок вверх. */
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.tab .ti {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+/* Плитки главного экрана нажимаются и ведут в разделы. */
+.bt-tap,
+.hero-row,
+.hero-balance,
+.mini-card {
+  cursor: pointer;
+}
+
+.bt-tap {
+  text-align: left;
+  transition: transform 0.12s;
+}
+
+.bt-tap:active,
+.mini-card:active {
+  transform: scale(0.98);
+}
+
+.bt-tap:focus-visible,
+.hero-row:focus-visible,
+.hero-balance:focus-visible,
+.mini-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.bento-full {
+  margin-top: 10px;
+}
+
+.bt-pay {
+  background: var(--card);
+}
+
+.bt-piggy {
+  background: var(--lilac);
+  color: var(--ink);
+}
+
+.bt-pay .bt-name,
+.bt-piggy .bt-sub {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.bt-pay .money,
+.bt-piggy .money {
+  font-size: 22px;
+  letter-spacing: -0.6px;
+}
+
+.bt-due {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.bt-due-over {
+  color: var(--danger);
+}
+
+.bt-empty {
+  font-size: 15px;
+}
+
+.bt-piggy .bt-top {
+  color: var(--ink);
+}
+
+.mini-cards {
+  display: flex;
+  gap: 10px;
+  margin: 10px -16px 0;
+  padding: 0 16px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.mini-cards::-webkit-scrollbar {
+  display: none;
+}
+
+.mini-card {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 170px;
+  min-height: 100px;
+  padding: 12px 14px;
+  border-radius: 24px;
+  background: var(--card);
+  color: var(--ink);
+  scroll-snap-align: start;
+}
+
+.mini-debit {
+  background: #14141f;
+  color: #fff;
+}
+
+.mini-credit {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.mini-cash {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.mini-wallet {
+  background: var(--lilac);
+}
+
+.mini-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mini-card .money {
+  font-size: 22px;
+  letter-spacing: -0.7px;
+  color: inherit;
+}
+
+/* Счета: лента карточек и плитки копилки и портфеля. */
+.list.account-strip {
+  flex-direction: row;
+  gap: 10px;
+  margin: 12px -16px;
+  padding: 0 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.account-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.list.account-strip > .account {
+  flex: none;
+  width: min(262px, 78vw);
+  min-height: 164px;
+  scroll-snap-align: start;
+}
+
+.bt-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bt-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: #14141f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.list.account-strip,
+.mini-cards {
+  scroll-padding: 0 16px;
+}
+
+.bt > .money {
+  align-self: flex-start;
+  text-align: left;
+}
+
+/* Бюджет в режиме трат: значок категории и полоска её доли, как на схеме. */
+.b2-row {
+  position: relative;
+}
+
+.b2-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.b2-bar {
+  position: absolute;
+  right: 14px;
+  bottom: 6px;
+  left: 70px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.b2-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--gc);
+}
+
+.b2-row:has(.b2-bar) {
+  padding-bottom: 20px;
+}
+
+/* Кнопка «Назад» над разделом, открытым плиткой главного экрана. */
+.back-float {
+  margin: 14px 0 -6px 16px;
+}
+
+/* «Поп»: жёлтый фон, чёрные контуры и жёсткие тени без размытия. Те же переменные, другие значения. */
+:root[data-theme='pop'] {
+  --bg: #ffe45c;
+  --card: #fff;
+  --ink: #111;
+  --muted: #3d3a2a;
+  --line: #111;
+  --accent: #ff5a3c;
+  --accent-soft: #ffd9cf;
+  --accent-2: #ff5a3c;
+  --pos: #0a6b3c;
+  --hero: #fff;
+  --lime: #b8f04a;
+  --peach: #ffb08f;
+  --lilac: #cdb8ff;
+  --g1: #ff5a3c;
+  --g2: #7a5cff;
+  --g3: #00a0a0;
+  --g4: #e0307a;
+  --g5: #6fa000;
+  --g6: #2f4bff;
+}
+
+:root[data-theme='pop'] .card,
+:root[data-theme='pop'] .bt,
+:root[data-theme='pop'] .modal,
+:root[data-theme='pop'] .chip,
+:root[data-theme='pop'] .plus,
+:root[data-theme='pop'] .tabbar,
+:root[data-theme='pop'] .mini-cards > *,
+:root[data-theme='pop'] .hero-balance {
+  border: 2px solid #111;
+  box-shadow: 4px 4px 0 #111;
+}
+
+:root[data-theme='pop'] .bt-hero {
+  background: var(--accent);
+  color: #fff;
+}
+
+:root[data-theme='pop'] .chip-on,
+:root[data-theme='pop'] .primary {
+  border: 2px solid #111;
+  background: #111;
+  color: var(--lime);
+  box-shadow: 3px 3px 0 var(--accent);
+}
+
+:root[data-theme='pop'] .tabbar {
+  background: var(--lime);
+  box-shadow: 4px 4px 0 #111;
+}
+
+:root[data-theme='pop'] .backdrop {
+  background: rgb(17 17 17 / 45%);
+  backdrop-filter: none;
 }

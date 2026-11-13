@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -338,8 +339,15 @@ func TestRateTable(t *testing.T) {
 		t.Errorf("BTC = %q, want about 92305", got["BTC"])
 	}
 	// Подменный источник знает только BTC и DOGE: GEL, EUR, RUB, USDT и две монеты, доллара к самому себе нет.
-	if len(table.Quotes) != 6 {
-		t.Errorf("%d quotes, want 6: %v", len(table.Quotes), got)
+	// Обычные валюты, добавленные другими тестами этого процесса (CAD, JPY), тоже в таблице: реестр общий.
+	want := 6
+	for _, c := range money.All() {
+		if money.IsFiat(c) && !slices.Contains(money.Base, c) {
+			want++
+		}
+	}
+	if len(table.Quotes) != want {
+		t.Errorf("%d quotes, want %d: %v", len(table.Quotes), want, got)
 	}
 
 	// Без базовой валюты и без параметра таблица строится к лари.

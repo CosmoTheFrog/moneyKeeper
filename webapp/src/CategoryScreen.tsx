@@ -1,7 +1,8 @@
 import type { Account, Category } from './api'
 import { EntryList } from './EntryList'
 import { t } from './i18n'
-import type { Entry } from './ledger'
+import { categoryTotals, type Entry } from './ledger'
+import { Money } from './MoneyText'
 
 type Props = {
   category: Category
@@ -9,13 +10,16 @@ type Props = {
   accounts: Account[]
   categories: Category[]
   today: string
+  // Валюта, в которой посчитаны суммы записей (baseMinor).
+  currency: string
   onBack: () => void
   onAdd: () => void
   onOpen: (entry: Entry) => void
 }
 
 // Траты по одной категории, новые сверху. «+» добавляет трату сразу в эту категорию.
-export function CategoryScreen({ category, entries, accounts, categories, today, onBack, onAdd, onOpen }: Props) {
+export function CategoryScreen({ category, entries, accounts, categories, today, currency, onBack, onAdd, onOpen }: Props) {
+  const totals = categoryTotals(entries, today)
   return (
     <main className="screen">
       <header className="row">
@@ -31,6 +35,16 @@ export function CategoryScreen({ category, entries, accounts, categories, today,
 
       <h1>{category.name}</h1>
       <p className="hint">{t.categories.spendHere}</p>
+      <div className="bento">
+        <div className="bt bt-lime">
+          <span className="bt-cap">{t.categories.thisMonth}</span>
+          <Money minor={totals.month} currency={currency} />
+        </div>
+        <div className="bt bt-peach">
+          <span className="bt-cap">{t.categories.allTime}</span>
+          <Money minor={totals.all} currency={currency} />
+        </div>
+      </div>
 
       {entries.length === 0 && <p className="hint">{t.categories.noSpend}</p>}
       <EntryList entries={entries} accounts={accounts} categories={categories} today={today} onOpen={onOpen} noteFirst="plain" />

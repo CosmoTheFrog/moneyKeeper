@@ -29,7 +29,9 @@ func (f *fakeService) FindUser(context.Context, int64) (models.User, error) {
 	}
 	return *f.user, nil
 }
-func (f *fakeService) Budget(context.Context, models.User) (models.Budget, error) { return f.budget, nil }
+func (f *fakeService) Budget(context.Context, models.User) (models.Budget, error) {
+	return f.budget, nil
+}
 func (f *fakeService) ListAccounts(context.Context, models.User, string) ([]models.Account, error) {
 	if f.noAccount {
 		return nil, nil
