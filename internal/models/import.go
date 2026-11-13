@@ -40,4 +40,7 @@ type WalletAddress struct {
 type ImportPreview struct {
 	Rows    []ImportRow
 	Skipped int
+	// OtherCurrencies: валюты строк, отброшенных потому, что выбранный счёт их не принимает. Пользователь видит, что
+	// выбрал не тот счёт, а не просто «не удалось прочитать».
+	OtherCurrencies []string
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -149,6 +150,7 @@ func (s *Service) PreviewImport(ctx context.Context, u models.User, accountID in
 	system := statementPrompt + strings.Join(names, "; ")
 
 	var out models.ImportPreview
+	skipped := map[string]int{} // причины отказа для лога: только числа, без содержимого выписки
 	for _, chunk := range splitStatement(text, chunkRunes) {
 		raw, err := s.statementLLM.CompleteJSON(ctx, system, chunk)
 		if err != nil {
@@ -160,16 +162,27 @@ func (s *Service) PreviewImport(ctx context.Context, u models.User, accountID in
 		var reply statementReply
 		if err := json.Unmarshal([]byte(raw), &reply); err != nil {
 			out.Skipped++ // ответ чанка не разобрать, остальные чанки не страдают
+			skipped["reply"]++
 			continue
 		}
 		for _, r := range reply.Rows {
-			row, ok := buildRow(acc, chunk, byName, r.Date, r.RawAmount, r.Direction, r.Currency, r.Description, r.Category)
-			if !ok || len(out.Rows) >= maxImportRows {
+			row, reason := buildRow(acc, chunk, byName, r.Date, r.RawAmount, r.Direction, r.Currency, r.Description, r.Category)
+			if reason != "" || len(out.Rows) >= maxImportRows {
 				out.Skipped++
+				if reason == "" {
+					reason = "limit" // строк больше предела за один раз
+				}
+				skipped[reason]++
+				if reason == skipCurrency && row.Currency != "" && !slices.Contains(out.OtherCurrencies, string(row.Currency)) {
+					out.OtherCurrencies = append(out.OtherCurrencies, string(row.Currency))
+				}
 				continue
 			}
 			out.Rows = append(out.Rows, row)
 		}
+	}
+	if out.Skipped > 0 {
+		s.log.Info("import rows skipped", "kept", len(out.Rows), "skipped", out.Skipped, "reasons", skipped)
 	}
 	if err := s.applyRules(ctx, u, out.Rows, byName); err != nil {
 		return models.ImportPreview{}, err
@@ -180,24 +193,45 @@ func (s *Service) PreviewImport(ctx context.Context, u models.User, accountID in
 	return out, nil
 }
 
-func buildRow(acc models.Account, chunk string, byName map[string]int64, date, rawAmount, direction, currency, description, category string) (models.ImportRow, bool) {
+// Почему строка отброшена: нужно, чтобы в логе и в ответе было видно причину, а не только число пропущенных.
+const (
+	skipDate      = "date"
+	skipAmount    = "amount"
+	skipCurrency  = "currency"
+	skipDirection = "direction"
+)
+
+// currencySigns: выписки часто пишут знак вместо кода, модель может вернуть его как есть.
+var currencySigns = map[string]string{"₾": "GEL", "$": "USD", "€": "EUR", "₽": "RUB"}
+
+// buildRow проверяет строку модели. Вторым значением идёт причина отказа, пустая если строка принята; при отказе по
+// валюте в строке остаётся код валюты, чтобы показать его пользователю.
+func buildRow(acc models.Account, chunk string, byName map[string]int64, date, rawAmount, direction, currency, description, category string) (models.ImportRow, string) {
 	day, err := apptime.ParseDay(date)
 	if err != nil {
-		return models.ImportRow{}, false
+		return models.ImportRow{}, skipDate
 	}
 	rawAmount = strings.TrimSpace(rawAmount)
 	if rawAmount == "" || !strings.Contains(chunk, rawAmount) {
-		return models.ImportRow{}, false
+		return models.ImportRow{}, skipAmount
 	}
 	cur := acc.Currency
-	if currency != "" {
-		if cur, err = money.Parse(strings.ToUpper(currency)); err != nil || !acc.Allows(cur) {
-			return models.ImportRow{}, false
+	if currency = strings.TrimSpace(currency); currency != "" {
+		if code, ok := currencySigns[currency]; ok {
+			currency = code
 		}
+		parsed, err := money.Parse(strings.ToUpper(currency))
+		if err != nil {
+			return models.ImportRow{}, skipCurrency
+		}
+		if !acc.Allows(parsed) {
+			return models.ImportRow{Currency: parsed}, skipCurrency
+		}
+		cur = parsed
 	}
 	minor, err := parseStatementAmount(rawAmount, money.MinorUnits(cur))
 	if err != nil || minor > maxAmountMinor {
-		return models.ImportRow{}, false
+		return models.ImportRow{}, skipAmount
 	}
 	row := models.ImportRow{Date: day, Currency: cur, Description: truncateRunes(strings.TrimSpace(description), maxNoteRunes)}
 	switch direction {
@@ -209,9 +243,9 @@ func buildRow(acc models.Account, chunk string, byName map[string]int64, date, r
 			row.CategoryID, row.Suggested = &id, true
 		}
 	default:
-		return models.ImportRow{}, false
+		return models.ImportRow{}, skipDirection
 	}
-	return row, true
+	return row, ""
 }
 
 // markDuplicates помечает строки, для которых на счёте уже есть запись с той же датой, суммой и валютой. Одна

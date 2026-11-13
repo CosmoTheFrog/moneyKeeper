@@ -93,23 +93,28 @@ func TestBuildRow(t *testing.T) {
 		wantMinor                                 int64
 		wantCat                                   *int64
 		wantCurrency                              money.Currency
+		wantReason                                string
 	}{
-		{"expense with category", "2026-10-03", "-12,50", "out", "", "Glovo", "Питание вне дома", true, -1250, &cafe, money.GEL},
-		{"income ignores category", "2026-10-04", "1 000.00", "in", "gel", "Salary", "Питание вне дома", true, 100000, nil, money.GEL},
-		{"unknown category", "2026-10-03", "-12,50", "out", "", "Glovo", "Не та", true, -1250, nil, money.GEL},
-		{"amount not in statement", "2026-10-03", "-99,99", "out", "", "Glovo", "", false, 0, nil, ""},
-		{"bad date", "03.10.2026", "-12,50", "out", "", "Glovo", "", false, 0, nil, ""},
-		{"bad direction", "2026-10-03", "-12,50", "", "", "Glovo", "", false, 0, nil, ""},
-		{"foreign currency on single-currency account", "2026-10-03", "-12,50", "out", "EUR", "Glovo", "", false, 0, nil, ""},
-		{"unknown currency", "2026-10-03", "-12,50", "out", "XXX", "Glovo", "", false, 0, nil, ""},
+		{"expense with category", "2026-10-03", "-12,50", "out", "", "Glovo", "Питание вне дома", true, -1250, &cafe, money.GEL, ""},
+		{"income ignores category", "2026-10-04", "1 000.00", "in", "gel", "Salary", "Питание вне дома", true, 100000, nil, money.GEL, ""},
+		{"unknown category", "2026-10-03", "-12,50", "out", "", "Glovo", "Не та", true, -1250, nil, money.GEL, ""},
+		{"amount not in statement", "2026-10-03", "-99,99", "out", "", "Glovo", "", false, 0, nil, "", skipAmount},
+		{"bad date", "03.10.2026", "-12,50", "out", "", "Glovo", "", false, 0, nil, "", skipDate},
+		{"bad direction", "2026-10-03", "-12,50", "", "", "Glovo", "", false, 0, nil, "", skipDirection},
+		{"foreign currency on single-currency account", "2026-10-03", "-12,50", "out", "EUR", "Glovo", "", false, 0, nil, "", skipCurrency},
+		{"currency sign", "2026-10-03", "-12,50", "out", "₾", "Glovo", "", true, -1250, nil, money.GEL, ""},
+		{"unknown currency", "2026-10-03", "-12,50", "out", "XXX", "Glovo", "", false, 0, nil, "", skipCurrency},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row, ok := buildRow(acc, chunk, byName, tt.date, tt.raw, tt.direction, tt.currency, tt.desc, tt.cat)
-			if ok != tt.wantOK {
-				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			row, reason := buildRow(acc, chunk, byName, tt.date, tt.raw, tt.direction, tt.currency, tt.desc, tt.cat)
+			if ok := reason == ""; ok != tt.wantOK {
+				t.Fatalf("reason = %q, wantOK %v", reason, tt.wantOK)
 			}
-			if !ok {
+			if reason != "" {
+				if reason != tt.wantReason {
+					t.Errorf("reason = %q, want %q", reason, tt.wantReason)
+				}
 				return
 			}
 			if row.AmountMinor != tt.wantMinor || row.Currency != tt.wantCurrency {
