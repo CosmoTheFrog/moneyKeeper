@@ -168,7 +168,8 @@ export function guessCategory(entries: Entry[], note: string): number | null {
 // recordStreak: сколько дней подряд до today включительно есть хоть одна запись. Если сегодня записей нет, считается
 // от вчера: день ещё не закончился, и серия не должна обнуляться с утра.
 export function recordStreak(entries: Entry[], today: string): number {
-  const days = new Set(entries.map((e) => e.date))
+  // Остаток при открытии счёта и переводы это не записи о деньгах дня: считаются только расходы и доходы.
+  const days = new Set(entries.filter((e) => e.kind === 'expense' || e.kind === 'income').map((e) => e.date))
   let day = days.has(today) ? today : shiftDay(today, -1)
   let n = 0
   while (days.has(day)) {
@@ -176,4 +177,18 @@ export function recordStreak(entries: Entry[], today: string): number {
     day = shiftDay(day, -1)
   }
   return n
+}
+
+// categoryTotals: траты записей одной категории за текущий месяц и за всё время, в валюте пересчёта. Запись без курса
+// не входит ни в одну сумму.
+export function categoryTotals(entries: Entry[], today: string): { month: number; all: number } {
+  const month = today.slice(0, 7)
+  let all = 0
+  let inMonth = 0
+  for (const e of entries) {
+    if (e.kind !== 'expense' || e.baseMinor === null) continue
+    all -= e.baseMinor
+    if (e.date.slice(0, 7) === month) inMonth -= e.baseMinor
+  }
+  return { month: inMonth, all }
 }

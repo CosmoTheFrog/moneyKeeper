@@ -1,14 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { fetchBudgetMonth, type Account, type BudgetMonth, type Category } from './api'
+import { fetchBudgetMonth, fetchOccurrences, type Account, type BudgetMonth, type Category, type Occurrence } from './api'
 import { totalBalance } from './accounts'
-import { shiftMonth } from './calendar'
 import { EntryList } from './EntryList'
+import { FullTiles } from './FullTiles'
 import { t } from './i18n'
 import { dayNet, entryMatches, recordStreak, type Entry } from './ledger'
 import { MonthHero } from './MonthHero'
 import { Money } from './MoneyText'
-import { monthLine } from './report'
+import { onKey } from './onKey'
+import { monthLine, previousRange, spendByCategory } from './report'
 import { EmptyState } from './States'
+import type { Tab } from './TabBar'
 
 type Props = {
   entries: Entry[]
@@ -22,6 +24,11 @@ type Props = {
   onAdd: () => void
   onOpenDay?: (date: string) => void
   onOpenMore: () => void
+  // Плитки главного экрана ведут в другие разделы.
+  onOpenTab: (tab: Tab) => void
+  onOpenCategory: (id: number) => void
+  onOpenSchedules: () => void
+  onOpenSavings: () => void
   // Имя в профиле: первая буква стоит на кнопке «Ещё».
   name: string
   // Простой режим: остатка по счетам нет, показывать его не нужно.
@@ -29,9 +36,9 @@ type Props = {
   wrapRow?: (entry: Entry, row: ReactNode) => ReactNode
 }
 
-export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, name, simple = false, wrapRow }: Props) {
+export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, onOpenTab, onOpenCategory, onOpenSchedules, onOpenSavings, name, simple = false, wrapRow }: Props) {
   const [month, setMonth] = useState<BudgetMonth | null>(null)
-  const [previous, setPrevious] = useState<BudgetMonth | null>(null)
+  const [nextPayment, setNextPayment] = useState<Occurrence | null>(null)
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
   const [accountId, setAccountId] = useState<number | null>(null)
@@ -42,17 +49,21 @@ export function OperationsScreen({ entries, accounts, categories, today, display
     fetchBudgetMonth(today.slice(0, 7))
       .then((b) => alive && setMonth(b))
       .catch(() => {})
-    fetchBudgetMonth(shiftMonth(today.slice(0, 7), -1))
-      .then((b) => alive && setPrevious(b))
-      .catch(() => {})
+    if (!simple) {
+      fetchOccurrences()
+        .then((list) => alive && setNextPayment(list.filter((o) => o.status === 'upcoming' || o.status === 'overdue').sort((a, b) => a.due_on.localeCompare(b.due_on))[0] ?? null))
+        .catch(() => {})
+    }
     return () => {
       alive = false
     }
-  }, [today, entries])
+  }, [today, entries, simple])
 
   const accountName = new Map(accounts.map((a) => [a.id, a.name]))
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
   const balance = totalBalance(accounts)
+  // Прошлый месяц до сегодняшнего числа, чтобы сравнение с неполным текущим месяцем было честным.
+  const previousMinor = spendByCategory(entries, categories, previousRange('month', today), { kind: 'base' }).reduce((s, x) => s + x.totalMinor, 0)
 
   const filtering = query.trim() !== '' || accountId !== null
   const shown = entries.filter((e) => (accountId === null || e.accountId === accountId || e.toAccountId === accountId) && entryMatches(e, query, accountName, categoryName))
@@ -102,11 +113,12 @@ export function OperationsScreen({ entries, accounts, categories, today, display
 
       {!filtering && entries.length > 0 && (
         <>
-          <MonthHero month={month} previous={previous} categories={categories} line={monthLine(entries, today)} streak={recordStreak(entries, today)} currency={base} />
+          <MonthHero month={month} previousMinor={previousMinor} categories={categories} line={monthLine(entries, today)} streak={recordStreak(entries, today)} currency={base} onOpenReports={() => onOpenTab('reports')} onOpenBudget={() => onOpenTab('budget')} onOpenToday={() => onOpenDay?.(today)} onAdd={onAdd} onOpenCategory={onOpenCategory} />
+          {!simple && <FullTiles accounts={accounts.filter((a) => !a.archived)} nextPayment={nextPayment} today={today} onOpenAccounts={() => onOpenTab('accounts')} onOpenSchedules={onOpenSchedules} onOpenSavings={onOpenSavings} />}
           {!simple && balance !== null && (
-            <p className="hero-balance">
+            <div role="button" tabIndex={0} className="hero-balance" onClick={() => onOpenTab('accounts')} onKeyDown={onKey(() => onOpenTab('accounts'))}>
               {t.ledger.balance} <Money minor={balance} currency={display} />
-            </p>
+            </div>
           )}
         </>
       )}

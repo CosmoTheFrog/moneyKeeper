@@ -4,11 +4,13 @@ import { CategoryColorContext } from './categoryColor'
 import { categoryIcon } from './categoryIcons'
 import { t } from './i18n'
 import { Money } from './MoneyText'
+import { onKey } from './onKey'
 import { Skeleton } from './States'
 
 type Props = {
   month: BudgetMonth | null
-  previous: BudgetMonth | null
+  // Траты прошлого месяца до того же числа (см. previousRange), null пока записи не загружены.
+  previousMinor: number | null
   categories: Category[]
   // Траты месяца нарастающим итогом по дням (см. monthLine).
   line: number[]
@@ -17,6 +19,12 @@ type Props = {
   currency: string
   // Сколько категорий показать в списке под плитками.
   top?: number
+  // Каждая плитка ведёт на свой экран.
+  onOpenReports: () => void
+  onOpenBudget: () => void
+  onOpenToday: () => void
+  onAdd: () => void
+  onOpenCategory: (id: number) => void
 }
 
 const spentOf = (m: BudgetMonth) => m.categories.reduce((sum, r) => sum + Math.max(r.spent_minor, 0), 0)
@@ -60,10 +68,10 @@ function Ring({ parts }: { parts: { key: number; share: number; color: string }[
 
 // MonthHero: главный экран «Операций» плитками «Бенто»: потрачено за месяц с линией, кольцо категорий, средний день,
 // серия дней с записями и три крупнейшие категории.
-export function MonthHero({ month, previous, categories, line, streak, currency, top = 3 }: Props) {
+export function MonthHero({ month, previousMinor, categories, line, streak, currency, top = 3, onOpenReports, onOpenBudget, onOpenToday, onAdd, onOpenCategory }: Props) {
   const colors = useContext(CategoryColorContext)
   const spent = month === null ? 0 : spentOf(month)
-  const before = previous === null ? null : spentOf(previous)
+  const before = previousMinor
   const delta = before === null ? 0 : spent - before
   const days = Math.max(line.length, 1)
   const name = new Map(categories.map((c) => [c.id, c.name]))
@@ -73,7 +81,7 @@ export function MonthHero({ month, previous, categories, line, streak, currency,
 
   return (
     <div className="bento">
-      <div className="bt bt-hero">
+      <div role="button" tabIndex={0} className="bt bt-hero bt-tap" onClick={onOpenReports} onKeyDown={onKey(onOpenReports)}>
         <div className="bt-top">
           <span>{t.hero.spent}</span>
           {before !== null && before > 0 && delta !== 0 && (
@@ -87,17 +95,17 @@ export function MonthHero({ month, previous, categories, line, streak, currency,
         <Line values={line} />
       </div>
 
-      <div className="bt bt-ring">
+      <div role="button" tabIndex={0} className="bt bt-ring bt-tap" onClick={onOpenBudget} onKeyDown={onKey(onOpenBudget)}>
         <span className="bt-cap">{t.hero.byCategory}</span>
-        {ringParts.length > 0 ? <Ring parts={ringParts} /> : <p className="hint tight">{t.reports.empty}</p>}
+        {ringParts.length > 0 ? <Ring parts={ringParts} /> : <span className="bt-cap">{t.reports.empty}</span>}
       </div>
 
       <div className="bt-col">
-        <div className="bt bt-lime">
+        <div role="button" tabIndex={0} className="bt bt-lime bt-tap" onClick={onOpenToday} onKeyDown={onKey(onOpenToday)}>
           <span className="bt-cap">{t.hero.avgDay}</span>
           {month === null ? <Skeleton w={80} h={26} /> : <Money minor={Math.round(spent / days)} currency={currency} />}
         </div>
-        <div className="bt bt-peach">
+        <div role="button" tabIndex={0} className="bt bt-peach bt-tap" onClick={onAdd} onKeyDown={onKey(onAdd)}>
           <span className="bt-cap">{t.hero.streak}</span>
           <b>{streak}</b>
         </div>
@@ -109,7 +117,7 @@ export function MonthHero({ month, previous, categories, line, streak, currency,
             const title = name.get(r.category_id) ?? ''
             const path = categoryIcon(title)
             return (
-              <div key={r.category_id} className="hero-row">
+              <div key={r.category_id} role="button" tabIndex={0} className="hero-row" onClick={() => onOpenCategory(r.category_id)} onKeyDown={onKey(() => onOpenCategory(r.category_id))}>
                 <span className="avatar hero-av" style={{ '--gc': colors.get(r.category_id) ?? 'var(--accent)' } as CSSProperties} aria-hidden="true">
                   {path !== null ? (
                     <svg viewBox="0 0 24 24">

@@ -3643,3 +3643,214 @@ h1 {
   height: auto;
   margin: 0;
 }
+
+/* Плитки главного экрана нажимаются и ведут в разделы. */
+.bt-tap,
+.hero-row,
+.hero-balance,
+.mini-card {
+  cursor: pointer;
+}
+
+.bt-tap {
+  text-align: left;
+  transition: transform 0.12s;
+}
+
+.bt-tap:active,
+.mini-card:active {
+  transform: scale(0.98);
+}
+
+.bt-tap:focus-visible,
+.hero-row:focus-visible,
+.hero-balance:focus-visible,
+.mini-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.bento-full {
+  margin-top: 10px;
+}
+
+.bt-pay {
+  background: var(--card);
+}
+
+.bt-piggy {
+  background: var(--lilac);
+  color: var(--ink);
+}
+
+.bt-pay .bt-name,
+.bt-piggy .bt-sub {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.bt-pay .money,
+.bt-piggy .money {
+  font-size: 22px;
+  letter-spacing: -0.6px;
+}
+
+.bt-due {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.bt-due-over {
+  color: var(--danger);
+}
+
+.bt-empty {
+  font-size: 15px;
+}
+
+.bt-piggy .bt-top {
+  color: var(--ink);
+}
+
+.mini-cards {
+  display: flex;
+  gap: 10px;
+  margin: 10px -16px 0;
+  padding: 0 16px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.mini-cards::-webkit-scrollbar {
+  display: none;
+}
+
+.mini-card {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 170px;
+  min-height: 100px;
+  padding: 12px 14px;
+  border-radius: 24px;
+  background: var(--card);
+  color: var(--ink);
+  scroll-snap-align: start;
+}
+
+.mini-debit {
+  background: #14141f;
+  color: #fff;
+}
+
+:root[data-theme='dark'] .mini-debit {
+  background: #2a2d3a;
+}
+
+.mini-credit {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.mini-cash {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.mini-wallet {
+  background: var(--lilac);
+}
+
+.mini-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mini-card .money {
+  font-size: 22px;
+  letter-spacing: -0.7px;
+  color: inherit;
+}
+
+/* Счета: лента карточек и плитки копилки и портфеля. */
+.list.account-strip {
+  flex-direction: row;
+  gap: 10px;
+  margin: 12px -16px;
+  padding: 0 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.account-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.list.account-strip > .account {
+  flex: none;
+  width: min(262px, 78vw);
+  min-height: 164px;
+  scroll-snap-align: start;
+}
+
+.bt-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bt-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: #14141f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.list.account-strip,
+.mini-cards {
+  scroll-padding: 0 16px;
+}
+
+.bt > .money {
+  align-self: flex-start;
+  text-align: left;
+}
+
+/* Бюджет в режиме трат: значок категории и полоска её доли, как на схеме. */
+.b2-row {
+  position: relative;
+}
+
+.b2-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.b2-bar {
+  position: absolute;
+  right: 14px;
+  bottom: 6px;
+  left: 70px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.b2-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--gc);
+}
+
+.b2-row:has(.b2-bar) {
+  padding-bottom: 20px;
+}

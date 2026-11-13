@@ -33,6 +33,15 @@ export function rangeFor(period: Period, today: string, offset = 0): Range {
   return { from: `${ym}-01`, to: offset === 0 ? today : last }
 }
 
+// previousRange: период, с которым сравнивается выбранный. Текущий месяц ещё не закончился, поэтому прошлый берётся
+// до того же числа: иначе неполный месяц сравнивался бы с целым и всегда казался меньше.
+export function previousRange(period: Period, today: string, offset = 0): Range {
+  const prev = rangeFor(period, today, offset - 1)
+  if (period !== 'month' || offset !== 0) return prev
+  const day = Math.min(Number(today.slice(8, 10)), Number(prev.to.slice(8, 10)))
+  return { from: prev.from, to: `${prev.from.slice(0, 8)}${String(day).padStart(2, '0')}` }
+}
+
 function shiftYearMonth(ym: string, n: number): string {
   const [y, m] = ym.split('-').map(Number)
   return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1 + n, 1)).toISOString().slice(0, 7)

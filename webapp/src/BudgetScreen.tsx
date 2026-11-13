@@ -12,11 +12,13 @@ import {
   type Category,
   type Transaction,
 } from './api'
-import { fillPercent, monthPace, parseBudgeted, rowStatus, spendingOf, toBudgetTone, type RowStatus } from './budget'
+import { fillPercent, monthPace, monthToDate, parseBudgeted, rowStatus, spendingOf, toBudgetTone, type RowStatus } from './budget'
+import { toEntries } from './ledger'
 import { BudgetCompare } from './BudgetCompare'
 import { BudgetFocus } from './BudgetFocus'
 import { BudgetSuggest } from './BudgetSuggest'
 import { CategoryRing } from './CategoryRing'
+import { categoryIcon } from './categoryIcons'
 import { monthTitle, shiftMonth } from './calendar'
 import { categoryColors } from './categoryColor'
 import { errorText, t } from './i18n'
@@ -95,7 +97,9 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
   }, [envelopesEnabled])
 
   const envelopes = view === 'envelopes'
-  const spending = budget === null ? null : spendingOf(budget, previous)
+  // В текущем месяце сравнение с прошлым идёт до того же числа, в остальных с целым месяцем.
+  const comparable = previous !== null && month === today.slice(0, 7) ? monthToDate(previous, toEntries(ledger), categories, today) : previous
+  const spending = budget === null ? null : spendingOf(budget, comparable)
 
   async function switchEnvelopes(enabled: boolean) {
     setEnvelopesError(null)
@@ -296,7 +300,19 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
                 const open = () => (editMode ? setEditing(c) : onOpenCategory(c.id))
                 return (
                   <div key={c.id} className={`b2-row s-${st}${c.hidden ? ' entry-muted' : ''}`} style={{ '--gc': colorOf.get(c.id) } as CSSProperties} role="button" tabIndex={0} onClick={open} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && open()}>
-                    <CategoryRing name={c.name} fill={envelopes ? fillPercent(r.spent_minor, r.budgeted_minor) : share} pace={envelopes && r.budgeted_minor > 0 ? pace : null} status={st} />
+                    {envelopes ? (
+                      <CategoryRing name={c.name} fill={fillPercent(r.spent_minor, r.budgeted_minor)} pace={r.budgeted_minor > 0 ? pace : null} status={st} />
+                    ) : (
+                      <span className="avatar b2-av" aria-hidden="true">
+                        {categoryIcon(c.name) !== null ? (
+                          <svg viewBox="0 0 24 24">
+                            <path d={categoryIcon(c.name) ?? ''} />
+                          </svg>
+                        ) : (
+                          <b>{[...c.name.trim()][0]?.toUpperCase() ?? ''}</b>
+                        )}
+                      </span>
+                    )}
                     <div className="b2-mid">
                       <span className="b2-name">
                         {c.name}
@@ -354,6 +370,11 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
                       <Money minor={envelopes ? r.balance_minor : r.spent_minor} currency={baseCurrency} />
                       <small>{envelopes ? t.budget.caption[st] : t.budget.spent}</small>
                     </div>
+                    {!envelopes && r.spent_minor > 0 && (
+                      <span className="b2-bar" aria-hidden="true">
+                        <i style={{ width: `${Math.max(share, 2)}%` }} />
+                      </span>
+                    )}
                     {editMode && (
                       <span className="edit-mark" aria-hidden="true">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

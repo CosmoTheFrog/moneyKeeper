@@ -259,6 +259,17 @@ export const t = {
     noSpend: 'Расходов с этого счёта пока нет',
   },
 
+  fullTiles: {
+    nextPayment: 'Ближайший платёж',
+    noPayments: 'Платежей нет',
+    piggy: 'Копилка',
+    noPiggy: 'Создать копилку',
+    noPortfolio: 'Добавить актив',
+    today: 'сегодня',
+    in: 'через',
+    days: 'дн.',
+    overdue: 'просрочен на',
+  },
   hero: {
     line: 'Траты месяца по дням',
     byCategory: 'По категориям',
@@ -383,6 +394,8 @@ export const t = {
     empty: 'Категорий пока нет',
     addExpense: 'Добавить трату в категорию',
     spendHere: 'Траты по категории',
+    thisMonth: 'В этом месяце',
+    allTime: 'За всё время',
     noSpend: 'Трат в этой категории пока нет',
   },
 

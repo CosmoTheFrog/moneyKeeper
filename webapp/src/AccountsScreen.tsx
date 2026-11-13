@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react'
-import { ApiError, createAccount, type Account, type AccountKind } from './api'
+import { useEffect, useState, type FormEvent } from 'react'
+import { ApiError, createAccount, fetchPortfolio, type Account, type AccountKind, type Portfolio } from './api'
 import { AccountFocus } from './AccountFocus'
 import { holdings, totalBalance } from './accounts'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
+import { onKey } from './onKey'
 import { parseAmount } from './money'
 import { ChipPicker, CurrencyPicker } from './Pickers'
 
@@ -29,6 +30,25 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
   const [focused, setFocused] = useState<number | null>(null)
   const focusedAccount = accounts.find((a) => a.id === focused)
   const total = totalBalance(every)
+  const piggy = every.find((a) => a.kind === 'piggy' && !a.archived)
+  const saved = piggy?.balances[0]?.balance_minor ?? 0
+  const share = piggy?.target_minor ? Math.min(saved / piggy.target_minor, 1) : 0
+  const RING = 2 * Math.PI * 14
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
+
+  // Плитка портфеля показывает стоимость и прибыль; без неё остаётся подпись и переход.
+  useEffect(() => {
+    let alive = true
+    fetchPortfolio(displayCurrency)
+      .then((p) => alive && setPortfolio(p))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [displayCurrency, every])
+  const value = portfolio?.items.reduce((s, i) => s + i.value_minor, 0) ?? 0
+  const cost = portfolio?.items.reduce((s, i) => s + i.cost_minor, 0) ?? 0
+  const profitBp = cost > 0 ? Math.round(((value - cost) * 10000) / cost) : null
 
   return (
     <main className="screen">
@@ -49,18 +69,9 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
         </div>
       )}
 
-      <div className="toolbar">
-        <button type="button" className="chip" onClick={onOpenSavings}>
-          {t.accounts.savings}
-        </button>
-        <button type="button" className="chip" onClick={onOpenPortfolio}>
-          {t.accounts.portfolio}
-        </button>
-      </div>
-
       {accounts.length === 0 && <p className="hint">{t.accounts.empty}</p>}
 
-      <div className="list">
+      <div className="list account-strip">
         {accounts.map((a) => (
           <div
             key={a.id}
@@ -86,6 +97,35 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="bento bento-full">
+        <div role="button" tabIndex={0} className="bt bt-piggy bt-tap" onClick={onOpenSavings} onKeyDown={onKey(onOpenSavings)}>
+          <span className="bt-top">
+            <span className="bt-cap">{t.accounts.savings}</span>
+            {piggy !== undefined && piggy.target_minor !== null && (
+              <svg width="36" height="36" viewBox="0 0 38 38" role="img" aria-label={`${Math.round(share * 100)}%`}>
+                <circle cx="19" cy="19" r="14" fill="none" stroke="#fff" strokeWidth="6" />
+                <circle cx="19" cy="19" r="14" fill="none" stroke="#8a6cff" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${share * RING} ${RING}`} transform="rotate(-90 19 19)" />
+              </svg>
+            )}
+          </span>
+          {piggy === undefined ? (
+            <b className="bt-empty">{t.fullTiles.noPiggy}</b>
+          ) : (
+            <>
+              <span className="bt-sub">{piggy.name}</span>
+              <Money minor={saved} currency={piggy.currency} />
+            </>
+          )}
+        </div>
+        <div role="button" tabIndex={0} className="bt bt-pay bt-tap" onClick={onOpenPortfolio} onKeyDown={onKey(onOpenPortfolio)}>
+          <span className="bt-top">
+            <span className="bt-cap">{t.accounts.portfolio}</span>
+            {profitBp !== null && <span className="bt-badge">{`${profitBp >= 0 ? '+' : '−'}${(Math.abs(profitBp) / 100).toFixed(1).replace('.', ',')}%`}</span>}
+          </span>
+          {portfolio !== null && portfolio.items.length > 0 ? <Money minor={value} currency={portfolio.currency} /> : <b className="bt-empty">{t.fullTiles.noPortfolio}</b>}
+        </div>
       </div>
 
       {focusedAccount !== undefined && (

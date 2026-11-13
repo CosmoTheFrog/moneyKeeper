@@ -56,9 +56,9 @@ type Screen =
   | { kind: 'day'; date: string }
   | { kind: 'more' }
   | { kind: 'account'; accountId: number }
-  | { kind: 'savings' }
-  | { kind: 'schedules' }
-  | { kind: 'portfolio' }
+  | { kind: 'savings'; back?: Tab }
+  | { kind: 'schedules'; back?: Tab }
+  | { kind: 'portfolio'; back?: Tab }
 
 const HIDDEN_KEY = 'mk.hidden'
 const DISPLAY_KEY = 'mk.display'
@@ -286,6 +286,7 @@ export function App() {
               accounts={everyAccount}
               categories={categories}
               today={today}
+              currency={display}
               onBack={() => go(home)}
               onAdd={() => go({ kind: 'add', categoryId: category.id, returnTo: here })}
               onOpen={(entry) => openEntry(entry, here)}
@@ -363,10 +364,10 @@ export function App() {
               today={today}
               ledger={state.data.transactions}
               onBack={() => {
-                setTab('budget')
+                setTab(layer.back ?? 'budget')
                 go(home)
               }}
-              onAddExpense={(categoryId) => go({ kind: 'add', categoryId, returnTo: { kind: 'schedules' } })}
+              onAddExpense={(categoryId) => go({ kind: 'add', categoryId, returnTo: layer })}
             />
           )
           break
@@ -403,7 +404,7 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} name={me.first_name} simple={simple} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
+              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} onOpenTab={setTab} onOpenCategory={(id) => go({ kind: 'category', categoryId: id })} onOpenSchedules={() => go({ kind: 'schedules', back: 'operations' })} onOpenSavings={() => go({ kind: 'savings', back: 'operations' })} name={me.first_name} simple={simple} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
               {shownTab === 'budget' && (
                 <BudgetScreen
                         categories={categories}

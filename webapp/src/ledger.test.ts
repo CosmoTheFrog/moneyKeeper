@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Transaction } from './api'
-import { dayIn, dayNet, recordStreak, frequentCategories, guessCategory, dayParts, daySummary, entryMatches, groupByDay, shiftDay, toEntries, type Entry } from './ledger'
+import { categoryTotals, dayIn, dayNet, recordStreak, frequentCategories, guessCategory, dayParts, daySummary, entryMatches, groupByDay, shiftDay, toEntries, type Entry } from './ledger'
 
 function tx(over: Partial<Transaction> & Pick<Transaction, 'id'>): Transaction {
   return {
@@ -251,8 +251,22 @@ describe('recordStreak', () => {
     expect(recordStreak([at('2026-10-11'), at('2026-10-10')], '2026-10-12')).toBe(2)
   })
 
+  it('ignores openings and transfers', () => {
+    const other = (kind: Entry['kind'], date: string): Entry => ({ ...at(date), kind })
+    expect(recordStreak([other('opening', '2026-10-12'), other('transfer', '2026-10-11')], '2026-10-12')).toBe(0)
+  })
+
   it('is zero after a gap', () => {
     expect(recordStreak([at('2026-10-09')], '2026-10-12')).toBe(0)
     expect(recordStreak([], '2026-10-12')).toBe(0)
+  })
+})
+
+describe('categoryTotals', () => {
+  const e = (date: string, baseMinor: number | null, kind: Entry['kind'] = 'expense'): Entry => ({ id: 1, kind, date, amountMinor: baseMinor ?? -1, currency: 'GEL', baseMinor, accountId: 1, toAccountId: null, categoryId: 1, note: '', inMinor: null, inCurrency: null, feeMinor: 0 })
+
+  it('splits spending into this month and all time, skipping entries without a rate', () => {
+    const list = [e('2026-10-05', -9000), e('2026-10-12', -500), e('2026-09-30', -90000), e('2026-10-06', null), e('2026-10-07', 100, 'income')]
+    expect(categoryTotals(list, '2026-10-13')).toEqual({ month: 9500, all: 99500 })
   })
 })

@@ -7,7 +7,7 @@ import { currencySign } from './money'
 import { ChipPicker } from './Pickers'
 import { PeriodPicker } from './PeriodPicker'
 import { ReportCompare } from './ReportCompare'
-import { missingRates, rangeFor, spendByCategory, spendTotals, type Measure, type Period } from './report'
+import { missingRates, previousRange, rangeFor, spendByCategory, spendTotals, type Measure, type Period } from './report'
 import { SpendBreakdown } from './SpendBreakdown'
 
 type Props = {
@@ -40,7 +40,7 @@ export function ReportsScreen({ entries, accounts, onOpen, categories, baseCurre
 
   const slices = useMemo(() => spendByCategory(entries, categories, range, measure), [entries, categories, range, measure])
   // Тот же отрезок на период раньше: для сравнения под кольцом.
-  const previousSlices = useMemo(() => spendByCategory(entries, categories, rangeFor(period, today, offset - 1), measure), [entries, categories, period, today, offset, measure])
+  const previousSlices = useMemo(() => spendByCategory(entries, categories, previousRange(period, today, offset), measure), [entries, categories, period, today, offset, measure])
   const sum = (list: { totalMinor: number }[]) => list.reduce((s, x) => s + x.totalMinor, 0)
   const missing = chosen === BASE ? missingRates(entries, range) : 0
 
