@@ -100,7 +100,8 @@ users ──< budget_members >── budgets
 ## Mini App
 
 - Vite + React + TypeScript, собранная статика, раздаётся Caddy, `/api/*` проксируется на приложение. API наружу не публикуется.
-- Авторизация по подписи `initData` Telegram.
+- Авторизация по подписи `initData` Telegram (`Authorization: tma …`).
+- Нативное приложение (App Store): вход через Apple. `POST /api/auth/apple` принимает identity token и исходный nonce, `internal/web/appleauth` проверяет подпись по ключам Apple (RS256, издатель, bundle id из `APPLE_CLIENT_ID`, срок, SHA-256 nonce), пользователь находится или создаётся по `users.apple_sub` (Telegram не нужен). В ответ токен сессии на 90 дней, дальше `Authorization: Bearer …`; в таблице `sessions` лежит только хэш токена, `DELETE /api/auth/session` завершает сессию. Без `APPLE_CLIENT_ID` вход отвечает 503. Пользователям без Telegram напоминания в чат не отправляются.
 - Экраны: бюджет и конверты, песочница, отчёты и кружок, портфель (кольцо по % от капитала, переключатель на тепловую карту по % прибыли), сверка, расписание.
 - Единый компонент для денег: табличные цифры и маскировка звёздочками при включённом режиме приватности.
 - Анимации: Framer Motion, графики `d3-shape` и `d3-hierarchy`.
