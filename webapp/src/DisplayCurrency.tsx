@@ -4,7 +4,7 @@ import { fetchRates } from './api'
 import { t } from './i18n'
 import { Modal } from './Modal'
 import { currencySign, formatRate, isCoin, isStock } from './money'
-import { CurrencyPicker } from './Pickers'
+import { ChipPicker, CurrencyPicker } from './Pickers'
 
 type Props = {
   display: string
@@ -37,6 +37,10 @@ type ModalProps = Props & { onClose: () => void }
 type Result = { kind: 'idle' } | { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; day: string; rate: string | null }
 
 function RatesModal({ display, currencies, onChange, onClose }: ModalProps) {
+  const [tab, setTab] = useState<'currency' | 'calc'>('currency')
+  // Выбор валюты применяется кнопкой «Подтвердить», а не касанием: до неё меняется только выбранная плашка.
+  const [pending, setPending] = useState(display)
+  const [choosing, setChoosing] = useState(false)
   const [from, setFrom] = useState(currencies.find((c) => c !== display) ?? display)
   const [to, setTo] = useState(display)
   const [result, setResult] = useState<Result>({ kind: 'idle' })
@@ -58,38 +62,69 @@ function RatesModal({ display, currencies, onChange, onClose }: ModalProps) {
     }
   }
 
+  function confirm() {
+    if (pending !== display) onChange(pending)
+    onClose()
+  }
+
   return (
     <Modal title={t.rates.title} onClose={onClose}>
-      <CurrencyPicker label={t.rates.countIn} value={display} options={currencies} onChange={onChange} />
-      <p className="hint tight">{t.rates.countInHint}</p>
+      <ChipPicker value={tab} options={[{ value: 'currency' as const, label: t.rates.tabs.currency }, { value: 'calc' as const, label: t.rates.tabs.calc }]} onChange={setTab} />
 
-      <h3 className="rates-head">{t.rates.rate}</h3>
-      <CurrencyPicker label={t.rates.from} value={from} options={currencies} onChange={pick(setFrom)} />
-      <CurrencyPicker label={t.rates.to} value={to} options={currencies} onChange={pick(setTo)} />
-      <button type="button" className="primary" disabled={result.kind === 'loading'} onClick={() => void show()}>
-        {t.rates.show}
-      </button>
-
-      {result.kind === 'loading' && <p className="hint">{t.loading}</p>}
-      {result.kind === 'failed' && <p className="error">{t.rates.failed}</p>}
-      {result.kind === 'ready' && (
-        <div className="rate-result">
-          {result.rate === null ? (
-            <p className="error">{t.rates.failed}</p>
+      {tab === 'currency' && (
+        <>
+          <span className="label">{t.rates.countIn}</span>
+          {choosing ? (
+            <CurrencyPicker value={pending} options={currencies} onChange={(code) => {
+              setPending(code)
+              setChoosing(false)
+            }} />
           ) : (
-            <>
-              <span className="rate-from">1 {currencySign(from)} =</span>
-              <span className="rate-value">
-                {formatRate(result.rate)} {currencySign(to)}
-              </span>
-              <p className="hint tight">
-                {t.rates.on} {result.day}
-              </p>
-            </>
+            <div className="chips">
+              <span className="pill pill-on">{pending}</span>
+              <button type="button" className="link-quiet" onClick={() => setChoosing(true)}>
+                {t.rates.change}
+              </button>
+            </div>
           )}
-        </div>
+          <p className="hint tight">{t.rates.countInHint}</p>
+          <button type="button" className="primary" onClick={confirm}>
+            {t.rates.confirm}
+          </button>
+        </>
       )}
-      <p className="hint tight">{t.rates.note}</p>
+
+      {tab === 'calc' && (
+        <>
+          <h3 className="rates-head">{t.rates.rate}</h3>
+          <CurrencyPicker label={t.rates.from} value={from} options={currencies} onChange={pick(setFrom)} />
+          <CurrencyPicker label={t.rates.to} value={to} options={currencies} onChange={pick(setTo)} />
+          <button type="button" className="primary" disabled={result.kind === 'loading'} onClick={() => void show()}>
+            {t.rates.show}
+          </button>
+
+          {result.kind === 'loading' && <p className="hint">{t.loading}</p>}
+          {result.kind === 'failed' && <p className="error">{t.rates.failed}</p>}
+          {result.kind === 'ready' && (
+            <div className="rate-result">
+              {result.rate === null ? (
+                <p className="error">{t.rates.failed}</p>
+              ) : (
+                <>
+                  <span className="rate-from">1 {currencySign(from)} =</span>
+                  <span className="rate-value">
+                    {formatRate(result.rate)} {currencySign(to)}
+                  </span>
+                  <p className="hint tight">
+                    {t.rates.on} {result.day}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+          <p className="hint tight">{t.rates.note}</p>
+        </>
+      )}
     </Modal>
   )
 }
