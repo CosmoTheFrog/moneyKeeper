@@ -339,10 +339,12 @@ export type ImportRow = {
 export type ImportPreview = { rows: ImportRow[]; skipped: number }
 
 // Отчёт прежнего бота в xlsx: разбирается на сервере, ничего не сохраняет до commitImport.
-export const previewImportFile = (accountId: number, file: File) => {
+// Выписка TBC и xlsx разбираются на сервере, PDF других банков уходит на разбор нейросети и требует consent.
+export const previewImportFile = (accountId: number, file: File, consent: boolean) => {
   const form = new FormData()
   form.append('account_id', String(accountId))
   form.append('file', file)
+  form.append('consent', String(consent))
   return request<ImportPreview>('POST', '/api/import/file', form)
 }
 

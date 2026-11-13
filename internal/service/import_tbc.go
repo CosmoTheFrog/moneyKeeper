@@ -17,11 +17,12 @@ import (
 // Покупка по карте в выписке TBC: «POS - MERCHANT, 34.00 GEL, Oct 31 2026 12:00AM, VISA 34.00 -4.16».
 // Первое число в описании это сумма в валюте покупки, сумма после типа карты это списание в валюте счёта.
 var (
-	tbcDated   = regexp.MustCompile(`^\s*(\d{2}/\d{2}/\d{4})\s+(.*)$`)
-	tbcPOS     = regexp.MustCompile(`^POS(?: wallet)? - (.+?), \d[\d,]*\.\d{2} [A-Z]{3}, ([A-Z][a-z]{2} \d{1,2} \d{4})\b.*?\b(?:VISA|MASTERCARD|MC)\s+(\d[\d,]*\.\d{2})`)
-	tbcMCC     = regexp.MustCompile(`MCC: (\d{4})`)
-	tbcLayout  = "Jan 2 2006"
-	tbcDateFmt = "02/01/2006"
+	tbcDated    = regexp.MustCompile(`^\s*(\d{2}/\d{2}/\d{4})\s+(.*)$`)
+	tbcDatedAny = regexp.MustCompile(`(?m)^\s*\d{2}/\d{2}/\d{4}\s+\S`)
+	tbcPOS      = regexp.MustCompile(`^POS(?: wallet)? - (.+?), \d[\d,]*\.\d{2} [A-Z]{3}, ([A-Z][a-z]{2} \d{1,2} \d{4})\b.*?\b(?:VISA|MASTERCARD|MC)\s+(\d[\d,]*\.\d{2})`)
+	tbcMCC      = regexp.MustCompile(`MCC: (\d{4})`)
+	tbcLayout   = "Jan 2 2006"
+	tbcDateFmt  = "02/01/2006"
 )
 
 // mccCategories сопоставляет MCC-код названию стартовой категории. Кода нет в таблице или категории с таким именем
@@ -37,18 +38,18 @@ var mccCategories = map[string]string{
 	"7230": "Личный уход", "7298": "Личный уход",
 }
 
-// PreviewFile определяет тип файла по началу: PDF разбирается как выписка TBC, остальное как xlsx-отчёт прежнего бота.
-func (s *Service) PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte) (models.ImportPreview, error) {
+// PreviewFile определяет тип файла по началу. PDF: выписка TBC разбирается на сервере, любая другая отправляется на
+// разбор модели (нужно согласие пользователя). Остальное это xlsx-отчёт прежнего бота.
+func (s *Service) PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte, consent bool) (models.ImportPreview, error) {
 	if len(data) >= 4 && string(data[:4]) == "%PDF" {
-		return s.PreviewTBCStatement(ctx, u, accountID, data)
+		return s.previewPDF(ctx, u, accountID, data, consent)
 	}
 	return s.PreviewTrackerExport(ctx, u, accountID, data)
 }
 
-// PreviewTBCStatement разбирает PDF-выписку TBC. Берутся только покупки по карте, остальные операции пока не
-// поддерживаются и считаются в Skipped. Служебные проводки без описания (перекладка между счетами карты) отбрасываются
-// молча: иначе каждая покупка была бы посчитана дважды.
-func (s *Service) PreviewTBCStatement(ctx context.Context, u models.User, accountID int64, pdf []byte) (models.ImportPreview, error) {
+// previewPDF достаёт текст PDF. Выписка TBC узнаётся по строкам «дата POS - ...» и разбирается без внешних сервисов,
+// остальные банки идут тем же путём, что csv и txt: текст уходит модели, только с согласием.
+func (s *Service) previewPDF(ctx context.Context, u models.User, accountID int64, pdf []byte, consent bool) (models.ImportPreview, error) {
 	text, err := pdftext.Extract(ctx, pdf)
 	if err != nil {
 		if errors.Is(err, pdftext.ErrUnavailable) {
@@ -56,6 +57,25 @@ func (s *Service) PreviewTBCStatement(ctx context.Context, u models.User, accoun
 		}
 		return models.ImportPreview{}, fmt.Errorf("%w: %w", models.ErrInvalidImport, err)
 	}
+	if looksLikeTBC(text) {
+		return s.previewTBCText(ctx, u, accountID, text)
+	}
+	// Без текстового слоя (скан) модели нечего читать.
+	if strings.TrimSpace(text) == "" {
+		return models.ImportPreview{}, fmt.Errorf("pdf has no text layer: %w", models.ErrInvalidImport)
+	}
+	return s.PreviewImport(ctx, u, accountID, statementText(text), consent)
+}
+
+// looksLikeTBC: в выписке TBC строки начинаются с даты «31/10/2026» и содержат покупки «POS - ...».
+func looksLikeTBC(text string) bool {
+	return strings.Contains(text, "POS - ") && tbcDatedAny.MatchString(text)
+}
+
+// previewTBCText разбирает текст выписки TBC. Берутся только покупки по карте, остальные операции пока не
+// поддерживаются и считаются в Skipped. Служебные проводки без описания (перекладка между счетами карты) отбрасываются
+// молча: иначе каждая покупка была бы посчитана дважды.
+func (s *Service) previewTBCText(ctx context.Context, u models.User, accountID int64, text string) (models.ImportPreview, error) {
 	acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, accountID)
 	if err != nil {
 		return models.ImportPreview{}, err

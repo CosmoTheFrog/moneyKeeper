@@ -73,7 +73,7 @@ type Service interface {
 	TransactionEvents(ctx context.Context, u models.User, id int64) ([]models.TransactionEvent, error)
 
 	PreviewImport(ctx context.Context, u models.User, accountID int64, text string, consent bool) (models.ImportPreview, error)
-	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte) (models.ImportPreview, error)
+	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte, consent bool) (models.ImportPreview, error)
 	CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) ([]int64, error)
 	UndoImport(ctx context.Context, u models.User, ids []int64) error
 
