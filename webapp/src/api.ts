@@ -139,12 +139,6 @@ export type TransactionPatch = {
   note?: string
 }
 
-export type ParsedInput = {
-  amount_minor: number
-  currency: string
-  note: string
-}
-
 export class ApiError extends Error {
   readonly code: string
   readonly status: number
@@ -323,7 +317,6 @@ export const skipOccurrence = async (id: number, dueOn: string): Promise<void> =
   await send('POST', `/api/schedules/${id}/skip`, { due_on: dueOn })
 }
 
-export const parseQuick = (text: string, currency: string) => request<ParsedInput>('POST', '/api/transactions/parse', { text, currency })
 
 // Строка импорта: amount_minor со знаком, расход отрицательный. source_category заполнено, если категорию
 // из файла не удалось найти по названию и её выбирает пользователь.

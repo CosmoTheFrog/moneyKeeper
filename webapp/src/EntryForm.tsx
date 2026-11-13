@@ -4,7 +4,6 @@ import {
   createTransaction,
   deleteTransaction,
   fetchEvents,
-  parseQuick,
   updateTransaction,
   type Account,
   type Category,
@@ -13,7 +12,7 @@ import {
 } from './api'
 import { allows, pickAccount, usableCurrencies } from './accounts'
 import { errorText, t } from './i18n'
-import { frequentCategories, guessCategory, type Entry } from './ledger'
+import { guessCategory, type Entry } from './ledger'
 import { DateField } from './DateField'
 import { ExchangeFields } from './ExchangeForm'
 import { Modal } from './Modal'
@@ -70,8 +69,6 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
   const defaultAccount = accounts.find((a) => a.is_default) ?? accounts[0]
 
   const [kind, setKind] = useState<FormKind>(entry === undefined || entry.kind === 'fee' ? 'expense' : entry.kind)
-  const [quick, setQuick] = useState('')
-  const [understood, setUnderstood] = useState<string | null>(null)
   const [amount, setAmount] = useState(entry === undefined ? '' : formatInput(entry.amountMinor, entry.currency))
   const [currency, setCurrency] = useState(entry?.currency ?? defaultAccount?.currency ?? '')
   const [accountId, setAccountId] = useState(entry?.accountId ?? defaultAccount?.id ?? 0)
@@ -109,7 +106,6 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
 
   // Частые категории лежат под рукой плитками: большинство трат вносится одним касанием.
   const categoryLabel = new Map(categoryOptions.map((o) => [o.value, o.label]))
-  const frequent = frequentCategories(recentEntries, 8).filter((id) => categoryLabel.has(id))
 
   // По заметке подсказывается категория прошлой траты, пока категория не выбрана.
   function suggestCategory(text: string) {
@@ -135,30 +131,6 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
   function chooseTarget(a: Account) {
     setToAccountId(a.id)
     if (a.kind === 'piggy' && a.category_id !== null) setCategoryId(a.category_id)
-  }
-
-  async function understand() {
-    const text = quick.trim()
-    if (text === '') return
-    setError(null)
-    try {
-      const p = await parseQuick(text, currency)
-      setAmount(formatInput(p.amount_minor, p.currency !== '' ? p.currency : currency))
-      if (p.note !== '') {
-        setNote(p.note)
-        suggestCategory(p.note)
-      }
-      let cur = currency
-      if (p.currency !== '' && p.currency !== currency) {
-        if (currencies.includes(p.currency)) chooseCurrency(p.currency)
-        else setError(t.add.noAccountInCurrency)
-        cur = p.currency
-      }
-      setUnderstood(`${formatMinor(p.amount_minor, cur)}${p.note !== '' ? ` · ${p.note}` : ''}`)
-    } catch (e) {
-      setUnderstood(null)
-      setError(errorText(e instanceof ApiError ? e.code : 'internal'))
-    }
   }
 
   async function save(again: boolean) {
@@ -201,8 +173,6 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
         onSaved?.()
         setAmount('')
         setNote('')
-        setQuick('')
-        setUnderstood(null)
         setCategoryId(0)
         setSavedCount((n) => n + 1)
         setBusy(false)
@@ -274,31 +244,6 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
             void save(false)
           }}
         >
-          {!editing && (
-            <div className="card">
-              <label className="field">
-                <span className="label">{t.add.quick}</span>
-                <input
-                  value={quick}
-                  placeholder={t.add.quickPlaceholder}
-                  onChange={(e) => setQuick(e.target.value)}
-                  onBlur={() => void understand()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void understand()
-                    }
-                  }}
-                />
-              </label>
-              {understood !== null && (
-                <p className="hint tight">
-                  {t.add.understood}: {understood}
-                </p>
-              )}
-            </div>
-          )}
-
           {lockedAmounts ? (
             <p className="hint tight">{t.exchange.locked}</p>
           ) : (
@@ -322,15 +267,6 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
 
           {kind === 'expense' && (
             <div className="card">
-              {!editing && frequent.length > 0 && (
-                <div className="chips" role="radiogroup" aria-label={t.add.frequent}>
-                  {frequent.map((id) => (
-                    <button key={id} type="button" role="radio" aria-checked={id === categoryId} className={id === categoryId ? 'pill pill-on' : 'pill'} onClick={() => setCategoryId(id)}>
-                      {categoryLabel.get(id)}
-                    </button>
-                  ))}
-                </div>
-              )}
               <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
             </div>
           )}

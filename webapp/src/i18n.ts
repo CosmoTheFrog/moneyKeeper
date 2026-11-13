@@ -337,9 +337,6 @@ export const t = {
 
   add: {
     title: 'Новая запись',
-    quick: 'Быстрый ввод',
-    quickPlaceholder: 'Например, кофе 5 EUR',
-    understood: 'Понял так',
     noAccountInCurrency: 'Нет счёта в этой валюте: добавьте счёт на вкладке «Счета»',
     amount: 'Сумма',
     currency: 'Валюта',
@@ -354,7 +351,6 @@ export const t = {
     note: 'Заметка',
     transferHint: 'Запиши, за что скидываешь: это поможет при анализе (100% забудешь).',
     noTarget: 'Для перевода нужен второй счёт в той же валюте',
-    frequent: 'Частые категории',
     erase: 'Стереть',
     saveAndNext: 'Сохранить и добавить ещё',
     savedAgain: 'Сохранено записей',

@@ -135,26 +135,6 @@ export function daySummary(entries: Entry[]): DaySummary {
   return out
 }
 
-const RECENT_EXPENSES = 300
-
-// frequentCategories: категории последних расходов, чаще используемые первыми, при равенстве выше та, что была недавно.
-// entries идут от новых к старым, как их отдаёт сервер.
-export function frequentCategories(entries: Entry[], limit: number): number[] {
-  const seen = new Map<number, { count: number; first: number }>()
-  let index = 0
-  for (const e of entries) {
-    if (e.kind !== 'expense' || e.categoryId === null) continue
-    if (index++ >= RECENT_EXPENSES) break
-    const s = seen.get(e.categoryId)
-    if (s === undefined) seen.set(e.categoryId, { count: 1, first: index })
-    else s.count++
-  }
-  return [...seen]
-    .sort((a, b) => b[1].count - a[1].count || a[1].first - b[1].first)
-    .slice(0, limit)
-    .map(([id]) => id)
-}
-
 // guessCategory: категория последнего расхода с такой же заметкой (без учёта регистра и лишних пробелов), иначе null.
 export function guessCategory(entries: Entry[], note: string): number | null {
   const key = note.trim().toLowerCase()
