@@ -83,6 +83,8 @@ function readHidden(): boolean {
 export function App() {
   const [state, setState] = useState<State>({ kind: 'loading' })
   const [tab, setTab] = useState<Tab>('operations')
+  // Раздел открыт плиткой с главного экрана: сверху кнопка «Назад» возвращает туда.
+  const [cameFrom, setCameFrom] = useState<Tab | null>(null)
   const [screen, setScreen] = useState<Screen>({ kind: 'tabs' })
   const [hidden, setHidden] = useState(readHidden)
   const [themeMode, setThemeMode] = useState<ThemeMode>(readMode)
@@ -404,7 +406,10 @@ export function App() {
         case 'tabs':
           body = (
             <>
-              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} onOpenTab={setTab} onOpenCategory={(id) => go({ kind: 'category', categoryId: id })} onOpenSchedules={() => go({ kind: 'schedules', back: 'operations' })} onOpenSavings={() => go({ kind: 'savings', back: 'operations' })} name={me.first_name} simple={simple} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
+              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} onOpenTab={(next) => {
+                setCameFrom('operations')
+                setTab(next)
+              }} onOpenCategory={(id) => go({ kind: 'category', categoryId: id })} onOpenSchedules={() => go({ kind: 'schedules', back: 'operations' })} onOpenSavings={() => go({ kind: 'savings', back: 'operations' })} name={me.first_name} simple={simple} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
               {shownTab === 'budget' && (
                 <BudgetScreen
                         categories={categories}
@@ -442,7 +447,12 @@ export function App() {
                 />
               )}
               {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
-              <TabBar tab={shownTab} onTab={setTab} onAdd={onAdd} simple={simple} />
+              {cameFrom !== null && shownTab !== cameFrom && (
+                <button type="button" className="chip back-float" onClick={() => { setTab(cameFrom); setCameFrom(null) }}>
+                  {t.back}
+                </button>
+              )}
+              <TabBar tab={shownTab} onTab={(next) => { setCameFrom(null); setTab(next) }} onAdd={onAdd} simple={simple} />
             </>
           )
           break
