@@ -9,6 +9,7 @@ import { setInterfaceMode } from './api'
 import { t } from './i18n'
 import { PrivacyContext } from './MoneyText'
 import { ReminderSettings } from './ReminderSettings'
+import { MyCurrencies } from './MyCurrencies'
 import { ThemeContext, ThemeSettings } from './ThemeSettings'
 
 type Props = {
@@ -17,6 +18,11 @@ type Props = {
   accounts: Account[]
   interfaceMode: InterfaceMode | null
   currencies: string[]
+  // Все валюты реестра, включённые пользователем (null, пока не выбирал) и те, что отключить нельзя.
+  registry: string[]
+  enabled: string[] | null
+  pinned: string[]
+  onEnabled: (list: string[]) => void
   display: string
   // Час ежедневного напоминания внести траты, null если выключено.
   reminderHour: number | null
@@ -67,7 +73,7 @@ function Row({ icon, tint, title, sub, end, onClick }: { icon: keyof typeof ICON
 }
 
 // Ещё: настройки и работа с данными в одном месте.
-export function MoreScreen({ name, baseCurrency, accounts, interfaceMode, currencies, display, reminderHour, onDisplay, onChanged, onBack }: Props) {
+export function MoreScreen({ name, baseCurrency, accounts, interfaceMode, currencies, registry, enabled, pinned, onEnabled, display, reminderHour, onDisplay, onChanged, onBack }: Props) {
   const { theme: appearance } = useContext(ThemeContext)
   const { hidden, toggle } = useContext(PrivacyContext)
   const [theme, setTheme] = useState(false)
@@ -75,6 +81,7 @@ export function MoreScreen({ name, baseCurrency, accounts, interfaceMode, curren
   const [exporting, setExporting] = useState(false)
   const [reminding, setReminding] = useState(false)
   const [switching, setSwitching] = useState(false)
+  const [choosing, setChoosing] = useState(false)
 
   return (
     <main className="screen">
@@ -101,6 +108,7 @@ export function MoreScreen({ name, baseCurrency, accounts, interfaceMode, curren
       <div className="card list-card">
         <Row icon="layout" tint="var(--g1)" title={t.mode.row} sub={interfaceMode === null ? '' : t.mode[interfaceMode].title} onClick={() => setSwitching(true)} />
         <Row icon="palette" tint="var(--g3)" title={t.theme.open} sub={t.theme.names[appearance]} onClick={() => setTheme(true)} />
+        <Row icon="globe" tint="var(--g2)" title={t.more.myCurrencies} sub={`${currencies.length}`} onClick={() => setChoosing(true)} />
         <Row icon="globe" tint="var(--g4)" title={t.more.displayCurrency} sub={t.rates.countInHint} end={<DisplayCurrency display={display} currencies={currencies} onChange={onDisplay} />} />
         <label className="more-row">
           <span className="avatar" style={{ '--gc': 'var(--g5)' } as CSSProperties} aria-hidden="true">
@@ -144,6 +152,7 @@ export function MoreScreen({ name, baseCurrency, accounts, interfaceMode, curren
           />
         </Modal>
       )}
+      {choosing && <MyCurrencies registry={registry} enabled={enabled ?? currencies} pinned={pinned} onChange={onEnabled} onClose={() => setChoosing(false)} />}
       {theme && <ThemeSettings onClose={() => setTheme(false)} />}
       {exporting && <ExportScreen onClose={() => setExporting(false)} />}
       {reminding && <ReminderSettings hour={reminderHour} onChanged={onChanged} onClose={() => setReminding(false)} />}

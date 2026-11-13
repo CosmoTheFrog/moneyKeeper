@@ -22,7 +22,7 @@ import { EntryForm } from './EntryForm'
 import { t } from './i18n'
 import { dayIn, toEntries, type Entry } from './ledger'
 import { NoPrivacy, PrivacyContext } from './MoneyText'
-import { registerCurrencies } from './money'
+import { isCoin, isStock, registerCurrencies } from './money'
 import { MoreScreen } from './MoreScreen'
 import { OperationsScreen } from './OperationsScreen'
 import { SwipeRow } from './SwipeRow'
@@ -30,6 +30,7 @@ import { haptic } from './haptic'
 import { ErrorState, ScreenSkeleton } from './States'
 import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
+import { readEnabled, saveEnabled, visibleCurrencies } from './currencyChoice'
 import { applyTheme, readTheme, saveTheme, type Theme } from './theme'
 import { ThemeContext } from './ThemeSettings'
 
@@ -87,6 +88,7 @@ export function App() {
   const [hidden, setHidden] = useState(readHidden)
   const [themeName, setThemeName] = useState<Theme>(readTheme)
   const [displayChoice, setDisplayChoice] = useState(readDisplay)
+  const [enabledCurrencies, setEnabledCurrencies] = useState(readEnabled)
 
   const theme = useMemo(
     () => ({
@@ -174,6 +176,13 @@ export function App() {
       const accounts = simple ? openAccounts.filter((a) => a.is_default) : openAccounts
       const base = me.budget.base_currency
       const display = me.currencies.includes(displayChoice) ? displayChoice : (base ?? '')
+      // Валюты для выбора: включённые в «Ещё → Мои валюты» плюс те, что уже нужны (база, показ, счета).
+      const inUse = [base ?? '', display, ...everyAccount.flatMap((a) => [a.currency, ...a.balances.map((b) => b.currency)])]
+      const shown = visibleCurrencies(me.currencies, enabledCurrencies, inUse, (c) => !isCoin(c) && !isStock(c))
+      const changeEnabled = (list: string[]) => {
+        saveEnabled(list)
+        setEnabledCurrencies(list)
+      }
       const changeDisplay = (code: string) => {
         try {
           localStorage.setItem(DISPLAY_KEY, code)
@@ -295,7 +304,11 @@ export function App() {
               baseCurrency={base}
               accounts={accounts.filter((a) => a.kind !== 'piggy')}
               interfaceMode={me.budget.interface_mode}
-              currencies={me.currencies}
+              currencies={shown}
+              registry={me.currencies}
+              enabled={enabledCurrencies}
+              pinned={inUse}
+              onEnabled={changeEnabled}
               display={display}
               reminderHour={me.reminder_hour}
               onDisplay={changeDisplay}
@@ -336,7 +349,7 @@ export function App() {
               accounts={everyAccount}
                 categories={categories}
               baseCurrency={display}
-              currencies={me.currencies}
+              currencies={shown}
               onDisplay={changeDisplay}
               today={today}
               onBack={() => {
@@ -354,7 +367,7 @@ export function App() {
                 categories={categories}
               accounts={accounts}
               baseCurrency={base}
-              currencies={me.currencies}
+              currencies={shown}
               today={today}
               ledger={state.data.transactions}
               onBack={() => {
@@ -383,7 +396,7 @@ export function App() {
           body = (
             <PortfolioScreen
               display={display}
-              currencies={me.currencies}
+              currencies={shown}
               wallets={accounts.filter((a) => a.kind === 'wallet')}
               today={today}
               onChanged={reload}
@@ -423,7 +436,7 @@ export function App() {
                   accounts={everyAccount}
                         categories={categories}
                   baseCurrency={display}
-                  currencies={me.currencies}
+                  currencies={shown}
                   onDisplay={changeDisplay}
                   today={today}
                   onOpen={(entry) => openEntry(entry, home)}
@@ -434,13 +447,13 @@ export function App() {
                   categories={categories}
                   accounts={accounts}
                   baseCurrency={base}
-                  currencies={me.currencies}
+                  currencies={shown}
                   today={today}
                   ledger={state.data.transactions}
                   onAddExpense={(categoryId) => go({ kind: 'add', categoryId, returnTo: home })}
                 />
               )}
-              {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={me.currencies} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
+              {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={shown} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
               <TabBar tab={shownTab} onTab={setTab} onAdd={onAdd} simple={simple} />
             </>
           )
