@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { scaleMonth } from './displayFactor'
 import { fetchBudgetMonth, type BudgetMonth, type Category } from './api'
 import { compareMonths } from './budget'
 import { monthTitle, shiftMonth } from './calendar'
@@ -11,13 +12,15 @@ type Props = {
   budget: BudgetMonth
   categories: Category[]
   baseCurrency: string
+  // Курс пересчёта месяца из базовой валюты в показываемую; budget уже пересчитан.
+  factor: number
   // Показывать заложенные суммы: нужны только в режиме конвертов.
   plan: boolean
   onClose: () => void
 }
 
 // Сравнение месяца с другим: по каждой категории план и трата в обоих месяцах и что изменилось.
-export function BudgetCompare({ month, budget, categories, baseCurrency, plan, onClose }: Props) {
+export function BudgetCompare({ month, budget, categories, baseCurrency, factor, plan, onClose }: Props) {
   const [other, setOther] = useState(shiftMonth(month, -1))
   const [then, setThen] = useState<BudgetMonth | null>(null)
   const [failed, setFailed] = useState(false)
@@ -26,12 +29,12 @@ export function BudgetCompare({ month, budget, categories, baseCurrency, plan, o
     let alive = true
     setFailed(false)
     fetchBudgetMonth(other)
-      .then((b) => alive && setThen(b))
+      .then((b) => alive && setThen(scaleMonth(b, factor)))
       .catch(() => alive && setFailed(true))
     return () => {
       alive = false
     }
-  }, [other])
+  }, [other, factor])
 
   const names = new Map(categories.map((c) => [c.id, c.name]))
   const rows = then === null ? [] : compareMonths(budget, then)

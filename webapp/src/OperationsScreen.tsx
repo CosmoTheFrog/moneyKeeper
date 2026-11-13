@@ -1,13 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { fetchBudgetMonth, fetchOccurrences, fetchRates, type Account, type BudgetMonth, type Category, type Occurrence } from './api'
+import { fetchBudgetMonth, fetchOccurrences, type Account, type BudgetMonth, type Category, type Occurrence } from './api'
 import { totalBalance } from './accounts'
+import { DisplayCurrency } from './DisplayCurrency'
 import { EntryList } from './EntryList'
 import { FullTiles } from './FullTiles'
 import { t } from './i18n'
 import { dayNet, entryMatches, recordStreak, type Entry } from './ledger'
 import { MonthHero } from './MonthHero'
 import { Money } from './MoneyText'
-import { unitsOf } from './money'
+import { scaleMonth, useDisplayFactor } from './displayFactor'
 import { onKey } from './onKey'
 import { monthLine, previousRange, spendByCategory } from './report'
 import { EmptyState } from './States'
@@ -25,6 +26,9 @@ type Props = {
   onAdd: () => void
   onOpenDay?: (date: string) => void
   onOpenMore: () => void
+  // Выбор валюты показа рядом с поиском.
+  currencies: string[]
+  onDisplay: (code: string) => void
   // Плитки главного экрана ведут в другие разделы.
   onOpenTab: (tab: Tab) => void
   onOpenCategory: (id: number) => void
@@ -37,11 +41,9 @@ type Props = {
   wrapRow?: (entry: Entry, row: ReactNode) => ReactNode
 }
 
-export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, onOpenTab, onOpenCategory, onOpenSchedules, onOpenSavings, name, simple = false, wrapRow }: Props) {
+export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, currencies, onDisplay, onOpenTab, onOpenCategory, onOpenSchedules, onOpenSavings, name, simple = false, wrapRow }: Props) {
   const [month, setMonth] = useState<BudgetMonth | null>(null)
   const [nextPayment, setNextPayment] = useState<Occurrence | null>(null)
-  // Во сколько минорных единиц валюты показа превращается минорная единица базовой; 1, пока показ в базовой.
-  const [factor, setFactor] = useState(1)
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
   const [accountId, setAccountId] = useState<number | null>(null)
@@ -63,23 +65,7 @@ export function OperationsScreen({ entries, accounts, categories, today, display
   }, [today, entries, simple])
 
   // Итоги месяца считаются в базовой валюте; в другой валюте показа пересчитываются по курсу дня.
-  useEffect(() => {
-    if (display === base) {
-      setFactor(1)
-      return
-    }
-    let alive = true
-    fetchRates(display)
-      .then((table) => {
-        const rate = Number(table.rates.find((r) => r.currency === base)?.rate)
-        if (alive && Number.isFinite(rate) && rate > 0) setFactor(rate * 10 ** (unitsOf(display) - unitsOf(base)))
-      })
-      .catch(() => {})
-    return () => {
-      alive = false
-    }
-  }, [display, base])
-
+  const factor = useDisplayFactor(display, base)
   const accountName = new Map(accounts.map((a) => [a.id, a.name]))
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
   const balance = totalBalance(accounts)
@@ -101,6 +87,7 @@ export function OperationsScreen({ entries, accounts, categories, today, display
       <header className="row">
         <h1>{t.ledger.title}</h1>
         <span className="row-tight">
+          <DisplayCurrency display={display} currencies={currencies} onChange={onDisplay} />
           <button type="button" className={searching ? 'plus plus-solid' : 'plus'} aria-label={t.ledger.search} aria-pressed={searching} onClick={() => (searching ? closeSearch() : setSearching(true))}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M11 4a7 7 0 100 14 7 7 0 000-14zM16 16l4 4" />
@@ -161,17 +148,4 @@ export function OperationsScreen({ entries, accounts, categories, today, display
       <EntryList entries={shown} accounts={accounts} categories={categories} today={today} onOpen={onOpen} totalCurrency={display} onOpenDay={onOpenDay} wrapRow={wrapRow} />
     </main>
   )
-}
-
-// scaleMonth: суммы месяца, умноженные на factor; сам месяц не меняется.
-function scaleMonth(month: BudgetMonth | null, factor: number): BudgetMonth | null {
-  if (month === null || factor === 1) return month
-  const k = (v: number) => Math.round(v * factor)
-  return {
-    ...month,
-    income_minor: k(month.income_minor),
-    budgeted_minor: k(month.budgeted_minor),
-    to_budget_minor: k(month.to_budget_minor),
-    categories: month.categories.map((r) => ({ ...r, budgeted_minor: k(r.budgeted_minor), spent_minor: k(r.spent_minor), balance_minor: k(r.balance_minor) })),
-  }
 }

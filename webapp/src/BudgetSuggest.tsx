@@ -13,13 +13,15 @@ type Props = {
   // Уже заложено в этом месяце по категориям: подсказка заполняет только пустые.
   current: Map<number, number>
   categories: Category[]
-  baseCurrency: string
+  // Сколько минорных единиц валюты показа в минорной единице базовой; планы пишутся в базовой.
+  factor: number
+  display: string
   onApplied: (b: BudgetMonth) => void
   onClose: () => void
 }
 
 // Подсказка бюджета: средние траты по категориям за три прошлых месяца. Применяется только к категориям без суммы.
-export function BudgetSuggest({ month, current, categories, baseCurrency, onApplied, onClose }: Props) {
+export function BudgetSuggest({ month, current, categories, factor, display, onApplied, onClose }: Props) {
   const [list, setList] = useState<Suggestion[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,7 +61,7 @@ export function BudgetSuggest({ month, current, categories, baseCurrency, onAppl
         {(list ?? []).map((s) => (
           <div key={s.categoryId} className="budget-top">
             <span className="entry-title">{names.get(s.categoryId) ?? ''}</span>
-            <Money minor={s.minor} currency={baseCurrency} />
+            <Money minor={Math.round(s.minor * factor)} currency={display} />
           </div>
         ))}
       </div>

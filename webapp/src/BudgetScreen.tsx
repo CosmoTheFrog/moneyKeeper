@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
 import {
   ApiError,
   createCategory,
@@ -13,6 +13,7 @@ import {
   type Transaction,
 } from './api'
 import { fillPercent, monthPace, monthToDate, parseBudgeted, rowStatus, spendingOf, toBudgetTone, type RowStatus } from './budget'
+import { scaleMonth, useDisplayFactor } from './displayFactor'
 import { toEntries } from './ledger'
 import { BudgetCompare } from './BudgetCompare'
 import { BudgetFocus } from './BudgetFocus'
@@ -33,6 +34,8 @@ type Props = {
   accounts: Account[]
   // Валюта бюджета: все суммы здесь в ней.
   baseCurrency: string
+  // Валюта показа: суммы месяца пересчитываются в неё по курсу дня, планы по-прежнему хранятся в базовой.
+  display: string
   today: string
   // Включён ли режим конвертов: заложенные суммы, «К распределению», лимиты. Иначе только траты по категориям.
   envelopesEnabled: boolean
@@ -49,13 +52,16 @@ const EMPTY_ROW: BudgetRow ={ category_id: 0, budgeted_minor: 0, spent_minor: 0,
 
 // Бюджет месяца: сколько осталось распределить и по каждой категории заложено, потрачено, остаток.
 // Здесь же создаются и правятся категории.
-export function BudgetScreen({ categories, accounts, baseCurrency, today, envelopesEnabled, ledger, onChanged, onOpenCategory, onOpenSchedules }: Props) {
+export function BudgetScreen({ categories, accounts, baseCurrency, display, today, envelopesEnabled, ledger, onChanged, onOpenCategory, onOpenSchedules }: Props) {
   const [month, setMonth] = useState(today.slice(0, 7))
   const [view, setView] = useState<View>(envelopesEnabled ? 'envelopes' : 'spending')
   const [envelopesDialog, setEnvelopesDialog] = useState<'enable' | 'disable' | null>(null)
   const [envelopesError, setEnvelopesError] = useState<string | null>(null)
-  const [previous, setPrevious] = useState<BudgetMonth | null>(null)
-  const [budget, setBudget] = useState<BudgetMonth | null>(null)
+  const [rawPrevious, setPrevious] = useState<BudgetMonth | null>(null)
+  const [rawBudget, setBudget] = useState<BudgetMonth | null>(null)
+  const factor = useDisplayFactor(display, baseCurrency)
+  const previous = useMemo(() => scaleMonth(rawPrevious, factor), [rawPrevious, factor])
+  const budget = useMemo(() => scaleMonth(rawBudget, factor), [rawBudget, factor])
   const [failed, setFailed] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -174,10 +180,10 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
       {!envelopes && spending !== null && (
         <div className="card budget-head budget-hero">
           <span className="label">{t.budget.spendingTotal}</span>
-          <Money minor={spending.totalMinor} currency={baseCurrency} />
+          <Money minor={spending.totalMinor} currency={display} />
           {spending.previousTotalMinor > 0 && spending.totalMinor !== spending.previousTotalMinor && (
             <p className="hint tight">
-              {t.budget.vsPrevious.by} <Money minor={Math.abs(spending.totalMinor - spending.previousTotalMinor)} currency={baseCurrency} />{' '}
+              {t.budget.vsPrevious.by} <Money minor={Math.abs(spending.totalMinor - spending.previousTotalMinor)} currency={display} />{' '}
               {spending.totalMinor > spending.previousTotalMinor ? t.budget.vsPrevious.more : t.budget.vsPrevious.less}
             </p>
           )}
@@ -192,7 +198,7 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
                 {partsOf('spent_minor').slice(0, LEGEND_MAX).map(({ c, sum }) => (
                   <span key={c.id}>
                     <i style={{ background: colorOf.get(c.id) }} />
-                    {c.name} <Money minor={sum} currency={baseCurrency} />
+                    {c.name} <Money minor={sum} currency={display} />
                   </span>
                 ))}
               </div>
@@ -208,7 +214,7 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
       {envelopes && budget !== null && (
         <div className={`card budget-head budget-hero budget-tap budget-${tone}`} role="button" tabIndex={0} onClick={() => setFocus(true)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setFocus(true)}>
           <span className="label">{t.budget.toBudget}</span>
-          <Money minor={budget.to_budget_minor} currency={baseCurrency} />
+          <Money minor={budget.to_budget_minor} currency={display} />
           <p className="budget-tone">{t.budget.tone[tone]}</p>
           {plannedBase > 0 && (
             <>
@@ -222,7 +228,7 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
                 {partsOf('budgeted_minor').slice(0, LEGEND_MAX).map(({ c, sum }) => (
                   <span key={c.id}>
                     <i style={{ background: colorOf.get(c.id) }} />
-                    {c.name} <Money minor={sum} currency={baseCurrency} />
+                    {c.name} <Money minor={sum} currency={display} />
                   </span>
                 ))}
               </div>
@@ -230,10 +236,10 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
           )}
           <div className="budget-sub">
             <span>
-              {t.budget.income} <Money minor={budget.income_minor} currency={baseCurrency} />
+              {t.budget.income} <Money minor={budget.income_minor} currency={display} />
             </span>
             <span>
-              {t.budget.budgeted} <Money minor={budget.budgeted_minor} currency={baseCurrency} />
+              {t.budget.budgeted} <Money minor={budget.budgeted_minor} currency={display} />
             </span>
           </div>
           {budget.missing_rates > 0 && (
@@ -254,7 +260,7 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
               <div key={c.id} className="attn-chip" role="button" tabIndex={0} onClick={() => onOpenCategory(c.id)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpenCategory(c.id)}>
                 <i className={`attn-dot attn-${st}`} />
                 {c.name}
-                <em>{st === 'noplan' ? t.budget.caption.noplan : <Money minor={r.balance_minor} currency={baseCurrency} />}</em>
+                <em>{st === 'noplan' ? t.budget.caption.noplan : <Money minor={r.balance_minor} currency={display} />}</em>
               </div>
             ))}
           </div>
@@ -321,7 +327,7 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
                       {envelopes ? (
                         <span className="b2-sub">
                           <b>
-                            <Money minor={r.spent_minor} currency={baseCurrency} />
+                            <Money minor={r.spent_minor} currency={display} />
                           </b>
                           <span
                             className="b2-plan"
@@ -341,7 +347,7 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
                           >
                             {r.budgeted_minor > 0 ? (
                               <>
-                                {t.budget.of} <Money minor={r.budgeted_minor} currency={baseCurrency} />
+                                {t.budget.of} <Money minor={r.budgeted_minor} currency={display} />
                               </>
                             ) : (
                               t.budget.setPlan
@@ -359,7 +365,7 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
                             {share}%
                             {previous !== null && r.spent_minor !== was && (
                               <span title={t.budget.toPrevious}>
-                                <Money minor={r.spent_minor - was} currency={baseCurrency} signed />
+                                <Money minor={r.spent_minor - was} currency={display} signed />
                               </span>
                             )}
                           </span>
@@ -367,7 +373,7 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
                       )}
                     </div>
                     <div className="b2-end">
-                      <Money minor={envelopes ? r.balance_minor : r.spent_minor} currency={baseCurrency} />
+                      <Money minor={envelopes ? r.balance_minor : r.spent_minor} currency={display} />
                       <small>{envelopes ? t.budget.caption[st] : t.budget.spent}</small>
                     </div>
                     {!envelopes && r.spent_minor > 0 && (
@@ -395,7 +401,7 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
         )
       })()}
 
-      {focus && budget !== null && <BudgetFocus budget={budget} tone={tone} accounts={accounts} categories={categories} baseCurrency={baseCurrency} onClose={() => setFocus(false)} />}
+      {focus && budget !== null && <BudgetFocus budget={budget} tone={tone} accounts={accounts} categories={categories} baseCurrency={display} onClose={() => setFocus(false)} />}
 
       {envelopes && (
         <button type="button" className="chip" onClick={() => setEnvelopesDialog('disable')}>
@@ -427,13 +433,14 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
         </Modal>
       )}
 
-      {comparing && budget !== null && <BudgetCompare month={month} budget={budget} categories={categories} baseCurrency={baseCurrency} plan={envelopes} onClose={() => setComparing(false)} />}
+      {comparing && budget !== null && <BudgetCompare month={month} budget={budget} categories={categories} baseCurrency={display} factor={factor} plan={envelopes} onClose={() => setComparing(false)} />}
       {suggesting && (
         <BudgetSuggest
           month={month}
           current={new Map([...rows].map(([id, r]) => [id, r.budgeted_minor]))}
           categories={categories}
-          baseCurrency={baseCurrency}
+          factor={factor}
+          display={display}
           onApplied={(b) => {
             setBudget(b)
             setSuggesting(false)
@@ -447,7 +454,8 @@ export function BudgetScreen({ categories, accounts, baseCurrency, today, envelo
           <PlanForm
             category={planning}
             month={month}
-            currency={baseCurrency}
+            currency={display}
+            factor={factor}
             current={rows.get(planning.id)?.budgeted_minor ?? 0}
             onSaved={(b) => {
               setBudget(b)
@@ -515,12 +523,14 @@ type PlanProps = {
   category: Category
   month: string
   currency: string
+  // Планы хранятся в базовой валюте: введённое в валюте показа делится на factor.
+  factor: number
   current: number
   onSaved: (b: BudgetMonth) => void
 }
 
 // PlanForm: сколько заложить на категорию в этом месяце. Пусто или ноль снимают заложенное.
-function PlanForm({ category, month, currency, current, onSaved }: PlanProps) {
+function PlanForm({ category, month, currency, factor, current, onSaved }: PlanProps) {
   const [amount, setAmount] = useState(current > 0 ? formatInput(current, currency) : '')
   const { busy, error, run, fail } = useSubmit()
 
@@ -534,7 +544,7 @@ function PlanForm({ category, month, currency, current, onSaved }: PlanProps) {
             fail(errorText('invalid_amount'))
             return
           }
-          onSaved(await setBudgeted(month, category.id, minor))
+          onSaved(await setBudgeted(month, category.id, Math.round(minor / factor)))
         })
       }
     >

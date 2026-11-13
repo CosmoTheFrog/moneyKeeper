@@ -416,12 +416,13 @@ export function App() {
                   {t.back}
                 </button>
               )}
-              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} onOpenTab={setTab} onOpenCategory={(id) => go({ kind: 'category', categoryId: id })} onOpenSchedules={() => go({ kind: 'schedules', back: 'operations' })} onOpenSavings={() => go({ kind: 'savings', back: 'operations' })} name={me.first_name} simple={simple} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
+              {shownTab === 'operations' && <OperationsScreen entries={entries} accounts={everyAccount} categories={categories} today={today} display={display} base={base} onOpen={(entry) => openEntry(entry, home)} onAdd={onAdd} onOpenDay={(date) => go({ kind: 'day', date })} onOpenMore={() => go({ kind: 'more' })} currencies={shown} onDisplay={changeDisplay} onOpenTab={setTab} onOpenCategory={(id) => go({ kind: 'category', categoryId: id })} onOpenSchedules={() => go({ kind: 'schedules', back: 'operations' })} onOpenSavings={() => go({ kind: 'savings', back: 'operations' })} name={me.first_name} simple={simple} wrapRow={(entry, row) => <SwipeRow onEdit={() => openEntry(entry, home)} onDelete={() => void removeEntry(entry)}>{row}</SwipeRow>} />}
               {shownTab === 'budget' && (
                 <BudgetScreen
                         categories={categories}
                   accounts={accounts}
                   baseCurrency={base}
+                  display={display}
                   today={today}
                   envelopesEnabled={me.budget.envelopes_enabled}
                   ledger={state.data.transactions}
