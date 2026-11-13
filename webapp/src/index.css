@@ -3378,3 +3378,87 @@ h1 {
   font-size: 16px;
   letter-spacing: 0;
 }
+
+/* Форма записи в стиле «Бенто»: сумма крупно, цифровая клавиатура под большим пальцем. */
+.amount-hero {
+  padding: 8px 0 0;
+  text-align: center;
+}
+
+.amount-hero .amount-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+}
+
+.amount-big,
+.card .amount-big {
+  width: 70%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: right;
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -2px;
+}
+
+.amount-hero .amount-suffix {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.key {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.key:active {
+  background: var(--accent-soft);
+}
+
+.amount-hero .amount-big {
+  width: 70%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: right;
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -2px;
+}
+
+.amount-hero .amount-big:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.amount-hero .chips {
+  justify-content: center;
+}
+
+.key {
+  background: var(--bg);
+}
+
+.key:active {
+  background: var(--accent-soft);
+}

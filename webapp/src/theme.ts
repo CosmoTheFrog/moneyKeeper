@@ -3,8 +3,9 @@ export type Theme = 'light' | 'dark'
 
 const KEY = 'mk.theme'
 
+// По умолчанию светлая тема: «Бенто» рисуется светлым. «Как в Telegram» включается явно.
 export function parseMode(raw: string | null): ThemeMode {
-  return raw === 'light' || raw === 'dark' ? raw : 'auto'
+  return raw === 'dark' || raw === 'auto' ? raw : 'light'
 }
 
 // resolveTheme: явный выбор главнее, «авто» следует теме Telegram, без неё теме системы.
@@ -18,7 +19,7 @@ export function readMode(): ThemeMode {
   try {
     return parseMode(localStorage.getItem(KEY))
   } catch {
-    return 'auto' // хранилище может быть недоступно
+    return 'light' // хранилище может быть недоступно
   }
 }
 

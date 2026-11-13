@@ -18,7 +18,8 @@ import { DateField } from './DateField'
 import { ExchangeFields } from './ExchangeForm'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
-import { currencySign, formatInput, formatMinor, parseAmount } from './money'
+import { currencySign, formatInput, formatMinor, parseAmount, unitsOf } from './money'
+import { KeyPad } from './KeyPad'
 import { ChipPicker, CurrencyPicker, SheetPicker } from './Pickers'
 
 type FormKind = 'expense' | 'income' | 'transfer' | 'opening' | 'exchange'
@@ -273,21 +274,6 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
             void save(false)
           }}
         >
-          {kind === 'expense' && (
-            <div className="card">
-              {!editing && frequent.length > 0 && (
-                <div className="chips" role="radiogroup" aria-label={t.add.frequent}>
-                  {frequent.map((id) => (
-                    <button key={id} type="button" role="radio" aria-checked={id === categoryId} className={id === categoryId ? 'pill pill-on' : 'pill'} onClick={() => setCategoryId(id)}>
-                      {categoryLabel.get(id)}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
-            </div>
-          )}
-
           {!editing && (
             <div className="card">
               <label className="field">
@@ -316,17 +302,40 @@ export function EntryForm({ accounts, allAccounts, categories, entry, allCurrenc
           {lockedAmounts ? (
             <p className="hint tight">{t.exchange.locked}</p>
           ) : (
-            <div className="card">
-              <label className="field">
-                <span className="label">{t.add.amount}</span>
-                <span className="amount-row">
-                  <input key={savedCount} inputMode="decimal" autoFocus={!editing} value={amount} placeholder="0,00" onChange={(e) => setAmount(e.target.value)} />
-                  {!currencyEditable && <span className="amount-suffix">{currencySign(currency)}</span>}
-                </span>
-              </label>
-              {currencyEditable && currencies.length > (simple ? 1 : 0) && <CurrencyPicker label={t.add.currency} value={currency} options={currencies} onChange={chooseCurrency} />}
+            <div className="amount-hero">
+              <span className="amount-row">
+                <input
+                  className="amount-big"
+                  key={savedCount}
+                  inputMode="none"
+                  aria-label={t.add.amount}
+                  autoFocus={!editing}
+                  value={amount}
+                  placeholder="0"
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+                <span className="amount-suffix">{currencySign(currency)}</span>
+              </span>
+              {currencyEditable && currencies.length > (simple ? 1 : 0) && <CurrencyPicker value={currency} options={currencies} onChange={chooseCurrency} />}
             </div>
           )}
+
+          {kind === 'expense' && (
+            <div className="card">
+              {!editing && frequent.length > 0 && (
+                <div className="chips" role="radiogroup" aria-label={t.add.frequent}>
+                  {frequent.map((id) => (
+                    <button key={id} type="button" role="radio" aria-checked={id === categoryId} className={id === categoryId ? 'pill pill-on' : 'pill'} onClick={() => setCategoryId(id)}>
+                      {categoryLabel.get(id)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <SheetPicker label={t.add.category} value={categoryId === 0 ? null : categoryId} placeholder={t.add.pickCategory} options={categoryOptions} onChange={setCategoryId} />
+            </div>
+          )}
+
+          {!lockedAmounts && <KeyPad value={amount} units={unitsOf(currency)} onChange={setAmount} />}
 
           {canPickAccount && (
             <div className="card">

@@ -6,9 +6,9 @@ describe('parseMode', () => {
     ['light', 'light'],
     ['dark', 'dark'],
     ['auto', 'auto'],
-    ['blue', 'auto'],
-    ['', 'auto'],
-    [null, 'auto'],
+    ['blue', 'light'],
+    ['', 'light'],
+    [null, 'light'],
   ])('%s → %s', (raw, want) => {
     expect(parseMode(raw)).toBe(want)
   })
