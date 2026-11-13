@@ -164,3 +164,16 @@ export function guessCategory(entries: Entry[], note: string): number | null {
   }
   return null
 }
+
+// recordStreak: сколько дней подряд до today включительно есть хоть одна запись. Если сегодня записей нет, считается
+// от вчера: день ещё не закончился, и серия не должна обнуляться с утра.
+export function recordStreak(entries: Entry[], today: string): number {
+  const days = new Set(entries.map((e) => e.date))
+  let day = days.has(today) ? today : shiftDay(today, -1)
+  let n = 0
+  while (days.has(day)) {
+    n++
+    day = shiftDay(day, -1)
+  }
+  return n
+}

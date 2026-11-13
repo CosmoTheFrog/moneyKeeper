@@ -1,48 +1,54 @@
 :root {
-  --bg: #f6f7f8;
+  --bg: #ecedf3;
   --card: #fff;
-  --ink: #14201c;
-  --muted: #6c7873;
-  --line: #e8ecea;
-  --accent: #0f6e56;
-  --accent-soft: #e1f5ee;
-  --danger: #c8372d;
-  --pos: #1d7a55;
-  --accent-2: #0f6e56;
+  --ink: #14141f;
+  --muted: #5a5b6e;
+  --line: #e3e5ee;
+  --accent: #2f4bff;
+  --accent-soft: #e4e8ff;
+  --danger: #c4301f;
+  --pos: #0e7a4b;
+  --accent-2: #2f4bff;
   --warn: #9c6508;
   --hero: #fff;
   --shadow: none;
+  --lime: #d8f25c;
+  --peach: #ffc9b0;
+  --lilac: #ebe0ff;
 
   /* Оттенки категорий: у категории по кругу свой, он идёт в значки, кольца и разбивки. */
-  --g1: #1d9e75;
-  --g2: #7f77dd;
-  --g3: #d85a30;
-  --g4: #378add;
-  --g5: #d4537e;
-  --g6: #ba7517;
+  --g1: #2f4bff;
+  --g2: #ff7a45;
+  --g3: #8a6cff;
+  --g4: #0fa3a3;
+  --g5: #e0457b;
+  --g6: #8fa800;
 }
 
-/* Тёмная тема: те же переменные, другие значения. Оттенки светлее, чтобы читались на тёмном. */
+/* Тёмная тема: те же переменные, другие значения. Основная тема светлая. */
 :root[data-theme='dark'] {
-  --bg: #0e1412;
-  --card: #161d1a;
-  --ink: #e8efec;
-  --muted: #8a9893;
-  --line: #243029;
-  --accent: #2bb58b;
-  --accent-soft: #123a2e;
+  --bg: #12131a;
+  --card: #1c1e28;
+  --ink: #eceef5;
+  --muted: #9a9cb0;
+  --line: #2a2d3a;
+  --accent: #6f86ff;
+  --accent-soft: #232a55;
   --danger: #f0675c;
   --pos: #4cc27e;
-  --accent-2: #2bb58b;
+  --accent-2: #6f86ff;
   --warn: #e0a93b;
-  --hero: #161d1a;
+  --hero: #1c1e28;
   --shadow: none;
-  --g1: #3ec79b;
-  --g2: #a09aea;
-  --g3: #ee8460;
-  --g4: #67aef0;
-  --g5: #e57fa4;
-  --g6: #dfa23f;
+  --lime: #b9d23d;
+  --peach: #e8a98d;
+  --lilac: #3a3360;
+  --g1: #6f86ff;
+  --g2: #ff9a6e;
+  --g3: #a994ff;
+  --g4: #3ec9c9;
+  --g5: #ee7aa3;
+  --g6: #b9d23d;
 
   color-scheme: dark;
 }
@@ -53,7 +59,7 @@
 
 body {
   margin: 0;
-  font-family: Manrope, system-ui, sans-serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
   background: var(--bg);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -2946,40 +2952,6 @@ h1 {
 }
 
 /* Герой «Операций»: потрачено за месяц, сравнение, линия по дням, самые большие категории. */
-.hero {
-  padding: 18px;
-}
-
-.hero > .money {
-  display: block;
-  margin: 2px 0 0;
-  font-size: 34px;
-  letter-spacing: -0.5px;
-}
-
-.hero-delta {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.hero-delta .money {
-  font-size: inherit;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.hero-good .money {
-  color: var(--pos);
-}
-
-.hero-line {
-  display: block;
-  width: 100%;
-  height: 56px;
-  margin: 14px 0 6px;
-}
-
 .hero-row {
   display: flex;
   align-items: center;
@@ -3019,10 +2991,6 @@ h1 {
   color: var(--ink);
 }
 
-.hero > .money.neg {
-  color: var(--ink);
-}
-
 .budget-head .hint .money {
   display: inline;
   font-size: inherit;
@@ -3030,4 +2998,299 @@ h1 {
 
 .card .chips + .field {
   margin-top: 12px;
+}
+
+/* Оформление «Бенто»: светлый фон, плитки с большими скруглениями, один синий акцент, лайм и персик для мелких плиток, тёмная пилюля навигации. */
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+}
+
+.card {
+  border: 0;
+  border-radius: 30px;
+  box-shadow: none;
+}
+
+.primary {
+  padding: 17px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.chip {
+  border: 0;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.chip-on {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.plus {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.plus-solid {
+  background: var(--accent);
+  color: #fff;
+}
+
+.plus-avatar {
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tabbar {
+  right: auto;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  width: auto;
+  height: 64px;
+  padding: 0 8px;
+  gap: 6px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #14141f;
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .tabbar {
+  background: #2a2d3a;
+}
+
+.tab {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0;
+}
+
+.tab .ti {
+  width: auto;
+  height: auto;
+  background: transparent;
+}
+
+.tab-active {
+  background: #fff;
+  color: #14141f;
+}
+
+.tab-active .ti {
+  background: transparent;
+}
+
+.tab-add {
+  width: 46px;
+  height: 46px;
+  margin: 0;
+  background: var(--lime);
+  color: #14141f;
+  box-shadow: none;
+}
+
+.screen {
+  padding-bottom: 112px;
+}
+
+/* Плитки главного экрана. */
+.bento {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.bt {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 30px;
+}
+
+.bt-cap {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.bt-hero {
+  grid-column: 1 / span 2;
+  min-height: 176px;
+  padding: 18px 20px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.bt-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.bt-pill {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bt-pill .money {
+  font-size: inherit;
+  color: inherit;
+}
+
+.bt-hero > .money {
+  display: block;
+  font-size: 52px;
+  line-height: 1.05;
+  letter-spacing: -2.4px;
+  color: #fff;
+}
+
+.bt-line {
+  display: block;
+  width: 100%;
+  height: 36px;
+}
+
+.bt-ring {
+  align-items: flex-start;
+  min-height: 168px;
+  background: var(--card);
+}
+
+.bt-donut {
+  width: 104px;
+  height: 104px;
+  align-self: center;
+}
+
+.bt-col {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+}
+
+.bt-lime {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.bt-peach {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.bt-lime .bt-cap,
+.bt-peach .bt-cap {
+  color: #14141f;
+}
+
+.bt-lime .money {
+  font-size: 24px;
+  letter-spacing: -0.8px;
+  color: inherit;
+}
+
+.bt-peach b {
+  font-size: 26px;
+  letter-spacing: -0.8px;
+}
+
+.bt-list {
+  grid-column: 1 / span 2;
+  padding: 4px 18px;
+}
+
+.hero-row:first-child {
+  border-top: 0;
+}
+
+/* Счета: карточки-лица с цветом по виду счёта. */
+.list > .account {
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 30px;
+  background: var(--card);
+  color: var(--ink);
+  opacity: 1;
+}
+
+.list > .account::after {
+  content: none;
+}
+
+.list > .account-debit {
+  background: #14141f;
+  color: #fff;
+}
+
+:root[data-theme='dark'] .list > .account-debit {
+  background: #2a2d3a;
+}
+
+.list > .account-debit::before {
+  position: absolute;
+  top: 66px;
+  right: 20px;
+  width: 38px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--lime);
+  content: '';
+}
+
+.list > .account-credit {
+  background: var(--peach);
+  color: #14141f;
+}
+
+.list > .account-cash {
+  background: var(--lime);
+  color: #14141f;
+}
+
+.list > .account-wallet,
+.list > .account-piggy {
+  background: var(--lilac);
+  color: var(--ink);
+}
+
+.ops-hero {
+  border-radius: 30px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.ops-hero .label,
+.ops-hero .hint {
+  color: rgb(255 255 255 / 85%);
+}
+
+.ops-hero > .money {
+  color: #fff;
 }

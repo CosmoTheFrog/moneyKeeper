@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Transaction } from './api'
-import { dayIn, dayNet, frequentCategories, guessCategory, dayParts, daySummary, entryMatches, groupByDay, shiftDay, toEntries, type Entry } from './ledger'
+import { dayIn, dayNet, recordStreak, frequentCategories, guessCategory, dayParts, daySummary, entryMatches, groupByDay, shiftDay, toEntries, type Entry } from './ledger'
 
 function tx(over: Partial<Transaction> & Pick<Transaction, 'id'>): Transaction {
   return {
@@ -237,5 +237,22 @@ describe('frequentCategories and guessCategory', () => {
     expect(guessCategory(entries, 'кофе')).toBe(10)
     expect(guessCategory(entries, 'такси')).toBeNull()
     expect(guessCategory(entries, '  ')).toBeNull()
+  })
+})
+
+describe('recordStreak', () => {
+  const at = (date: string): Entry => ({ id: 1, kind: 'expense', date, amountMinor: -100, currency: 'GEL', baseMinor: -100, accountId: 1, toAccountId: null, categoryId: 1, note: '', inMinor: null, inCurrency: null, feeMinor: 0 })
+
+  it('counts consecutive days including today', () => {
+    expect(recordStreak([at('2026-10-12'), at('2026-10-11'), at('2026-10-11'), at('2026-10-10'), at('2026-10-08')], '2026-10-12')).toBe(3)
+  })
+
+  it('keeps the streak alive in the morning before the first record', () => {
+    expect(recordStreak([at('2026-10-11'), at('2026-10-10')], '2026-10-12')).toBe(2)
+  })
+
+  it('is zero after a gap', () => {
+    expect(recordStreak([at('2026-10-09')], '2026-10-12')).toBe(0)
+    expect(recordStreak([], '2026-10-12')).toBe(0)
   })
 })

@@ -4,7 +4,7 @@ import { totalBalance } from './accounts'
 import { shiftMonth } from './calendar'
 import { EntryList } from './EntryList'
 import { t } from './i18n'
-import { dayNet, entryMatches, type Entry } from './ledger'
+import { dayNet, entryMatches, recordStreak, type Entry } from './ledger'
 import { MonthHero } from './MonthHero'
 import { Money } from './MoneyText'
 import { monthLine } from './report'
@@ -22,12 +22,14 @@ type Props = {
   onAdd: () => void
   onOpenDay?: (date: string) => void
   onOpenMore: () => void
+  // Имя в профиле: первая буква стоит на кнопке «Ещё».
+  name: string
   // Простой режим: остатка по счетам нет, показывать его не нужно.
   simple?: boolean
   wrapRow?: (entry: Entry, row: ReactNode) => ReactNode
 }
 
-export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, simple = false, wrapRow }: Props) {
+export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, name, simple = false, wrapRow }: Props) {
   const [month, setMonth] = useState<BudgetMonth | null>(null)
   const [previous, setPrevious] = useState<BudgetMonth | null>(null)
   const [searching, setSearching] = useState(false)
@@ -72,10 +74,8 @@ export function OperationsScreen({ entries, accounts, categories, today, display
               <path d="M11 4a7 7 0 100 14 7 7 0 000-14zM16 16l4 4" />
             </svg>
           </button>
-          <button type="button" className="plus" aria-label={t.more.title} onClick={onOpenMore}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 12h.01M12 12h.01M19 12h.01" />
-            </svg>
+          <button type="button" className="plus plus-avatar" aria-label={t.more.title} onClick={onOpenMore}>
+            {[...name.trim()][0]?.toUpperCase() ?? ''}
           </button>
         </span>
       </header>
@@ -102,7 +102,7 @@ export function OperationsScreen({ entries, accounts, categories, today, display
 
       {!filtering && entries.length > 0 && (
         <>
-          <MonthHero month={month} previous={previous} categories={categories} line={monthLine(entries, today)} currency={base} />
+          <MonthHero month={month} previous={previous} categories={categories} line={monthLine(entries, today)} streak={recordStreak(entries, today)} currency={base} />
           {!simple && balance !== null && (
             <p className="hero-balance">
               {t.ledger.balance} <Money minor={balance} currency={display} />
