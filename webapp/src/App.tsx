@@ -30,7 +30,7 @@ import { haptic } from './haptic'
 import { ErrorState, ScreenSkeleton } from './States'
 import { ReportsScreen } from './ReportsScreen'
 import { TabBar, type Tab } from './TabBar'
-import { applyTheme, readMode, resolveTheme, saveMode, type ThemeMode } from './theme'
+import { applyTheme, readTheme, saveTheme, type Theme } from './theme'
 import { ThemeContext } from './ThemeSettings'
 
 // Экраны, которые открывают редко, грузятся отдельными кусками при первом открытии.
@@ -87,28 +87,22 @@ export function App() {
   const [cameFrom, setCameFrom] = useState<Tab | null>(null)
   const [screen, setScreen] = useState<Screen>({ kind: 'tabs' })
   const [hidden, setHidden] = useState(readHidden)
-  const [themeMode, setThemeMode] = useState<ThemeMode>(readMode)
+  const [themeName, setThemeName] = useState<Theme>(readTheme)
   const [displayChoice, setDisplayChoice] = useState(readDisplay)
 
   const theme = useMemo(
     () => ({
-      mode: themeMode,
-      setMode: (mode: ThemeMode) => {
-        saveMode(mode)
-        setThemeMode(mode)
+      theme: themeName,
+      setTheme: (next: Theme) => {
+        saveTheme(next)
+        setThemeName(next)
       },
     }),
-    [themeMode],
+    [themeName],
   )
 
-  // Тема применяется к странице целиком; «как в Telegram» берёт схему мессенджера, без него системную.
-  useEffect(() => {
-    const dark = window.matchMedia('(prefers-color-scheme: dark)')
-    const apply = () => applyTheme(resolveTheme(themeMode, window.Telegram?.WebApp.colorScheme, dark.matches))
-    apply()
-    dark.addEventListener('change', apply)
-    return () => dark.removeEventListener('change', apply)
-  }, [themeMode])
+  // Оформление применяется к странице целиком.
+  useEffect(() => applyTheme(themeName), [themeName])
 
   const privacy = useMemo(
     () => ({

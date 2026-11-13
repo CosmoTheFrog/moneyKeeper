@@ -25,12 +25,10 @@ export const t = {
     open: 'Оформление',
     title: 'Оформление',
     label: 'Тема',
-    modes: {
-      auto: 'Как в Telegram',
-      light: 'Светлая',
-      dark: 'Тёмная',
+    names: {
+      bento: 'Бенто',
+      pop: 'Поп',
     },
-    hint: 'Режим «Как в Telegram» сам переключается вместе с темой мессенджера.',
   },
 
   currency: {

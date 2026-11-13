@@ -1,33 +1,26 @@
-export type ThemeMode = 'auto' | 'light' | 'dark'
-export type Theme = 'light' | 'dark'
+// Оформление: «Бенто» (светлые плитки, по умолчанию) и «Поп» (жёлтый фон, чёрные контуры, жёсткие тени).
+export type Theme = 'bento' | 'pop'
 
 const KEY = 'mk.theme'
 
-// По умолчанию светлая тема: «Бенто» рисуется светлым. «Как в Telegram» включается явно.
-export function parseMode(raw: string | null): ThemeMode {
-  return raw === 'dark' || raw === 'auto' ? raw : 'light'
+// parseTheme: всё незнакомое, в том числе прежние «светлая», «тёмная» и «как в Telegram», это «Бенто».
+export function parseTheme(raw: string | null): Theme {
+  return raw === 'pop' ? 'pop' : 'bento'
 }
 
-// resolveTheme: явный выбор главнее, «авто» следует теме Telegram, без неё теме системы.
-export function resolveTheme(mode: ThemeMode, telegramScheme: string | undefined, prefersDark: boolean): Theme {
-  if (mode !== 'auto') return mode
-  if (telegramScheme === 'dark' || telegramScheme === 'light') return telegramScheme
-  return prefersDark ? 'dark' : 'light'
-}
-
-export function readMode(): ThemeMode {
+export function readTheme(): Theme {
   try {
-    return parseMode(localStorage.getItem(KEY))
+    return parseTheme(localStorage.getItem(KEY))
   } catch {
-    return 'light' // хранилище может быть недоступно
+    return 'bento' // хранилище может быть недоступно
   }
 }
 
-export function saveMode(mode: ThemeMode): void {
+export function saveTheme(theme: Theme): void {
   try {
-    localStorage.setItem(KEY, mode)
+    localStorage.setItem(KEY, theme)
   } catch {
-    // не сохранилось, тема живёт до закрытия
+    // не сохранилось, оформление живёт до закрытия
   }
 }
 

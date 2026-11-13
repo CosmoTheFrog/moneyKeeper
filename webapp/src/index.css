@@ -26,33 +26,6 @@
 }
 
 /* Тёмная тема: те же переменные, другие значения. Основная тема светлая. */
-:root[data-theme='dark'] {
-  --bg: #12131a;
-  --card: #1c1e28;
-  --ink: #eceef5;
-  --muted: #9a9cb0;
-  --line: #2a2d3a;
-  --accent: #6f86ff;
-  --accent-soft: #232a55;
-  --danger: #f0675c;
-  --pos: #4cc27e;
-  --accent-2: #6f86ff;
-  --warn: #e0a93b;
-  --hero: #1c1e28;
-  --shadow: none;
-  --lime: #b9d23d;
-  --peach: #e8a98d;
-  --lilac: #3a3360;
-  --g1: #ff9a6e;
-  --g2: #a994ff;
-  --g3: #3ec9c9;
-  --g4: #ee7aa3;
-  --g5: #b9d23d;
-  --g6: #6f86ff;
-
-  color-scheme: dark;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -3066,10 +3039,6 @@ h1 {
   box-shadow: none;
 }
 
-:root[data-theme='dark'] .tabbar {
-  background: #2a2d3a;
-}
-
 .tab {
   display: grid;
   flex: none;
@@ -3247,10 +3216,6 @@ h1 {
 .list > .account-debit {
   background: #14141f;
   color: #fff;
-}
-
-:root[data-theme='dark'] .list > .account-debit {
-  background: #2a2d3a;
 }
 
 .list > .account-debit::before {
@@ -3533,10 +3498,6 @@ h1 {
   color: #fff;
 }
 
-:root[data-theme='dark'] .flip-face.account-debit {
-  background: #2a2d3a;
-}
-
 .flip-face.account-credit {
   background: var(--peach);
   color: #14141f;
@@ -3746,10 +3707,6 @@ h1 {
   color: #fff;
 }
 
-:root[data-theme='dark'] .mini-debit {
-  background: #2a2d3a;
-}
-
 .mini-credit {
   background: var(--peach);
   color: #14141f;
@@ -3858,4 +3815,62 @@ h1 {
 /* Кнопка «Назад» над разделом, открытым плиткой главного экрана. */
 .back-float {
   margin: 14px 0 -6px 16px;
+}
+
+/* «Поп»: жёлтый фон, чёрные контуры и жёсткие тени без размытия. Те же переменные, другие значения. */
+:root[data-theme='pop'] {
+  --bg: #ffe45c;
+  --card: #fff;
+  --ink: #111;
+  --muted: #3d3a2a;
+  --line: #111;
+  --accent: #ff5a3c;
+  --accent-soft: #ffd9cf;
+  --accent-2: #ff5a3c;
+  --pos: #0a6b3c;
+  --hero: #fff;
+  --lime: #b8f04a;
+  --peach: #ffb08f;
+  --lilac: #cdb8ff;
+  --g1: #ff5a3c;
+  --g2: #7a5cff;
+  --g3: #00a0a0;
+  --g4: #e0307a;
+  --g5: #6fa000;
+  --g6: #2f4bff;
+}
+
+:root[data-theme='pop'] .card,
+:root[data-theme='pop'] .bt,
+:root[data-theme='pop'] .modal,
+:root[data-theme='pop'] .chip,
+:root[data-theme='pop'] .plus,
+:root[data-theme='pop'] .tabbar,
+:root[data-theme='pop'] .mini-cards > *,
+:root[data-theme='pop'] .hero-balance {
+  border: 2px solid #111;
+  box-shadow: 4px 4px 0 #111;
+}
+
+:root[data-theme='pop'] .bt-hero {
+  background: var(--accent);
+  color: #fff;
+}
+
+:root[data-theme='pop'] .chip-on,
+:root[data-theme='pop'] .primary {
+  border: 2px solid #111;
+  background: #111;
+  color: var(--lime);
+  box-shadow: 3px 3px 0 var(--accent);
+}
+
+:root[data-theme='pop'] .tabbar {
+  background: var(--lime);
+  box-shadow: 4px 4px 0 #111;
+}
+
+:root[data-theme='pop'] .backdrop {
+  background: rgb(17 17 17 / 45%);
+  backdrop-filter: none;
 }
