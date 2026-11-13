@@ -453,7 +453,7 @@ export function App() {
                   onAddExpense={(categoryId) => go({ kind: 'add', categoryId, returnTo: home })}
                 />
               )}
-              {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={shown} baseCurrency={base} displayCurrency={display} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
+              {shownTab === 'accounts' && !simple && <AccountsScreen accounts={accounts} currencies={shown} baseCurrency={base} displayCurrency={display} onDisplay={changeDisplay} onChanged={reload} onOpenReport={(id) => go({ kind: 'account', accountId: id })} onOpenSavings={() => go({ kind: 'savings' })} onOpenPortfolio={() => go({ kind: 'portfolio' })} />}
               <TabBar tab={shownTab} onTab={setTab} onAdd={onAdd} simple={simple} />
             </>
           )

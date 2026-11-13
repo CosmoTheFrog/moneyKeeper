@@ -7,6 +7,7 @@ import { Modal } from './Modal'
 import { Money } from './MoneyText'
 import { onKey } from './onKey'
 import { parseAmount } from './money'
+import { DisplayCurrency } from './DisplayCurrency'
 import { ChipPicker, CurrencyPicker } from './Pickers'
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
   baseCurrency: string
   // Валюта, в которой показаны итоги на обороте карты.
   displayCurrency: string
+  onDisplay: (code: string) => void
   onChanged: () => void
   onOpenReport: (accountId: number) => void
   onOpenSavings: () => void
@@ -23,7 +25,7 @@ type Props = {
 
 const kindOptions = (['debit', 'credit', 'cash', 'wallet'] as const).map((k) => ({ value: k, label: t.accountKinds[k] }))
 
-export function AccountsScreen({ accounts: every, currencies, baseCurrency, displayCurrency, onChanged, onOpenReport, onOpenSavings, onOpenPortfolio }: Props) {
+export function AccountsScreen({ accounts: every, currencies, baseCurrency, displayCurrency, onDisplay, onChanged, onOpenReport, onOpenSavings, onOpenPortfolio }: Props) {
   // Копилки живут на экране «Накопления», здесь только обычные счета и кошельки.
   const accounts = every.filter((a) => a.kind !== 'piggy')
   const [adding, setAdding] = useState(accounts.length === 0)
@@ -55,6 +57,7 @@ export function AccountsScreen({ accounts: every, currencies, baseCurrency, disp
       <header className="row">
         <h1>{t.accounts.title}</h1>
         <span className="row-tight">
+          <DisplayCurrency display={displayCurrency} currencies={currencies} onChange={onDisplay} />
           <button type="button" className="chip" onClick={() => setAdding(true)}>
             {t.accounts.add}
           </button>
