@@ -152,3 +152,25 @@ func TestImportRulesAndUndo(t *testing.T) {
 		t.Errorf("unknown id: err = %v, want ErrNotFound", err)
 	}
 }
+
+func TestPreviewImportOtherCurrency(t *testing.T) {
+	l := newLedger(t)
+	ctx := context.Background()
+	// Выписка в евро и долларах, а счёт в лари: пользователь должен узнать, какие валюты не подошли.
+	reply := `{"rows":[
+ {"date":"2026-10-03","raw_amount":"12,50","direction":"out","currency":"EUR","description":"Glovo","category":""},
+ {"date":"2026-10-04","raw_amount":"7,00","direction":"out","currency":"€","description":"Bolt","category":""},
+ {"date":"2026-10-05","raw_amount":"9,00","direction":"out","currency":"USD","description":"Uber","category":""}]}`
+	text := "12,50 7,00 9,00"
+	l.s.WithStatementLLM(fakeStatementLLM{reply: reply})
+	p, err := l.s.PreviewImport(ctx, l.u, l.cash.ID, text, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Rows) != 0 || p.Skipped != 3 {
+		t.Fatalf("rows = %d skipped = %d, want 0 and 3", len(p.Rows), p.Skipped)
+	}
+	if len(p.OtherCurrencies) != 2 || p.OtherCurrencies[0] != "EUR" || p.OtherCurrencies[1] != "USD" {
+		t.Errorf("other currencies = %v, want [EUR USD]", p.OtherCurrencies)
+	}
+}

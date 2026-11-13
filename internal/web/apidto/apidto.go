@@ -415,6 +415,8 @@ type AddWalletRequest struct {
 type PreviewImportResponse struct {
 	Rows    []ImportRowDTO `json:"rows"`
 	Skipped int            `json:"skipped"`
+	// Валюты строк, которые не подошли выбранному счёту.
+	OtherCurrencies []string `json:"other_currencies"`
 }
 
 type CommitImportRequest struct {

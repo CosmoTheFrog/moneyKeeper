@@ -162,6 +162,7 @@ export function ImportScreen({ accounts, onClose, onDone }: Props) {
               {t.importFile.skipped}: {preview.skipped}
             </p>
           )}
+          {preview.other_currencies.length > 0 && <p className="error">{t.importFile.otherCurrency.replace('{codes}', preview.other_currencies.join(', '))}</p>}
           <p className="hint tight">{t.importFile.rowsHint}</p>
           <div className="imp-list">
             {rows.map((r, i) => (

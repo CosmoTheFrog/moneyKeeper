@@ -336,7 +336,8 @@ export type ImportRow = {
   external_id: string
 }
 
-export type ImportPreview = { rows: ImportRow[]; skipped: number }
+// other_currencies: валюты строк, которые не подошли выбранному счёту.
+export type ImportPreview = { rows: ImportRow[]; skipped: number; other_currencies: string[] }
 
 // Отчёт прежнего бота в xlsx: разбирается на сервере, ничего не сохраняет до commitImport.
 // Выписка TBC и xlsx разбираются на сервере, PDF других банков уходит на разбор нейросети и требует consent.

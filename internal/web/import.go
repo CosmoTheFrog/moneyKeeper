@@ -54,7 +54,7 @@ func (h *handler) previewImportFile(w http.ResponseWriter, r *http.Request, u mo
 }
 
 func previewResponse(p models.ImportPreview) apidto.PreviewImportResponse {
-	out := apidto.PreviewImportResponse{Rows: make([]apidto.ImportRowDTO, 0, len(p.Rows)), Skipped: p.Skipped}
+	out := apidto.PreviewImportResponse{Rows: make([]apidto.ImportRowDTO, 0, len(p.Rows)), Skipped: p.Skipped, OtherCurrencies: append([]string{}, p.OtherCurrencies...)}
 	for _, row := range p.Rows {
 		out.Rows = append(out.Rows, apidto.ImportRowDTO{
 			Date: row.Date.String(), AmountMinor: row.AmountMinor, Currency: string(row.Currency),
