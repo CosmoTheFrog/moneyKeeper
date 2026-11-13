@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { fetchBudgetMonth, fetchOccurrences, type Account, type BudgetMonth, type Category, type Occurrence } from './api'
+import { fetchBudgetMonth, fetchOccurrences, fetchRates, type Account, type BudgetMonth, type Category, type Occurrence } from './api'
 import { totalBalance } from './accounts'
 import { EntryList } from './EntryList'
 import { FullTiles } from './FullTiles'
@@ -7,6 +7,7 @@ import { t } from './i18n'
 import { dayNet, entryMatches, recordStreak, type Entry } from './ledger'
 import { MonthHero } from './MonthHero'
 import { Money } from './MoneyText'
+import { unitsOf } from './money'
 import { onKey } from './onKey'
 import { monthLine, previousRange, spendByCategory } from './report'
 import { EmptyState } from './States'
@@ -39,6 +40,8 @@ type Props = {
 export function OperationsScreen({ entries, accounts, categories, today, display, base, onOpen, onAdd, onOpenDay, onOpenMore, onOpenTab, onOpenCategory, onOpenSchedules, onOpenSavings, name, simple = false, wrapRow }: Props) {
   const [month, setMonth] = useState<BudgetMonth | null>(null)
   const [nextPayment, setNextPayment] = useState<Occurrence | null>(null)
+  // Во сколько минорных единиц валюты показа превращается минорная единица базовой; 1, пока показ в базовой.
+  const [factor, setFactor] = useState(1)
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
   const [accountId, setAccountId] = useState<number | null>(null)
@@ -58,6 +61,24 @@ export function OperationsScreen({ entries, accounts, categories, today, display
       alive = false
     }
   }, [today, entries, simple])
+
+  // Итоги месяца считаются в базовой валюте; в другой валюте показа пересчитываются по курсу дня.
+  useEffect(() => {
+    if (display === base) {
+      setFactor(1)
+      return
+    }
+    let alive = true
+    fetchRates(display)
+      .then((table) => {
+        const rate = Number(table.rates.find((r) => r.currency === base)?.rate)
+        if (alive && Number.isFinite(rate) && rate > 0) setFactor(rate * 10 ** (unitsOf(display) - unitsOf(base)))
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [display, base])
 
   const accountName = new Map(accounts.map((a) => [a.id, a.name]))
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
@@ -113,7 +134,7 @@ export function OperationsScreen({ entries, accounts, categories, today, display
 
       {!filtering && entries.length > 0 && (
         <>
-          <MonthHero month={month} previousMinor={previousMinor} categories={categories} line={monthLine(entries, today)} streak={recordStreak(entries, today)} currency={base} onOpenReports={() => onOpenTab('reports')} onOpenBudget={() => onOpenTab('budget')} onOpenToday={() => onOpenDay?.(today)} onAdd={onAdd} onOpenCategory={onOpenCategory} />
+          <MonthHero month={scaleMonth(month, factor)} previousMinor={previousMinor} categories={categories} line={monthLine(entries, today)} streak={recordStreak(entries, today)} currency={display} onOpenReports={() => onOpenTab('reports')} onOpenBudget={() => onOpenTab('budget')} onOpenToday={() => onOpenDay?.(today)} onAdd={onAdd} onOpenCategory={onOpenCategory} />
           {!simple && <FullTiles accounts={accounts.filter((a) => !a.archived)} nextPayment={nextPayment} today={today} onOpenAccounts={() => onOpenTab('accounts')} onOpenSchedules={onOpenSchedules} onOpenSavings={onOpenSavings} />}
           {!simple && balance !== null && (
             <div role="button" tabIndex={0} className="hero-balance" onClick={() => onOpenTab('accounts')} onKeyDown={onKey(() => onOpenTab('accounts'))}>
@@ -140,4 +161,17 @@ export function OperationsScreen({ entries, accounts, categories, today, display
       <EntryList entries={shown} accounts={accounts} categories={categories} today={today} onOpen={onOpen} totalCurrency={display} onOpenDay={onOpenDay} wrapRow={wrapRow} />
     </main>
   )
+}
+
+// scaleMonth: суммы месяца, умноженные на factor; сам месяц не меняется.
+function scaleMonth(month: BudgetMonth | null, factor: number): BudgetMonth | null {
+  if (month === null || factor === 1) return month
+  const k = (v: number) => Math.round(v * factor)
+  return {
+    ...month,
+    income_minor: k(month.income_minor),
+    budgeted_minor: k(month.budgeted_minor),
+    to_budget_minor: k(month.to_budget_minor),
+    categories: month.categories.map((r) => ({ ...r, budgeted_minor: k(r.budgeted_minor), spent_minor: k(r.spent_minor), balance_minor: k(r.balance_minor) })),
+  }
 }
