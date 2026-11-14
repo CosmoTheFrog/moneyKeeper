@@ -94,7 +94,7 @@ func looksLikeTBC(text string) bool {
 // previewParsed прогоняет разбор выписки по шаблону через общие шаги: предел строк, запомненные категории, отметка
 // уже внесённых строк. parse получает счёт и категории пользователя (название в нижнем регистре, id).
 func (s *Service) previewParsed(ctx context.Context, u models.User, accountID int64, parse func(models.Account, map[string]int64) (models.ImportPreview, error)) (models.ImportPreview, error) {
-	acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, accountID)
+	acc, err := s.importAccount(ctx, u, accountID)
 	if err != nil {
 		return models.ImportPreview{}, err
 	}
@@ -133,6 +133,10 @@ func (s *Service) previewParsed(ctx context.Context, u models.User, accountID in
 // parseTBC собирает записи из текста выписки. Запись начинается со строки с датой, её продолжение (в том числе MCC)
 // идёт до следующей строки с датой.
 func parseTBC(text string, acc models.Account, byName map[string]int64) models.ImportPreview {
+	acc, mismatch, ok := withStatementCurrency(text, acc)
+	if !ok {
+		return mismatch
+	}
 	type entry struct{ head, tail string }
 	var (
 		entries []entry

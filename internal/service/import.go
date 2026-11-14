@@ -14,6 +14,24 @@ import (
 
 const maxImportRows = 500
 
+// importAccount возвращает счёт для импорта. В простом режиме выписка любой валюты идёт на основной счёт (других счетов
+// пользователь не видит), поэтому такой счёт принимает любые валюты. В режиме с картами счёт остаётся как есть: только
+// его валюта.
+func (s *Service) importAccount(ctx context.Context, u models.User, accountID int64) (models.Account, error) {
+	acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, accountID)
+	if err != nil {
+		return models.Account{}, err
+	}
+	b, err := s.budgets.Get(ctx, u.ActiveBudgetID)
+	if err != nil {
+		return models.Account{}, err
+	}
+	if b.InterfaceMode == models.ModeSimple && acc.IsDefault {
+		acc.MultiCurrency = true
+	}
+	return acc, nil
+}
+
 // WithImportRules включает запоминание выбранных при импорте категорий: продавец или MCC и категория. Без него
 // выбор приходится повторять при каждом импорте.
 func (s *Service) WithImportRules(r *repo.ImportRules) *Service {
@@ -114,9 +132,22 @@ func (s *Service) CommitImport(ctx context.Context, u models.User, accountID int
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		ids = nil
 		learned := map[string]int64{}
-		acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, accountID)
+		acc, err := s.importAccount(ctx, u, accountID)
 		if err != nil {
 			return err
+		}
+		// Основной счёт простого режима принимает любые валюты: флаг сохраняется, когда выписка в чужой валюте.
+		if stored, err := s.accounts.Get(ctx, u.ActiveBudgetID, accountID); err != nil {
+			return err
+		} else if acc.MultiCurrency && !stored.MultiCurrency {
+			for _, r := range rows {
+				if r.Currency != acc.Currency {
+					if err := s.accounts.EnableMultiCurrency(ctx, u.ActiveBudgetID, acc.ID); err != nil {
+						return err
+					}
+					break
+				}
+			}
 		}
 		for _, r := range rows {
 			abs := r.AmountMinor

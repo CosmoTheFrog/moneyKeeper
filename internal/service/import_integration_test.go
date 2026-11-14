@@ -142,3 +142,54 @@ func TestPreviewImportOtherCurrency(t *testing.T) {
 		t.Errorf("other currencies = %v, want [EUR USD]", p.OtherCurrencies)
 	}
 }
+
+func TestImportAnyCurrencyInSimpleMode(t *testing.T) {
+	l := newLedger(t)
+	ctx := context.Background()
+	csv := []byte("date;amount;currency;description\n2026-10-03;-150,00;RUB;Shop\n2026-10-04;1000,00;RUB;Cashback")
+
+	if _, err := l.s.SetBaseCurrency(ctx, l.u, "GEL"); err != nil {
+		t.Fatal(err)
+	}
+	// Режим с картами: счёт принимает только свою валюту.
+	if _, err := l.s.SetInterfaceMode(ctx, l.u, "full"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := l.s.PreviewFile(ctx, l.u, l.main.ID, csv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Rows) != 0 || len(p.OtherCurrencies) != 1 || p.OtherCurrencies[0] != "RUB" {
+		t.Fatalf("full mode: rows = %d other = %v, want 0 and [RUB]", len(p.Rows), p.OtherCurrencies)
+	}
+
+	// Простой режим: основной счёт принимает любую валюту, выбирать счёт не нужно.
+	if _, err := l.s.SetInterfaceMode(ctx, l.u, "simple"); err != nil {
+		t.Fatal(err)
+	}
+	accs, _ := l.s.ListAccounts(ctx, l.u, "")
+	var def int64
+	for _, a := range accs {
+		if a.IsDefault {
+			def = a.ID
+		}
+	}
+	p, err = l.s.PreviewFile(ctx, l.u, def, csv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Rows) != 2 || len(p.OtherCurrencies) != 0 {
+		t.Fatalf("simple mode: rows = %d other = %v, want 2 and none", len(p.Rows), p.OtherCurrencies)
+	}
+	cafe := l.category(t, "Питание вне дома")
+	p.Rows[0].CategoryID = &cafe
+	if _, err := l.s.CommitImport(ctx, l.u, def, p.Rows); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	accs, _ = l.s.ListAccounts(ctx, l.u, "")
+	for _, a := range accs {
+		if a.ID == def && !a.MultiCurrency {
+			t.Error("the default account must accept the foreign currency after the import")
+		}
+	}
+}

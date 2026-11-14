@@ -118,3 +118,17 @@ func TestParseCSVNoColumns(t *testing.T) {
 		t.Errorf("err = %v, want ErrInvalidImport", err)
 	}
 }
+
+func TestStatementCurrencyFromHeader(t *testing.T) {
+	text := "Opening Balance 100.00 RUB\n01/11/2026 Shop 10.00 90.00\n02/11/2026 Cafe 5.00 85.00"
+	// Счёт в лари не принимает рубли: строки не записываются, а валюта выписки называется.
+	p := parseBalanceStatement(text, models.Account{ID: 1, Currency: money.GEL}, nil)
+	if len(p.Rows) != 0 || p.Skipped != 2 || len(p.OtherCurrencies) != 1 || p.OtherCurrencies[0] != "RUB" {
+		t.Errorf("rows = %d skipped = %d other = %v, want 0, 2, [RUB]", len(p.Rows), p.Skipped, p.OtherCurrencies)
+	}
+	// Многовалютный счёт принимает: строки идут в валюте выписки, а не счёта.
+	p = parseBalanceStatement(text, models.Account{ID: 1, Currency: money.GEL, MultiCurrency: true}, nil)
+	if len(p.Rows) != 2 || p.Rows[0].Currency != money.RUB || p.Rows[0].AmountMinor != -1000 || p.Rows[1].AmountMinor != -500 {
+		t.Errorf("rows = %+v, want two expenses in RUB", p.Rows)
+	}
+}
