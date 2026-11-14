@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ApiError, commitImport, fetchCategories, previewImportFile, previewImportText, undoImport, type Account, type Category, type ImportPreview, type ImportRow } from './api'
+import { ApiError, commitImport, fetchCategories, previewImportFile, undoImport, type Account, type Category, type ImportPreview, type ImportRow } from './api'
 import { errorText, t } from './i18n'
 import { Modal } from './Modal'
 import { Money } from './MoneyText'
@@ -10,8 +10,6 @@ type Props = {
   onDone: () => void
 }
 
-const isText = (f: File) => /\.(csv|txt)$/i.test(f.name)
-
 // Ключ «похожих» строк: по нему выбор категории для одной строки применяется к остальным с тем же продавцом или MCC.
 const similarKey = (r: ImportRow) => (r.description.trim() !== '' ? `d:${r.description.trim().toLowerCase()}` : `s:${r.source_category}`)
 
@@ -21,9 +19,6 @@ const similarKey = (r: ImportRow) => (r.description.trim() !== '' ? `d:${r.descr
 export function ImportScreen({ accounts, onClose, onDone }: Props) {
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? 0)
   const [file, setFile] = useState<File | null>(null)
-  const [consent, setConsent] = useState(false)
-  // PDF не от TBC разбирает нейросеть: сервер просит согласие, и переключатель появляется после первой попытки.
-  const [pdfNeedsConsent, setPdfNeedsConsent] = useState(false)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   // Категория и отметка «записать» для каждой строки превью по её номеру; 0 значит категория ещё не выбрана.
@@ -41,23 +36,19 @@ export function ImportScreen({ accounts, onClose, onDone }: Props) {
   }, [])
 
   const fail = (e: unknown) => setError(errorText(e instanceof ApiError ? e.code : 'internal'))
-  const needsConsent = file !== null && (isText(file) || pdfNeedsConsent)
 
   async function read() {
     if (file === null) return
     setBusy(true)
     setError(null)
     try {
-      const p = isText(file) ? await previewImportText(accountId, await file.text(), consent) : await previewImportFile(accountId, file, consent)
+      const p = await previewImportFile(accountId, file)
       setPreview(p)
       setChoice(p.rows.map((r) => r.category_id ?? 0))
       // Уже внесённые строки не отмечены, но их можно отметить: так выглядит «это другая покупка».
       setIncluded(p.rows.map((r) => !r.duplicate))
     } catch (e) {
-      if (e instanceof ApiError && e.code === 'import_consent_required' && !isText(file)) {
-        setPdfNeedsConsent(true)
-        setError(t.importFile.pdfConsent)
-      } else fail(e)
+      fail(e)
     } finally {
       setBusy(false)
     }
@@ -135,20 +126,10 @@ export function ImportScreen({ accounts, onClose, onDone }: Props) {
           )}
           <label className="field">
             <span className="label">{t.importFile.file}</span>
-            <input type="file" accept=".xlsx,.pdf,.csv,.txt" onChange={(e) => {
-                setFile(e.target.files?.[0] ?? null)
-                setPdfNeedsConsent(false)
-              }} />
+            <input type="file" accept=".pdf,.csv,.txt,.xlsx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </label>
-          {needsConsent && (
-            <label className="switch">
-              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              <span className="switch-track" aria-hidden="true" />
-              <span>{t.importFile.consent}</span>
-            </label>
-          )}
           {error !== null && <p className="error">{error}</p>}
-          <button type="button" className="primary" disabled={busy || file === null || accountId === 0 || (needsConsent && !consent)} onClick={() => void read()}>
+          <button type="button" className="primary" disabled={busy || file === null || accountId === 0} onClick={() => void read()}>
             {busy ? t.importFile.reading : t.importFile.read}
           </button>
         </>

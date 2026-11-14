@@ -11,22 +11,8 @@ import (
 	"moneykeeper/pkg/money"
 )
 
-// previewImport разбирает выписку моделью и возвращает строки для подтверждения, ничего не сохраняя.
-func (h *handler) previewImport(w http.ResponseWriter, r *http.Request, u models.User) {
-	var req apidto.PreviewImportRequest
-	if !h.decodeLimit(w, r, &req, maxImportBodyBytes) {
-		return
-	}
-	p, err := h.svc.PreviewImport(r.Context(), u, req.AccountID, req.Text, req.Consent)
-	if err != nil {
-		h.fail(w, err)
-		return
-	}
-	h.writeJSON(w, http.StatusOK, previewResponse(p))
-}
-
-// previewImportFile читает xlsx-отчёт прежнего бота или PDF-выписку (multipart: account_id, file, consent) и возвращает
-// строки для подтверждения. PDF не от TBC уходит на разбор модели и требует consent=true.
+// previewImportFile читает PDF-выписку, csv или txt, или xlsx-отчёт прежнего бота (multipart: account_id и file) и
+// возвращает строки для подтверждения. Файл разбирается на сервере и никуда не передаётся.
 func (h *handler) previewImportFile(w http.ResponseWriter, r *http.Request, u models.User) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportFileBytes)
 	if err := r.ParseMultipartForm(maxImportFileBytes); err != nil {
@@ -45,7 +31,7 @@ func (h *handler) previewImportFile(w http.ResponseWriter, r *http.Request, u mo
 		h.writeError(w, http.StatusBadRequest, apidto.CodeInvalidRequest)
 		return
 	}
-	p, err := h.svc.PreviewFile(r.Context(), u, accountID, data, r.FormValue("consent") == "true")
+	p, err := h.svc.PreviewFile(r.Context(), u, accountID, data)
 	if err != nil {
 		h.fail(w, err)
 		return

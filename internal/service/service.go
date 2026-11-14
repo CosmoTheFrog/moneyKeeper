@@ -37,7 +37,6 @@ type Service struct {
 	wallets      *repo.Wallets
 	chains       ChainSource
 	fx           RateSource
-	statementLLM StatementLLM
 	importRules  *repo.ImportRules
 	sessions     *repo.Sessions
 	log          *slog.Logger

@@ -7,28 +7,12 @@ import (
 	"errors"
 	"testing"
 
-	"moneykeeper/internal/llm"
 	"moneykeeper/internal/models"
 	"moneykeeper/internal/repo"
 	"moneykeeper/pkg/apptime"
 )
 
-type fakeStatementLLM struct {
-	reply string
-	err   error
-}
-
-func (f fakeStatementLLM) CompleteJSON(context.Context, string, string) (string, error) {
-	return f.reply, f.err
-}
-
-const csvText = "date;amount;desc\n2026-10-03;-12,50;Glovo\n2026-10-03;-12,50;Glovo\n2026-10-04;1 000,00;Salary"
-
-const replyJSON = `{"rows":[
- {"date":"2026-10-03","raw_amount":"-12,50","direction":"out","currency":"","description":"Glovo","category":"Питание вне дома"},
- {"date":"2026-10-03","raw_amount":"-12,50","direction":"out","currency":"","description":"Glovo","category":"Питание вне дома"},
- {"date":"2026-10-04","raw_amount":"1 000,00","direction":"in","currency":"GEL","description":"Salary","category":""},
- {"date":"2026-10-05","raw_amount":"-77,00","direction":"out","currency":"","description":"Invented","category":""}]}`
+const csvStatement = "date;amount;description\n2026-10-03;-12,50;Glovo\n2026-10-03;-12,50;Glovo\n2026-10-04;1 000,00;Salary"
 
 func TestPreviewAndCommitImport(t *testing.T) {
 	l := newLedger(t)
@@ -43,40 +27,29 @@ func TestPreviewAndCommitImport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("needs consent", func(t *testing.T) {
-		l.s.WithStatementLLM(fakeStatementLLM{reply: replyJSON})
-		_, err := l.s.PreviewImport(ctx, l.u, l.cash.ID, csvText, false)
-		if !errors.Is(err, models.ErrImportConsent) {
-			t.Errorf("err = %v, want ErrImportConsent", err)
+	t.Run("not a statement", func(t *testing.T) {
+		_, err := l.s.PreviewFile(ctx, l.u, l.cash.ID, []byte("hello;world\n1;2"))
+		if !errors.Is(err, models.ErrInvalidImport) {
+			t.Errorf("err = %v, want ErrInvalidImport", err)
 		}
 	})
 
-	t.Run("llm down", func(t *testing.T) {
-		l.s.WithStatementLLM(fakeStatementLLM{err: llm.ErrUnavailable})
-		_, err := l.s.PreviewImport(ctx, l.u, l.cash.ID, csvText, true)
-		if !errors.Is(err, models.ErrImportUnavailable) {
-			t.Errorf("err = %v, want ErrImportUnavailable", err)
-		}
-	})
-
-	l.s.WithStatementLLM(fakeStatementLLM{reply: replyJSON})
-	p, err := l.s.PreviewImport(ctx, l.u, l.cash.ID, csvText, true)
+	p, err := l.s.PreviewFile(ctx, l.u, l.cash.ID, []byte(csvStatement))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(p.Rows) != 3 || p.Skipped != 1 {
-		t.Fatalf("rows = %d skipped = %d, want 3 and 1 (the invented row is dropped)", len(p.Rows), p.Skipped)
+	if len(p.Rows) != 3 || p.Skipped != 0 {
+		t.Fatalf("rows = %d skipped = %d, want 3 and 0", len(p.Rows), p.Skipped)
 	}
 	if !p.Rows[0].Duplicate || p.Rows[1].Duplicate {
 		t.Errorf("duplicates = %v %v, want one of two identical purchases marked", p.Rows[0].Duplicate, p.Rows[1].Duplicate)
-	}
-	if p.Rows[0].CategoryID == nil || *p.Rows[0].CategoryID != cafe || !p.Rows[0].Suggested {
-		t.Errorf("category not suggested: %+v", p.Rows[0])
 	}
 	if p.Rows[2].AmountMinor != 100000 {
 		t.Errorf("income = %d, want 100000", p.Rows[2].AmountMinor)
 	}
 
+	// Категорию расходу выбирает пользователь в превью.
+	p.Rows[1].CategoryID = &cafe
 	before := l.balance(t, l.cash.ID)
 	ids, err := l.s.CommitImport(ctx, l.u, l.cash.ID, p.Rows[1:])
 	if err != nil || len(ids) != 2 {
@@ -157,13 +130,8 @@ func TestPreviewImportOtherCurrency(t *testing.T) {
 	l := newLedger(t)
 	ctx := context.Background()
 	// Выписка в евро и долларах, а счёт в лари: пользователь должен узнать, какие валюты не подошли.
-	reply := `{"rows":[
- {"date":"2026-10-03","raw_amount":"12,50","direction":"out","currency":"EUR","description":"Glovo","category":""},
- {"date":"2026-10-04","raw_amount":"7,00","direction":"out","currency":"€","description":"Bolt","category":""},
- {"date":"2026-10-05","raw_amount":"9,00","direction":"out","currency":"USD","description":"Uber","category":""}]}`
-	text := "12,50 7,00 9,00"
-	l.s.WithStatementLLM(fakeStatementLLM{reply: reply})
-	p, err := l.s.PreviewImport(ctx, l.u, l.cash.ID, text, true)
+	csv := "date;amount;currency;description\n2026-10-03;-12,50;EUR;Glovo\n2026-10-04;-7,00;€;Bolt\n2026-10-05;-9,00;USD;Uber"
+	p, err := l.s.PreviewFile(ctx, l.u, l.cash.ID, []byte(csv))
 	if err != nil {
 		t.Fatal(err)
 	}

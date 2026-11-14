@@ -72,8 +72,7 @@ type Service interface {
 	DeleteTransaction(ctx context.Context, u models.User, id int64) error
 	TransactionEvents(ctx context.Context, u models.User, id int64) ([]models.TransactionEvent, error)
 
-	PreviewImport(ctx context.Context, u models.User, accountID int64, text string, consent bool) (models.ImportPreview, error)
-	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte, consent bool) (models.ImportPreview, error)
+	PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte) (models.ImportPreview, error)
 	CommitImport(ctx context.Context, u models.User, accountID int64, rows []models.ImportRow) ([]int64, error)
 	UndoImport(ctx context.Context, u models.User, ids []int64) error
 
@@ -136,7 +135,6 @@ func (h *handler) routes() http.Handler {
 	mux.HandleFunc("POST /api/exchanges", h.auth(h.createExchange))
 	mux.HandleFunc("POST /api/transactions/parse", h.auth(h.parseQuick))
 	mux.HandleFunc("GET /api/export/transactions", h.auth(h.exportTransactions))
-	mux.HandleFunc("POST /api/import/preview", h.auth(h.previewImport))
 	mux.HandleFunc("POST /api/import/file", h.auth(h.previewImportFile))
 	mux.HandleFunc("POST /api/import/commit", h.auth(h.commitImport))
 	mux.HandleFunc("POST /api/import/undo", h.auth(h.undoImport))
