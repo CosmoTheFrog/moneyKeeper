@@ -58,7 +58,12 @@ func (s *Service) previewPDF(ctx context.Context, u models.User, accountID int64
 		return models.ImportPreview{}, fmt.Errorf("%w: %w", models.ErrInvalidImport, err)
 	}
 	if looksLikeTBC(text) {
-		return s.previewTBCText(ctx, u, accountID, text)
+		p, err := s.previewTBCText(ctx, u, accountID, text)
+		// Выписка TBC на другом языке или с другой раскладкой колонок: разбор по шаблону ничего не нашёл. Строки не
+		// теряем, а отдаём тот же текст модели (с согласием), как выписку любого другого банка.
+		if err != nil || len(p.Rows) > 0 || strings.TrimSpace(text) == "" {
+			return p, err
+		}
 	}
 	// Без текстового слоя (скан) модели нечего читать.
 	if strings.TrimSpace(text) == "" {
