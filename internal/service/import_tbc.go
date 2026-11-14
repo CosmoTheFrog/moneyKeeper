@@ -26,7 +26,7 @@ var (
 	tbcSecondDate = regexp.MustCompile(`^\d{2}/\d{2}/\d{4}\s+`)
 	tbcDatedAny   = regexp.MustCompile(`(?m)^\s*\d{2}/\d{2}/\d{4}\s+\S`)
 	tbcPOS        = regexp.MustCompile(`^POS(?: wallet)? - (.+?), \d[\d,]*\.\d{2} [A-Z]{3}, ([A-Z][a-z]{2} \d{1,2} \d{4})\b.*?\b(?:VISA|MASTERCARD|MC)\s+(\d[\d,]*\.\d{2})`)
-	tbcMCC        = regexp.MustCompile(`MCC: (\d{4})`)
+	tbcMCC        = regexp.MustCompile(`MCC:?\s*(\d{4})`)
 	tbcLayout     = "Jan 2 2006"
 	tbcDateFmt    = "02/01/2006"
 )
@@ -76,6 +76,10 @@ func (s *Service) previewPDF(ctx context.Context, u models.User, accountID int64
 		switch {
 		case looksLikeTBank(text):
 			return parseTBank(text, acc), nil
+		case looksLikeAlfa(text):
+			return parseAlfa(text, acc, byName), nil
+		case looksLikeYandex(text):
+			return parseYandex(text, acc, byName), nil
 		case looksLikeTBC(text):
 			return parseTBC(text, acc, byName), nil
 		}
