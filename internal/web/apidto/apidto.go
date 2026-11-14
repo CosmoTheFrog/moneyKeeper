@@ -372,14 +372,7 @@ type SkipRequest struct {
 	DueOn string `json:"due_on"`
 }
 
-// PreviewImportRequest: text это содержимое выписки CSV, consent это явное согласие отправить его во внешний сервис.
-type PreviewImportRequest struct {
-	AccountID int64  `json:"account_id"`
-	Text      string `json:"text"`
-	Consent   bool   `json:"consent"`
-}
-
-// ImportRowDTO: amount_minor со знаком, расход отрицательный. suggested значит, что категорию предложила модель.
+// ImportRowDTO: amount_minor со знаком, расход отрицательный. suggested значит, что категорию подставили по MCC или по запомненному выбору.
 type ImportRowDTO struct {
 	Date        string `json:"date"`
 	AmountMinor int64  `json:"amount_minor"`

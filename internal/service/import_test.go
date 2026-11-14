@@ -1,11 +1,9 @@
 package service
 
 import (
-	"strings"
 	"testing"
 
 	"moneykeeper/internal/models"
-	"moneykeeper/pkg/apptime"
 	"moneykeeper/pkg/money"
 )
 
@@ -45,86 +43,6 @@ func TestParseStatementAmount(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("parseStatementAmount(%q, %d) = %d, want %d", tt.raw, tt.units, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestSplitStatement(t *testing.T) {
-	text := "date;amount\n" + strings.Repeat("2026-10-01;10.00\n", 10) + "2026-10-02;5.00"
-	tests := []struct {
-		name       string
-		max        int
-		wantChunks int
-	}{
-		{"fits in one", 10_000, 1},
-		{"split", 60, 4},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			chunks := splitStatement(text, tt.max)
-			if len(chunks) < 2 && tt.wantChunks > 1 || len(chunks) == 1 && tt.wantChunks != 1 {
-				t.Fatalf("chunks = %d, want about %d", len(chunks), tt.wantChunks)
-			}
-			rows := 0
-			for i, c := range chunks {
-				if !strings.HasPrefix(c, "date;amount\n") {
-					t.Errorf("chunk %d has no header: %q", i, c)
-				}
-				rows += strings.Count(c, ";") - 1 // без заголовка
-			}
-			if want := 11; rows != want {
-				t.Errorf("rows across chunks = %d, want %d", rows, want)
-			}
-		})
-	}
-}
-
-func TestBuildRow(t *testing.T) {
-	acc := models.Account{ID: 1, Currency: money.GEL}
-	chunk := "date;amount;desc\n2026-10-03;-12,50;Glovo\n2026-10-04;1 000.00;Salary"
-	cafe := int64(7)
-	byName := map[string]int64{"питание вне дома": cafe}
-
-	tests := []struct {
-		name                                      string
-		date, raw, direction, currency, desc, cat string
-		wantOK                                    bool
-		wantMinor                                 int64
-		wantCat                                   *int64
-		wantCurrency                              money.Currency
-		wantReason                                string
-	}{
-		{"expense with category", "2026-10-03", "-12,50", "out", "", "Glovo", "Питание вне дома", true, -1250, &cafe, money.GEL, ""},
-		{"income ignores category", "2026-10-04", "1 000.00", "in", "gel", "Salary", "Питание вне дома", true, 100000, nil, money.GEL, ""},
-		{"unknown category", "2026-10-03", "-12,50", "out", "", "Glovo", "Не та", true, -1250, nil, money.GEL, ""},
-		{"amount not in statement", "2026-10-03", "-99,99", "out", "", "Glovo", "", false, 0, nil, "", skipAmount},
-		{"bad date", "03.10.2026", "-12,50", "out", "", "Glovo", "", false, 0, nil, "", skipDate},
-		{"bad direction", "2026-10-03", "-12,50", "", "", "Glovo", "", false, 0, nil, "", skipDirection},
-		{"foreign currency on single-currency account", "2026-10-03", "-12,50", "out", "EUR", "Glovo", "", false, 0, nil, "", skipCurrency},
-		{"currency sign", "2026-10-03", "-12,50", "out", "₾", "Glovo", "", true, -1250, nil, money.GEL, ""},
-		{"unknown currency", "2026-10-03", "-12,50", "out", "XXX", "Glovo", "", false, 0, nil, "", skipCurrency},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			row, reason := buildRow(acc, chunk, byName, tt.date, tt.raw, tt.direction, tt.currency, tt.desc, tt.cat)
-			if ok := reason == ""; ok != tt.wantOK {
-				t.Fatalf("reason = %q, wantOK %v", reason, tt.wantOK)
-			}
-			if reason != "" {
-				if reason != tt.wantReason {
-					t.Errorf("reason = %q, want %q", reason, tt.wantReason)
-				}
-				return
-			}
-			if row.AmountMinor != tt.wantMinor || row.Currency != tt.wantCurrency {
-				t.Errorf("row = %d %s, want %d %s", row.AmountMinor, row.Currency, tt.wantMinor, tt.wantCurrency)
-			}
-			if (row.CategoryID == nil) != (tt.wantCat == nil) || row.Suggested != (tt.wantCat != nil) {
-				t.Errorf("category = %v suggested = %v, want %v", row.CategoryID, row.Suggested, tt.wantCat)
-			}
-			if want, _ := apptime.ParseDay(tt.date); row.Date != want {
-				t.Errorf("date = %v, want %v", row.Date, want)
 			}
 		})
 	}

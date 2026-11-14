@@ -44,18 +44,23 @@ var mccCategories = map[string]string{
 	"7230": "Личный уход", "7298": "Личный уход",
 }
 
-// PreviewFile определяет тип файла по началу. PDF: выписка TBC разбирается на сервере, любая другая отправляется на
-// разбор модели (нужно согласие пользователя). Остальное это xlsx-отчёт прежнего бота.
-func (s *Service) PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte, consent bool) (models.ImportPreview, error) {
-	if len(data) >= 4 && string(data[:4]) == "%PDF" {
-		return s.previewPDF(ctx, u, accountID, data, consent)
+// PreviewFile определяет тип файла по началу и разбирает его без внешних сервисов. PDF: выписка TBC и справка Т-Банка
+// узнаются по виду, остальные читаются по остатку после операции. xlsx это отчёт прежнего бота. Всё остальное таблица
+// csv или txt, колонки находятся по названиям.
+func (s *Service) PreviewFile(ctx context.Context, u models.User, accountID int64, data []byte) (models.ImportPreview, error) {
+	switch {
+	case len(data) >= 4 && string(data[:4]) == "%PDF":
+		return s.previewPDF(ctx, u, accountID, data)
+	case len(data) >= 2 && string(data[:2]) == "PK":
+		return s.PreviewTrackerExport(ctx, u, accountID, data)
 	}
-	return s.PreviewTrackerExport(ctx, u, accountID, data)
+	return s.previewParsed(ctx, u, accountID, func(acc models.Account, _ map[string]int64) (models.ImportPreview, error) {
+		return parseCSV(string(data), acc)
+	})
 }
 
-// previewPDF достаёт текст PDF. Выписка TBC узнаётся по строкам «дата POS - ...» и разбирается без внешних сервисов,
-// остальные банки идут тем же путём, что csv и txt: текст уходит модели, только с согласием.
-func (s *Service) previewPDF(ctx context.Context, u models.User, accountID int64, pdf []byte, consent bool) (models.ImportPreview, error) {
+// previewPDF достаёт текст PDF и выбирает разбор: выписка TBC и справка Т-Банка по виду, любая другая по остатку.
+func (s *Service) previewPDF(ctx context.Context, u models.User, accountID int64, pdf []byte) (models.ImportPreview, error) {
 	text, err := pdftext.Extract(ctx, pdf)
 	if err != nil {
 		if errors.Is(err, pdftext.ErrUnavailable) {
@@ -63,24 +68,19 @@ func (s *Service) previewPDF(ctx context.Context, u models.User, accountID int64
 		}
 		return models.ImportPreview{}, fmt.Errorf("%w: %w", models.ErrInvalidImport, err)
 	}
-	if looksLikeTBC(text) {
-		p, err := s.previewTBCText(ctx, u, accountID, text)
-		// Выписка TBC на другом языке или с другой раскладкой колонок: разбор по шаблону ничего не нашёл. Строки не
-		// теряем, а отдаём тот же текст модели (с согласием), как выписку любого другого банка.
-		if err != nil || len(p.Rows) > 0 || strings.TrimSpace(text) == "" {
-			return p, err
-		}
-	}
-	if looksLikeTBank(text) {
-		return s.previewParsed(ctx, u, accountID, func(acc models.Account, _ map[string]int64) models.ImportPreview {
-			return parseTBank(text, acc)
-		})
-	}
-	// Без текстового слоя (скан) модели нечего читать.
+	// Без текстового слоя (скан) читать нечего.
 	if strings.TrimSpace(text) == "" {
 		return models.ImportPreview{}, fmt.Errorf("pdf has no text layer: %w", models.ErrInvalidImport)
 	}
-	return s.PreviewImport(ctx, u, accountID, statementText(text), consent)
+	return s.previewParsed(ctx, u, accountID, func(acc models.Account, byName map[string]int64) (models.ImportPreview, error) {
+		switch {
+		case looksLikeTBank(text):
+			return parseTBank(text, acc), nil
+		case looksLikeTBC(text):
+			return parseTBC(text, acc, byName), nil
+		}
+		return parseBalanceStatement(text, acc, byName), nil
+	})
 }
 
 // looksLikeTBC: в выписке TBC строки начинаются с даты «31/10/2026» и содержат покупки «POS - ...».
@@ -88,18 +88,12 @@ func looksLikeTBC(text string) bool {
 	return strings.Contains(text, "POS - ") && tbcDatedAny.MatchString(text)
 }
 
-// previewTBCText разбирает текст выписки TBC. Берутся только покупки по карте, остальные операции пока не
+// parseTBC (ниже) разбирает текст выписки TBC. Берутся только покупки по карте, остальные операции пока не
 // поддерживаются и считаются в Skipped. Служебные проводки без описания (перекладка между счетами карты) отбрасываются
 // молча: иначе каждая покупка была бы посчитана дважды.
-func (s *Service) previewTBCText(ctx context.Context, u models.User, accountID int64, text string) (models.ImportPreview, error) {
-	return s.previewParsed(ctx, u, accountID, func(acc models.Account, byName map[string]int64) models.ImportPreview {
-		return parseTBC(text, acc, byName)
-	})
-}
-
 // previewParsed прогоняет разбор выписки по шаблону через общие шаги: предел строк, запомненные категории, отметка
 // уже внесённых строк. parse получает счёт и категории пользователя (название в нижнем регистре, id).
-func (s *Service) previewParsed(ctx context.Context, u models.User, accountID int64, parse func(models.Account, map[string]int64) models.ImportPreview) (models.ImportPreview, error) {
+func (s *Service) previewParsed(ctx context.Context, u models.User, accountID int64, parse func(models.Account, map[string]int64) (models.ImportPreview, error)) (models.ImportPreview, error) {
 	acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, accountID)
 	if err != nil {
 		return models.ImportPreview{}, err
@@ -115,7 +109,14 @@ func (s *Service) previewParsed(ctx context.Context, u models.User, accountID in
 		}
 	}
 
-	out := parse(acc, byName)
+	out, err := parse(acc, byName)
+	if err != nil {
+		return models.ImportPreview{}, err
+	}
+	// Ни одной операции и ни одной отброшенной: формат не распознан, а не «пустая выписка».
+	if len(out.Rows) == 0 && out.Skipped == 0 {
+		return models.ImportPreview{}, fmt.Errorf("no transactions recognized: %w", models.ErrInvalidImport)
+	}
 	if len(out.Rows) > maxImportRows {
 		out.Skipped += len(out.Rows) - maxImportRows
 		out.Rows = out.Rows[:maxImportRows]
@@ -238,16 +239,7 @@ func tbcPurchase(stmtDate, merchant, purchaseDate string, minor int64, tail stri
 		Date: day, AmountMinor: -minor, Currency: acc.Currency,
 		Description: truncateRunes(strings.TrimSpace(merchant), maxNoteRunes),
 	}
-	if mcc := tbcMCC.FindStringSubmatch(tail); mcc != nil {
-		if id, ok := byName[strings.ToLower(mccCategories[mcc[1]])]; ok {
-			row.CategoryID = &id
-		} else {
-			row.SourceCategory = "MCC " + mcc[1]
-		}
-	}
-	if row.CategoryID == nil && row.SourceCategory == "" {
-		row.SourceCategory = "MCC"
-	}
+	row.CategoryID, row.SourceCategory = categoryByMCC(tail, byName)
 	return row, true
 }
 

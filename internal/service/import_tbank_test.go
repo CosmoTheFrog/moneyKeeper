@@ -1,7 +1,6 @@
 package service
 
 import (
-	"strings"
 	"testing"
 
 	"moneykeeper/internal/models"
@@ -102,12 +101,5 @@ func TestParseTBCGeorgian(t *testing.T) {
 		if r.AmountMinor != w.minor || r.Date.String() != w.date || r.Description != w.desc || (r.CategoryID != nil) != w.cat {
 			t.Errorf("row %d = %d %s %q cat=%v, want %d %s %q cat=%v", i, r.AmountMinor, r.Date, r.Description, r.CategoryID != nil, w.minor, w.date, w.desc, w.cat)
 		}
-	}
-}
-
-func TestStatementTextSpaces(t *testing.T) {
-	got := statementText("-1 178.00 ₽ x\n+5.00")
-	if !strings.Contains(got, "-1 178.00 ₽ x\n+5.00") {
-		t.Errorf("got %q", got)
 	}
 }

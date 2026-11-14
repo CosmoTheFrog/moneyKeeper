@@ -340,18 +340,13 @@ export type ImportRow = {
 export type ImportPreview = { rows: ImportRow[]; skipped: number; other_currencies: string[] }
 
 // Отчёт прежнего бота в xlsx: разбирается на сервере, ничего не сохраняет до commitImport.
-// Выписка TBC и xlsx разбираются на сервере, PDF других банков уходит на разбор нейросети и требует consent.
-export const previewImportFile = (accountId: number, file: File, consent: boolean) => {
+// Выписка (PDF, csv, txt, xlsx) разбирается на сервере и никуда не передаётся.
+export const previewImportFile = (accountId: number, file: File) => {
   const form = new FormData()
   form.append('account_id', String(accountId))
   form.append('file', file)
-  form.append('consent', String(consent))
   return request<ImportPreview>('POST', '/api/import/file', form)
 }
-
-// Текст выписки (csv, txt) уходит на разбор во внешнюю модель, только с явным согласием пользователя.
-export const previewImportText = (accountId: number, text: string, consent: boolean) =>
-  request<ImportPreview>('POST', '/api/import/preview', { account_id: accountId, text, consent })
 
 // ids: номера созданных записей, по ним импорт можно отменить.
 export const commitImport = (accountId: number, rows: ImportRow[]) =>

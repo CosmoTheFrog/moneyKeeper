@@ -1,7 +1,6 @@
 package service
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -22,24 +21,5 @@ func TestLooksLikeTBC(t *testing.T) {
 				t.Errorf("looksLikeTBC = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestStatementText(t *testing.T) {
-	in := "Account GE29NB0000000000000001   holder\n05.11.2026      Glovo        -23.40     card 4315710000008037\n"
-	got := statementText(in)
-	for _, leaked := range []string{"GE29NB0000000000000001", "4315710000008037"} {
-		if strings.Contains(got, leaked) {
-			t.Errorf("%q leaked into %q", leaked, got)
-		}
-	}
-	// Дата, продавец и сумма остаются, колонки сжаты.
-	for _, kept := range []string{"[IBAN]", "[NUM]", "05.11.2026 Glovo -23.40"} {
-		if !strings.Contains(got, kept) {
-			t.Errorf("%q missing in %q", kept, got)
-		}
-	}
-	if strings.Contains(got, "  ") {
-		t.Errorf("columns not collapsed: %q", got)
 	}
 }
