@@ -81,7 +81,7 @@ func (s *Service) applyRules(ctx context.Context, u models.User, rows []models.I
 }
 
 // currencySigns: выписки часто пишут знак вместо кода валюты.
-var currencySigns = map[string]string{"₾": "GEL", "$": "USD", "€": "EUR", "₽": "RUB"}
+var currencySigns = map[string]string{"₾": "GEL", "$": "USD", "€": "EUR", "₽": "RUB", "RUR": "RUB"}
 
 // markDuplicates помечает строки, для которых на счёте уже есть запись с той же датой, суммой и валютой. Одна
 // существующая запись закрывает одну строку: две одинаковые покупки за день остаются двумя.
@@ -246,7 +246,7 @@ func parseStatementAmount(raw string, units int) (int64, error) {
 			}
 		case r == '.' || r == ',':
 			lastSep, afterSep = digits.Len(), 0
-		case strings.ContainsRune("-+−   '’", r):
+		case strings.ContainsRune("-+−   '’–", r):
 		default:
 			return 0, fmt.Errorf("amount %q: %w", raw, models.ErrInvalidImport)
 		}
