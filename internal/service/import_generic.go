@@ -25,6 +25,29 @@ var (
 	nonAmount  = regexp.MustCompile(`[^\d.,+\-−\s’']`)
 )
 
+// headerCurrency: валюта счёта из шапки выписки, она стоит после остатка («Opening Balance 29.84 GEL»).
+var headerCurrency = regexp.MustCompile(`(?i)(?:opening balance|closing balance|starting balance|საწყისი ნაშთი|საბოლოო ნაშთი)\s+-?\d[\d ,]*\.\d{2}\s+([A-Z]{3})\b`)
+
+// withStatementCurrency ставит счёту валюту выписки, если шапка её называет. Счёт, который такую валюту не принимает,
+// даёт ok=false: все записи выписки не подходят, и пользователю нужно показать, какая это валюта.
+func withStatementCurrency(text string, acc models.Account) (models.Account, models.ImportPreview, bool) {
+	if m := headerCurrency.FindStringSubmatch(text); m != nil {
+		if cur, err := money.Parse(m[1]); err == nil {
+			if !acc.Allows(cur) {
+				skipped := 0
+				for _, ln := range strings.Split(text, "\n") {
+					if genericDated.MatchString(ln) {
+						skipped++
+					}
+				}
+				return acc, models.ImportPreview{Skipped: skipped, OtherCurrencies: []string{string(cur)}}, false
+			}
+			acc.Currency = cur
+		}
+	}
+	return acc, models.ImportPreview{}, true
+}
+
 // minConsistent: доля операций, у которых остаток сошёлся. Меньше значит, что формат понят неверно, и строки не нужны.
 const minConsistent = 0.8
 
@@ -33,6 +56,10 @@ const minConsistent = 0.8
 // своими счетами и конвертацию отличить нельзя, их пользователь снимает в превью. Если остаток не сходится у слишком
 // многих записей, возвращается пустой результат: формат не распознан.
 func parseBalanceStatement(text string, acc models.Account, byName map[string]int64) models.ImportPreview {
+	acc, mismatch, ok := withStatementCurrency(text, acc)
+	if !ok {
+		return mismatch
+	}
 	type entry struct{ date, head, tail string }
 	var (
 		entries []entry

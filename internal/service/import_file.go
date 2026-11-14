@@ -30,7 +30,7 @@ func (s *Service) PreviewTrackerExport(ctx context.Context, u models.User, accou
 	if err != nil {
 		return models.ImportPreview{}, fmt.Errorf("%w: %w", models.ErrInvalidImport, err)
 	}
-	acc, err := s.accounts.Get(ctx, u.ActiveBudgetID, accountID)
+	acc, err := s.importAccount(ctx, u, accountID)
 	if err != nil {
 		return models.ImportPreview{}, err
 	}

@@ -59,6 +59,20 @@ func (r *Accounts) Archive(ctx context.Context, budgetID, id int64) error {
 	return nil
 }
 
+// EnableMultiCurrency разрешает счёту записи в любых валютах. Остатки по валютам считаются отдельно, поэтому уже
+// внесённые записи не меняются; обратно флаг не выключается.
+func (r *Accounts) EnableMultiCurrency(ctx context.Context, budgetID, id int64) error {
+	tag, err := r.db.Q(ctx).Exec(ctx,
+		`UPDATE accounts SET multi_currency = true WHERE budget_id = $1 AND id = $2`, budgetID, id)
+	if err != nil {
+		return fmt.Errorf("enable multi currency: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("account %d: %w", id, models.ErrNotFound)
+	}
+	return nil
+}
+
 func (r *Accounts) Get(ctx context.Context, budgetID, id int64) (models.Account, error) {
 	a, err := scanAccount(r.db.Q(ctx).QueryRow(ctx,
 		`SELECT `+accountColumns+` FROM accounts WHERE budget_id = $1 AND id = $2`, budgetID, id))
